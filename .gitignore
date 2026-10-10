@@ -1,0 +1,8 @@
+target
+__pycache__
+.DS_Store
+
+# cargo-mutants report trees. Build output: large, machine specific, regenerated
+# on every run, and rotated to .old rather than deleted.
+mutants.out
+mutants.out.old

@@ -1,0 +1,38 @@
+# Self-contained manifest (no workspace inheritance) so it packages for crates.io as-is.
+[package]
+name = "mediatek-optical"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.75"
+license = "MIT"
+authors = ["Matthew Jackson <1085847+MattJackson@users.noreply.github.com>"]
+description = "MediaTek MT1959/MT1939 optical drive (BD/DVD) protocol: command encoding, identity and flash sequences over any SCSI transport, chip detection, AES-CMAC integrity, and OEM image reconstruction. no_std by default."
+repository = "https://github.com/MattJackson/mediatek-optical"
+homepage = "https://github.com/MattJackson/mediatek-optical"
+documentation = "https://docs.rs/mediatek-optical"
+readme = "README.md"
+keywords = ["mediatek", "optical", "scsi", "firmware", "bluray"]
+categories = ["hardware-support", "no-std::no-alloc"]
+
+[lib]
+name = "mediatek_optical"
+
+[features]
+# Links the standard library. Implied by `image`.
+std = []
+# Command sequences over a caller-supplied transport. no_std, no alloc.
+drive = []
+# Firmware image analysis: chip detection and the AES-CMAC integrity table.
+image = ["std", "dep:aes", "dep:cmac"]
+# The AES-128-ECB `enc` transport envelope.
+enc = ["dep:aes"]
+# OEM image reconstruction from a drive read. Implies `image`.
+oem = ["image", "dep:sha2"]
+
+[package.metadata.docs.rs]
+all-features = true
+
+[dependencies]
+aes = { version = "0.8", optional = true }
+cmac = { version = "0.7", optional = true }
+sha2 = { version = "0.10", optional = true }

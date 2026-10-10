@@ -1,0 +1,36 @@
+name: Publish
+# Publish to crates.io on every push to main whose Cargo.toml version is new.
+# Tag pushes also publish, as a manual belt-and-braces trigger.
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+permissions:
+  contents: read
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Compare Cargo.toml version against crates.io latest
+        id: gate
+        run: |
+          current=$(awk -F '"' '/^version *=/ { print $2; exit }' Cargo.toml)
+          echo "current=$current" >> "$GITHUB_OUTPUT"
+          latest=$(curl -sfL -A "mediatek-optical-publish-ci" \
+            https://crates.io/api/v1/crates/mediatek-optical \
+            | sed -n 's/.*"max_stable_version":"\([^"]*\)".*/\1/p' | head -n1)
+          echo "latest=$latest" >> "$GITHUB_OUTPUT"
+          echo "mediatek-optical: on-disk=$current, crates.io=$latest"
+          if [ -n "$latest" ] && [ "$current" = "$latest" ]; then
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: cargo publish
+        if: steps.gate.outputs.publish == 'true'
+        run: cargo publish --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
+      - name: Skipped (version already published)
+        if: steps.gate.outputs.publish != 'true'
+        run: echo "Skipping; crates.io already has ${{ steps.gate.outputs.current }}."
