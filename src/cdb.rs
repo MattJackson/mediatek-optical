@@ -127,11 +127,22 @@ pub const fn finish() -> [u8; 12] {
     ]
 }
 
-/// STATUS: REQUEST SENSE exactly as the OEM tool issues it (byte 4 is `80`,
-/// not an allocation length; the caller's buffer caps the transfer).
+/// STATUS: REQUEST SENSE exactly as the OEM update tools issue it: allocation
+/// length [`REQUEST_SENSE_LEN`] in byte 4 and `80` in the control byte.
 pub const fn request_sense() -> [u8; 12] {
     [
-        0x03, 0x00, 0x00, 0x10, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x03,
+        0x00,
+        0x00,
+        0x00,
+        REQUEST_SENSE_LEN as u8,
+        0x80,
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+        0x00,
     ]
 }
 

@@ -37,8 +37,9 @@ fn oem_flash_sequence_bytes() {
         [0x3B, 0x06, 0x00, 0x1F, 0xC0, 0x00, 0x00, 0x40, 0x00, 0x00, 0x00, 0x00]
     );
     assert_eq!(finish(), [0x3B, 0x07, 0, 0, 0, 0, 0, 0, 0, 0, 0x1B, 0x12]);
+    // The LG v1.081 and ASUS updaters: `03 00 00 00 10 80`, padded to 12.
     assert_eq!(
         request_sense(),
-        [0x03, 0, 0, 0x10, 0x80, 0, 0, 0, 0, 0, 0, 0]
+        [0x03, 0, 0, 0, 0x10, 0x80, 0, 0, 0, 0, 0, 0]
     );
 }
