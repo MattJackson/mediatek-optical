@@ -13,7 +13,7 @@ the flashable OEM image from a drive read.
 
 ```toml
 [dependencies]
-mediatek-optical = { version = "0.1", features = ["drive"] }
+mediatek-optical = { version = "0.5", features = ["drive"] }
 ```
 
 | Module | Feature | Contents |
