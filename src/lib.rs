@@ -254,6 +254,9 @@ pub mod sense {
     }
 }
 
+#[cfg(all(test, feature = "image"))]
+mod fixtures;
+
 #[cfg(test)]
 #[path = "lib_tests.rs"]
 mod tests;
