@@ -45,6 +45,14 @@ pub const BOOT_MIRROR: Range = Range {
     len: 0x400,
 };
 
+/// The boot area: the 4 KiB flash sector holding [`BOOT_PAGE`]. The drive
+/// serves it remapped, so read-back verification skips it.
+pub const BOOT_AREA: Range = Range {
+    name: "boot area",
+    start: 0,
+    len: 0x1000,
+};
+
 /// The AES-CMAC integrity table (16 entries of 28 bytes).
 pub const CMAC_TABLE: Range = Range {
     name: "integrity table",

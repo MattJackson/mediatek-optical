@@ -82,7 +82,7 @@ fn exec<T: Transport>(t: &mut T, cdb: &[u8], data: Data<'_>) -> Result<usize, Er
 }
 
 /// Execute a data-in `cdb` that must return at least `min` bytes.
-fn read<T: Transport>(
+pub(crate) fn read<T: Transport>(
     t: &mut T,
     cdb: &[u8],
     buf: &mut [u8],

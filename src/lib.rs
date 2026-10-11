@@ -6,6 +6,7 @@
 //! - [`cdb`] — the command descriptor blocks, as byte constructors.
 //! - [`Identity`] — the decoded INQUIRY, boot banner and identity descriptor.
 //! - [`Chip`] — which controller generation a drive or image belongs to.
+//! - [`DriveClass`] — the update dialect a drive speaks ([`Identity::class`]).
 //! - [`layout`] — the fixed 2 MiB image geometry and the drive-written regions.
 //! - [`sense`] — sense-data parsing and classification of flash faults.
 //!
@@ -18,6 +19,9 @@
 //! - `enc` — [`enc`]: the AES-128-ECB transport envelope.
 //! - `oem` — [`oem`]: rebuild the flashable OEM image from a drive read, with
 //!   the provenance of every substituted byte. Implies `image`.
+//! - `image` also enables [`update`]: an update prepared against the installed
+//!   firmware, refused across chips and hardware families. With `drive`,
+//!   [`update::PreparedUpdate::flash`] runs it.
 //! - `std` — links the standard library (implied by `image`).
 //!
 //! ## Drive memory
@@ -42,6 +46,8 @@ pub mod image;
 pub mod layout;
 #[cfg(feature = "oem")]
 pub mod oem;
+#[cfg(feature = "image")]
+pub mod update;
 
 /// Length of a standard INQUIRY response header, in bytes.
 pub const INQUIRY_LEN: usize = 36;
@@ -101,6 +107,82 @@ impl Chip {
 impl core::fmt::Display for Chip {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.write_str(self.label())
+    }
+}
+
+/// [`Chip::label`] did not name a chip.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct UnknownChip;
+
+impl core::fmt::Display for UnknownChip {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.write_str("not an MT1959 or MT1939 label")
+    }
+}
+
+impl core::str::FromStr for Chip {
+    type Err = UnknownChip;
+
+    /// Parse a [`Chip::label`], e.g. `MT1939`.
+    fn from_str(label: &str) -> Result<Self, Self::Err> {
+        match label {
+            "MT1959" => Ok(Chip::Mt1959),
+            "MT1939" => Ok(Chip::Mt1939),
+            _ => Err(UnknownChip),
+        }
+    }
+}
+
+/// The update dialect a drive speaks, chosen by [`Identity::class`].
+///
+/// The dialect owns the update session: its command sequence, chunking,
+/// readiness timing after the burn and which bytes read-back verification may
+/// compare.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[non_exhaustive]
+pub enum DriveClass {
+    /// MT1959 and MT1939: the OEM session of 12-byte CDBs. PROBE, TEST UNIT
+    /// READY and PREPARE, the image in [`cdb::CHUNK`] STREAM writes, COMMIT,
+    /// then TEST UNIT READY and REQUEST SENSE. The drive programs when the
+    /// last chunk lands.
+    Mt19,
+}
+
+impl DriveClass {
+    /// The dialect of a drive with `chip`.
+    pub const fn of(chip: Chip) -> Self {
+        match chip {
+            Chip::Mt1959 | Chip::Mt1939 => DriveClass::Mt19,
+        }
+    }
+
+    /// Bytes per STREAM write.
+    pub const fn chunk(self) -> usize {
+        cdb::CHUNK
+    }
+
+    /// How long programming may keep the drive from answering TEST UNIT READY
+    /// after COMMIT: 120 s.
+    ///
+    /// The OEM updaters wait for the drive without a total bound and give each
+    /// command a 100 s timeout, so a drive that answers within one OEM command
+    /// window must not be declared failed. 120 s covers that window plus 20 s
+    /// (40 polls) of margin. A shorter bound fails a drive that is still
+    /// programming and invites a power cycle mid-burn; a longer one only costs
+    /// time on a drive that never comes back.
+    pub const fn ready_timeout(self) -> core::time::Duration {
+        core::time::Duration::from_secs(120)
+    }
+
+    /// Delay between TEST UNIT READY polls while the drive programs.
+    pub const fn poll_interval(self) -> core::time::Duration {
+        core::time::Duration::from_millis(500)
+    }
+
+    /// Read-back verification compares no byte below this offset: the drive
+    /// serves its boot area remapped ([`layout::BOOT_AREA`]).
+    pub const fn verify_floor(self) -> usize {
+        layout::BOOT_AREA.end()
     }
 }
 
@@ -196,6 +278,11 @@ impl Identity {
     /// boot banner. `None` for a drive that names neither.
     pub fn chip(&self) -> Option<Chip> {
         Chip::from_tag(&self.descriptor).or_else(|| Chip::from_banner(&self.banner))
+    }
+    /// The update dialect this drive speaks: [`DriveClass::Mt19`] for a drive
+    /// that names an MT1959 or MT1939 chip, else `None`.
+    pub fn class(&self) -> Option<DriveClass> {
+        self.chip().map(DriveClass::of)
     }
     /// `true` when the banner carries the MT19-family `MT19` signature.
     pub fn is_mt19(&self) -> bool {
