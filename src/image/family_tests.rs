@@ -242,22 +242,22 @@ fn untagged_descriptor_falls_back_to_the_banner() {
     assert_eq!(family(&image), tagged);
 }
 
-/// The template search never reads the boot page, so a drive read cannot
+/// The template search never reads the boot area, so a drive read cannot
 /// change the result through it.
 #[test]
-fn template_search_stops_at_the_boot_page() {
+fn template_search_stops_at_the_boot_area() {
     let board = JB7;
     let template = fixtures::template(&board);
     let record = fixtures::record(&board);
     let mut image = fixtures::image(&board, 1);
     let (old_template, old_record) = (TEMPLATE_AT, record_at(&board));
     image[old_template..old_record + record.len()].fill(1);
-    // The template straddles the end of the boot page.
-    let start = 0x400 - 8;
+    // The template straddles the end of the boot area.
+    let start = layout::BOOT_AREA.len - 8;
     image[start..start + template.len()].copy_from_slice(&template);
     let at = start + template.len();
     image[at..at + record.len()].copy_from_slice(&record);
     assert_eq!(family(&image), None);
-    image[..0x400].fill(0);
+    image[..layout::BOOT_AREA.len].fill(0);
     assert_eq!(family(&image), None);
 }
