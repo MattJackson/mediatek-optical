@@ -13,18 +13,20 @@ the flashable OEM image from a drive read.
 
 ```toml
 [dependencies]
-mediatek-optical = { version = "0.5", features = ["drive"] }
+mediatek-optical = { version = "0.6", features = ["drive", "image"] }
 ```
 
 | Module | Feature | Contents |
 |---|---|---|
 | `cdb` | — | CDB constructors and field constants |
-| `Identity` | — | Decoded INQUIRY, boot banner and identity descriptor; `chip()` |
+| `Identity` | — | Decoded INQUIRY, boot banner and identity descriptor; `chip()`, `class()` |
 | `Chip` | — | `Mt1959` / `Mt1939`, from an identity tag or banner |
+| `DriveClass` | — | The update dialect: session steps, chunking, readiness timing, read-back floor |
 | `layout` | — | 2 MiB image geometry; boot page, boot mirror, drive-written regions |
 | `sense` | — | Sense parsing; flash-fault and no-medium classification |
 | `drive` | `drive` | `Transport` trait; `identify`, `read_memory`, `feature`, `enter_update` → `Session` |
-| `image` | `image` | `detect_chip`, `is_uhd`, `is_drive_read`; `cmac` verify / resign |
+| `image` | `image` | `detect_chip`, `family` / `hardware`, `is_uhd`, `is_drive_read`; `cmac` verify / resign |
+| `update` | `image` (+ `drive` to flash) | `PreparedUpdate::prepare` against `InstalledFirmware`; `flash` with a `FlashRuntime` |
 | `enc` | `enc` | AES-128-ECB transport envelope |
 | `oem` | `oem` | `rebuild` with `Catalog`, `Factory`, `content_key`, `Provenance` |
 
@@ -47,6 +49,49 @@ the same boot page, and every drive-read difference falls in those five
 ranges. `oem::content_key` hashes everything else, so a drive read and the OEM
 image it came from share a key.
 
+## Hardware family
+
+`image::family` names the board an image is built for (scheme
+`mediatek.hardware.v1`). Every MT19xx build carries a hardware configuration
+record in its code area: the MMC feature template the firmware answers GET
+CONFIGURATION from, then `55 AA`, `UNIQUE` and ten digits, the `MTEKMT19xx`
+tag and the platform code. The family hashes the chip, the record's platform
+code (`JB7`, `JB8`, `BU3`, ...), the bootloader the boot banner names, the
+Core feature's interface, feature `0x0003` and whether a BD writing profile is
+enabled. It reads nothing a drive read changes, so a drive read and the image
+it was flashed from share a family.
+
+Across 207 OEM images the definition yields 11 families. One model can span
+two: a BH16NS40 1.03 (`JB7`, family `11e7527216405467`) and a BH16NS40 1.05
+(`JB8`, family `70f72c46f9603141`) are different boards, and the vendor
+updaters refuse to cross them. `None` means the family cannot be
+established: a wrong size, no chip, a malformed banner, no or several
+records, a record for another chip or platform, or a broken feature template.
+
+## Updates
+
+`update::PreparedUpdate::prepare(image, &installed)` takes the image and the
+drive's `InstalledFirmware`: its live `Identity` bound to a complete read of
+its firmware (or the image rebuilt from one). It refuses, with no override,
+an image that is not 2 MiB, fails its integrity table or is a raw drive read;
+an image for another chip; and an image whose family differs from the
+installed one, or where either is unknown. `PreparedUpdate::check(image,
+&identity)` runs every check that needs no installed firmware, for use before
+a backup.
+
+The prepared update carries the drive's `DriveClass`, which owns the session.
+`PreparedUpdate::flash` sends PROBE, TEST UNIT READY and PREPARE, the image in
+128 STREAM chunks and COMMIT on the write transport, then TEST UNIT READY and
+REQUEST SENSE, polls TEST UNIT READY for up to 120 s while the drive programs,
+reads REQUEST SENSE again and reads back every chunk, comparing the
+integrity-protected bytes above the boot area. A flash-fault sense, a drive
+that never settles, a differing or unreadable protected byte all fail.
+Progress and diagnostics go through a `FlashRuntime`.
+
+The 120 s readiness bound covers the OEM updaters' 100 s per-command
+timeout (they wait without a total bound) plus margin, so a drive still
+programming is never declared failed early.
+
 ## OEM reconstruction
 
 `oem::rebuild` turns a complete drive read into a flashable image:
@@ -66,7 +111,7 @@ and `oem::content_key`.
 ## Example
 
 ```rust,ignore
-use mediatek_optical::{cdb, drive};
+use mediatek_optical::{drive, update};
 
 struct Sg(/* your pass-through */);
 
@@ -78,13 +123,13 @@ impl drive::Transport for Sg {
     fn sense(&self) -> Option<(u8, u8, u8)> { /* last sense */ }
 }
 
-let id = drive::identify(&mut t)?;
-let chip = id.chip().expect("not an MT19xx drive");
-let mut session = drive::enter_update(&mut t)?;
-for (i, chunk) in image.chunks(cdb::CHUNK).enumerate() {
-    session.write((i * cdb::CHUNK) as u32, chunk)?;
-}
-session.finish()?;
+let id = drive::identify(&mut reads)?;
+let installed = update::InstalledFirmware::new(id, &backup)?;
+let prepared = update::PreparedUpdate::prepare(&image, &installed)?;
+let verified = prepared.flash(
+    update::FlashTransport { reads: &mut reads, writes: &mut writes },
+    &mut runtime, // your update::FlashRuntime: clock, sleep, progress
+)?;
 ```
 
 ## Command set
@@ -101,7 +146,7 @@ Offsets are 24-bit big-endian.
 | Enter update | `cdb::enter_update()` | `3B 01 00 00 00 00 00 00 00 0B 00 00` |
 | Write chunk | `cdb::transfer(off, len)` | `3B 06 00 <off> 00 <len16> 00 00 00` |
 | Commit | `cdb::finish()` | `3B 07 00 00 00 00 00 00 00 00 1B 12` |
-| Status | `cdb::request_sense()` | `03 00 00 10 80 00 00 00 00 00 00 00` |
+| Status | `cdb::request_sense()` | `03 00 00 00 10 80 00 00 00 00 00 00` |
 
 The drive erases and programs flash when the last chunk of a complete 2 MiB
 image lands. The commit is a trailing handshake.
@@ -110,7 +155,9 @@ image lands. The commit is a trailing handshake.
 
 An update session writes drive firmware. A wrong image, or an interrupted
 session, can leave the drive unusable. Verify an image with `image::cmac`
-before flashing. The identity, feature and memory-read commands are read-only.
+before flashing, and flash through `update::PreparedUpdate`, which refuses
+an image for other hardware. The identity, feature and memory-read commands
+are read-only.
 
 ## Minimum supported Rust version
 

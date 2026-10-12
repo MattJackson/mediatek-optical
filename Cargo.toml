@@ -1,12 +1,12 @@
 # Self-contained manifest (no workspace inheritance) so it packages for crates.io as-is.
 [package]
 name = "mediatek-optical"
-version = "0.5.0"
+version = "0.6.0"
 edition = "2021"
 rust-version = "1.75"
 license = "MIT"
 authors = ["Matthew Jackson <1085847+MattJackson@users.noreply.github.com>"]
-description = "MediaTek MT1959/MT1939 optical drive (BD/DVD) protocol: command encoding, identity and flash sequences over any SCSI transport, chip detection, AES-CMAC integrity, and OEM image reconstruction. no_std by default."
+description = "MediaTek MT1959/MT1939 optical drive (BD/DVD) protocol: command encoding, identity and flash sequences over any SCSI transport, chip detection, hardware families, AES-CMAC integrity, family-gated updates and OEM image reconstruction. no_std by default."
 repository = "https://github.com/MattJackson/mediatek-optical"
 homepage = "https://github.com/MattJackson/mediatek-optical"
 documentation = "https://docs.rs/mediatek-optical"
