@@ -17,7 +17,7 @@
 //! families; an update is only compatible within a family.
 //!
 //! The family reads only the boot banner, the identity descriptor and the code
-//! area `0x400..0x1D8000`, none of which a drive rewrites or a drive read
+//! area `0x1000..0x1D8000`, none of which a drive rewrites or a drive read
 //! remaps, so a drive read and the image it was flashed from have the same
 //! family.
 
@@ -28,9 +28,9 @@ use crate::{layout, Chip};
 /// with this one.
 pub const FAMILY_SCHEME: &str = "mediatek.hardware.v1";
 
-/// Where the hardware record is searched for: the code area, between the boot
-/// page and the first drive-written region.
-const CODE: core::ops::Range<usize> = layout::BOOT_PAGE.len..layout::UHD_REVOCATION.start;
+/// Where the hardware record is searched for: the code area, between the
+/// remapped boot area and the first drive-written region.
+const CODE: core::ops::Range<usize> = layout::BOOT_AREA.len..layout::UHD_REVOCATION.start;
 /// How far before the record the feature template may start.
 const TEMPLATE_REACH: usize = 0x800;
 /// The record's marker.
