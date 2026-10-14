@@ -1,29 +1,31 @@
 //! Chip generation and identity detection from image bytes.
 //!
-//! The authoritative family key is the ASCII **`MTEKMT19xx`** identity string,
-//! found by *pattern-searching* the whole image (`MTEKMT19` + two digits):
+//! The authoritative signal for the chip generation (MT1959 vs MT1939) is the
+//! **boot loader banner** at image offset `0x3000` ([`layout::BANNER`], 16
+//! bytes), e.g. `"MT1959 Boot JB8 "` or `"MT1939 Boot Code"`. The family is
+//! decided by [`Chip::from_banner`] over that banner and by nothing else.
 //!
-//! * `MTEKMT1959` → [`Chip::Mt1959`], `MTEKMT1939` → [`Chip::Mt1939`].
-//!   The string appears both as the drive-reported identity and mirrored near the
-//!   descriptor at [`layout::DESCRIPTOR`] (`0x1EC034`); pattern-searching finds it
-//!   even when the descriptor page is byte-shifted (some ASUS extractions), where
-//!   a fixed-offset read would miss.
+//! Why the banner and not the `MTEKMT19xx` identity string: across a 119-image
+//! corpus of clean OEM images the banner agrees with the actual code generation
+//! 119/119, whereas the `MTEKMT19xx` descriptor tag is a *stale vendor label*
+//! that is wrong for 55 of them — the JB8/JBC6/JBP6/BUP1 builds (LG WH16NS58,
+//! WH16NS60, BH16NS40..NS50, …) carry the tag `MTEKMT1939` but ship an MT1959
+//! boot loader and MT1959 code. So the tag drives **no logic anywhere**: not the
+//! family, not a fallback, not a gate, not the family hash, not an engine
+//! choice. It is retained only as an optional display field ([`ChipInfo::identity_tag`])
+//! — a curiosity, never a decision.
 //!
-//! Two things that *look* like family signals are deliberately NOT used to gate
-//! the family (proven across a 149-image corpus scan):
+//! Two other things that *look* like family signals are also NOT used to gate
+//! the family:
 //!
-//! * the boot **banner** at [`layout::BANNER`] (`0x3000`), e.g. `"MT1959 Boot
-//!   JB8 "`, labels the *bootloader generation*, not the silicon — it reads
-//!   `MT1959 Boot` even on `MTEKMT1939` parts (ASUS BW-16D1HT, LG BH16NS58, …).
-//!   It is used only as a *fallback* when no `MTEKMT19xx` string exists at all
-//!   (e.g. some Samsung MT1939 images), and otherwise is display-only;
-//! * the descriptor **marker byte** at `+0x50` takes `0x78/0x58/0x18/0x38` within
-//!   a single family (a variant/region/downgrade flag beside the DE byte at
-//!   `+0x56`) — display-only, never a gate.
+//! * the `MTEKMT19xx` identity string (see above) — display-only;
+//! * the descriptor **marker byte** at `+0x50` takes `0x78/0x58/0x18/0x38`
+//!   within a single family (a variant/region/downgrade flag beside the DE byte
+//!   at `+0x56`) — display-only, never a gate.
 //!
-//! Detection is fail-open on family but still refuses cleanly on truly
-//! unidentifiable input (no `MTEKMT19xx` string and no family banner): callers
-//! then abort with a clear message rather than guessing.
+//! Detection refuses cleanly on an image whose boot banner names no supported
+//! MT19xx generation ([`ChipError::Undetectable`]); the caller then aborts with
+//! a clear message rather than guessing.
 
 use crate::layout;
 use crate::Chip;
@@ -38,27 +40,18 @@ const DESCRIPTOR_TAG_OFF: usize = 0x34;
 /// Offset of the display-only marker byte within the descriptor record.
 const DESCRIPTOR_MARKER_OFF: usize = 0x50;
 
-/// How the family was decided — for display/audit and to tell a strong
-/// identity (the `MTEKMT19xx` string) from a weak one (banner fallback).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Confidence {
-    /// Decided by the authoritative `MTEKMT19xx` identity string.
-    TagString,
-    /// No identity string present; decided by the (bootloader-generation) banner.
-    BannerFallback,
-}
-
 /// Everything the tools could read off the image about its chip identity. The
-/// `banner`, `vendor`, `model`, `rev`, and `marker_0x50` fields are display /
-/// corroboration only — the `family` is decided by `Chip::from_digits`
-/// over the `MTEKMT19xx` pattern (or the banner fallback).
+/// `banner`, `vendor`, `model`, `rev`, `marker_0x50` and `identity_tag` fields
+/// are display / corroboration only — the `family` is decided by
+/// [`Chip::from_banner`] over the boot banner at [`layout::BANNER`] and nothing
+/// else.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct ChipInfo {
-    /// The chip family (from the `MTEKMT19xx` string, or the banner fallback).
+    /// The chip family, decided by the boot banner ([`Chip::from_banner`]).
     pub family: Chip,
-    /// How `family` was decided.
-    pub confidence: Confidence,
-    /// The trimmed boot-banner string (e.g. `"MT1959 Boot BU5"`). Display only.
+    /// The trimmed boot-banner string (e.g. `"MT1959 Boot BU5"`). The authoritative
+    /// source of `family`; also shown for display.
     pub banner: String,
     /// Trimmed vendor field from the descriptor (e.g. `"HL-DT-ST"`). May be empty
     /// if the image has no well-formed identity page.
@@ -70,8 +63,9 @@ pub struct ChipInfo {
     /// Trimmed vendor-specific field from the descriptor (e.g. `"N003600"`) — the
     /// region/SKU code MakeMKV/LibreDrive key on. Empty if no identity page.
     pub vendor_specific: String,
-    /// The matched `MTEKMT19xx` identity string, if any (display/audit).
-    pub tag_string: Option<String>,
+    /// The matched `MTEKMT19xx` identity string, if any. A **stale vendor label**:
+    /// display / audit only, it NEVER influences `family` (see module docs).
+    pub identity_tag: Option<String>,
     /// The display-only marker byte at descriptor `+0x50`, if present. NEVER
     /// gates the family (see module docs).
     pub marker_0x50: Option<u8>,
@@ -89,13 +83,12 @@ fn ascii_trim(bytes: &[u8]) -> String {
         .to_string()
 }
 
-/// Scan `image` for every distinct `MTEKMT19` + two-ASCII-digit occurrence,
-/// returning the matched 10-byte strings (deduplicated, in first-seen order).
-fn scan_mtek_tags(image: &[u8]) -> Vec<String> {
+/// Scan `image` for the first `MTEKMT19` + two-ASCII-digit occurrence and return
+/// the matched 10-byte string (display / audit only — never used for `family`).
+fn first_mtek_tag(image: &[u8]) -> Option<String> {
     const PREFIX: &[u8] = b"MTEKMT19";
-    let mut seen: Vec<String> = Vec::new();
     if image.len() < PREFIX.len() + 2 {
-        return seen;
+        return None;
     }
     let mut i = 0;
     while i + PREFIX.len() + 2 <= image.len() {
@@ -103,48 +96,30 @@ fn scan_mtek_tags(image: &[u8]) -> Vec<String> {
             let d0 = image[i + PREFIX.len()];
             let d1 = image[i + PREFIX.len() + 1];
             if d0.is_ascii_digit() && d1.is_ascii_digit() {
-                let tag = String::from_utf8_lossy(&image[i..i + PREFIX.len() + 2]).into_owned();
-                if !seen.contains(&tag) {
-                    seen.push(tag);
-                }
-                i += PREFIX.len() + 2;
-                continue;
+                return Some(String::from_utf8_lossy(&image[i..i + PREFIX.len() + 2]).into_owned());
             }
         }
         i += 1;
     }
-    seen
+    None
 }
 
 /// Why [`detect_chip`] could not name a chip.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum ChipError {
-    /// No `MTEKMT19xx` identity string and no MT19xx boot banner.
+    /// The boot banner at [`layout::BANNER`] names no supported MT19xx
+    /// generation (MT1959 or MT1939). Unpack packed/truncated dumps first.
     Undetectable,
-    /// The identity strings name only generations this crate does not handle.
-    Unsupported(Vec<String>),
-    /// The image names two different generations: corrupt or spliced.
-    Conflicting(Vec<String>),
 }
 
 impl std::fmt::Display for ChipError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Undetectable => f.write_str(
-                "undetectable — no MTEKMT19xx identity string and no MT19xx boot banner \
-                 (unpack packed/truncated dumps first)",
-            ),
-            Self::Unsupported(tags) => write!(
-                f,
-                "image names an unsupported MT19xx variant ({}) — only MT1959 and MT1939 are handled",
-                tags.join(", ")
-            ),
-            Self::Conflicting(tags) => write!(
-                f,
-                "image carries conflicting chip-family identity strings ({}) — corrupt or spliced; \
-                 refusing to guess",
-                tags.join(", ")
+                "undetectable — the boot loader banner at 0x3000 names no supported MT19xx \
+                 generation (only MT1959 and MT1939 are handled; unpack packed/truncated \
+                 dumps first)",
             ),
         }
     }
@@ -154,47 +129,21 @@ impl std::error::Error for ChipError {}
 
 /// Detect the chip family + model/rev from `image`.
 ///
-/// Family is decided by the authoritative `MTEKMT19xx` identity string
-/// (pattern-searched), falling back to the boot banner only when no such string
-/// exists. Fails **only** when the image is truly unidentifiable (no identity
-/// string and no family banner) or carries two conflicting `MTEKMT19xx` families
-/// (a corrupt image) — the caller then aborts cleanly instead of guessing.
+/// Family is decided by the boot loader banner at [`layout::BANNER`] via
+/// [`Chip::from_banner`], and by nothing else — the `MTEKMT19xx` identity string
+/// is a stale vendor label kept only in [`ChipInfo::identity_tag`] for display.
+/// Fails with [`ChipError::Undetectable`] only when the banner names no supported
+/// generation.
 pub fn detect_chip(image: &[u8]) -> Result<ChipInfo, ChipError> {
-    // --- Family key: the MTEKMT19xx identity string (authoritative). ---
-    let tags = scan_mtek_tags(image);
-    let mut families: Vec<(Chip, String)> = Vec::new();
-    for tag in &tags {
-        let b = tag.as_bytes();
-        if let Some(fam) = Chip::from_digits(b[b.len() - 2], b[b.len() - 1]) {
-            if !families.iter().any(|(f, _)| *f == fam) {
-                families.push((fam, tag.clone()));
-            }
-        }
-    }
-    if families.len() > 1 {
-        return Err(ChipError::Conflicting(
-            families.into_iter().map(|(_, t)| t).collect(),
-        ));
-    }
-
-    // --- Banner (display; also the fallback family source). ---
+    // --- Family: the boot loader banner is the single authoritative source. ---
     let banner = read_banner(image);
-    let banner_family = banner
+    let family = banner
         .as_deref()
-        .and_then(|b: &str| Chip::from_banner(b.as_bytes()));
+        .and_then(|b: &str| Chip::from_banner(b.as_bytes()))
+        .ok_or(ChipError::Undetectable)?;
 
-    let (family, confidence, tag_string) = match families.first() {
-        Some((fam, tag)) => (*fam, Confidence::TagString, Some(tag.clone())),
-        None => match banner_family {
-            Some(fam) => (fam, Confidence::BannerFallback, None),
-            None => {
-                if tags.is_empty() {
-                    return Err(ChipError::Undetectable);
-                }
-                return Err(ChipError::Unsupported(tags));
-            }
-        },
-    };
+    // --- Identity tag (stale vendor label): display / audit only. ---
+    let identity_tag = first_mtek_tag(image);
 
     // --- Descriptor parse (display-only + DE anchor). ---
     let (vendor, model, rev, vendor_specific, marker_0x50, descriptor_present) =
@@ -202,13 +151,12 @@ pub fn detect_chip(image: &[u8]) -> Result<ChipInfo, ChipError> {
 
     Ok(ChipInfo {
         family,
-        confidence,
         banner: banner.unwrap_or_default(),
         vendor,
         model,
         rev,
         vendor_specific,
-        tag_string,
+        identity_tag,
         marker_0x50,
         descriptor_present,
     })

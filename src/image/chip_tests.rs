@@ -28,34 +28,50 @@ fn detects_mt1959() {
     assert_eq!(chip.model, "BD-RE BU40N");
     assert_eq!(chip.rev, "1.00");
     assert_eq!(chip.family.label(), "MT1959");
+    assert_eq!(chip.identity_tag.as_deref(), Some("MTEKMT1959"));
 }
 
 #[test]
 fn detects_mt1939() {
-    let img = synthetic("MT1939 Boot XX1", "MTEKMT1939", "SOME MODEL", "2.01");
+    let img = synthetic("MT1939 Boot Code", "MTEKMT1939", "SOME MODEL", "2.01");
     let chip = detect_chip(&img).unwrap();
     assert_eq!(chip.family, Chip::Mt1939);
 }
 
-/// The `MTEKMT19xx` identity string is authoritative — it wins over the boot
-/// banner, which labels the bootloader generation, not the silicon.
+/// The boot loader banner is authoritative. A JB8 build labelled `MTEKMT1939`
+/// in its descriptor but carrying an `MT1959 Boot` banner is MT1959 — the stale
+/// vendor tag never changes the decision; it is surfaced only for display.
 #[test]
-fn family_key_is_the_mtekmt19xx_string_not_the_banner() {
+fn family_is_the_banner_not_the_identity_tag() {
     let img = synthetic("MT1959 Boot JB8", "MTEKMT1939", "BW-16D1HT", "3.10");
     let chip = detect_chip(&img).unwrap();
-    assert_eq!(chip.family, Chip::Mt1939);
-    assert_eq!(chip.confidence, Confidence::TagString);
-    assert_eq!(chip.tag_string.as_deref(), Some("MTEKMT1939"));
+    assert_eq!(
+        chip.family,
+        Chip::Mt1959,
+        "banner MT1959 must win over tag MT1939"
+    );
+    // The stale tag is still reported, as a curiosity.
+    assert_eq!(chip.identity_tag.as_deref(), Some("MTEKMT1939"));
 }
 
-/// No `MTEKMT19xx` identity string anywhere → the banner is the fallback.
+/// The identity tag drives no decision in either direction: a tag-1959 /
+/// banner-1939 image is MT1939.
 #[test]
-fn banner_is_the_fallback_when_no_identity_string() {
-    let mut img = vec![0u8; BANNER_OFFSET + 64];
-    img[BANNER_OFFSET..BANNER_OFFSET + 15].copy_from_slice(b"MT1939 Boot Cod");
+fn identity_tag_never_flips_the_decision() {
+    let img = synthetic("MT1939 Boot Code", "MTEKMT1959", "BH16NS40", "1.01");
     let chip = detect_chip(&img).unwrap();
     assert_eq!(chip.family, Chip::Mt1939);
-    assert_eq!(chip.confidence, Confidence::BannerFallback);
+    assert_eq!(chip.identity_tag.as_deref(), Some("MTEKMT1959"));
+}
+
+/// An image with no identity string at all still resolves from the banner.
+#[test]
+fn banner_alone_is_enough() {
+    let mut img = vec![0u8; BANNER_OFFSET + 64];
+    img[BANNER_OFFSET..BANNER_OFFSET + 16].copy_from_slice(b"MT1939 Boot Code");
+    let chip = detect_chip(&img).unwrap();
+    assert_eq!(chip.family, Chip::Mt1939);
+    assert_eq!(chip.identity_tag, None);
     assert!(!chip.descriptor_present);
 }
 
@@ -71,30 +87,20 @@ fn marker_0x50_is_not_a_family_gate() {
     assert!(chip.descriptor_present);
 }
 
+/// No recognizable boot banner → clean refusal, regardless of any identity tag.
 #[test]
-fn unknown_family_tag_is_refused() {
+fn no_banner_is_undetectable() {
     let img = synthetic("XX9999 Boot", "MTEKXX9999", "X", "1.00");
     let err = detect_chip(&img).unwrap_err().to_string();
     assert!(err.contains("undetectable"), "got: {err}");
 }
 
-/// An `MTEKMT19xx` tag whose variant freemkv doesn't handle (and no MT19xx
-/// banner) hits the "unsupported MT19xx variant" bail, not "undetectable".
+/// A banner naming an MT19xx variant this crate does not handle is undetectable
+/// — the stale tag cannot rescue it.
 #[test]
-fn unsupported_mt19xx_variant_is_refused() {
-    let img = synthetic("MT1900 Boot", "MTEKMT1900", "X", "1.00");
-    let err = detect_chip(&img).unwrap_err().to_string();
-    assert!(err.contains("unsupported MT19xx variant"), "got: {err}");
-    assert!(err.contains("MTEKMT1900"), "got: {err}");
-}
-
-/// Two conflicting identity strings (spliced/corrupt) → clean refusal.
-#[test]
-fn conflicting_identity_strings_are_refused() {
-    let mut img = synthetic("MT1959 Boot BU5", "MTEKMT1959", "BD-RE BU40N", "1.00");
-    img[0x1000..0x100a].copy_from_slice(b"MTEKMT1939");
-    let err = detect_chip(&img).unwrap_err().to_string();
-    assert!(err.contains("conflicting"), "got: {err}");
+fn unsupported_banner_is_undetectable() {
+    let img = synthetic("MT1900 Boot", "MTEKMT1959", "X", "1.00");
+    assert_eq!(detect_chip(&img), Err(ChipError::Undetectable));
 }
 
 #[test]

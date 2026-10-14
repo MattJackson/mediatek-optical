@@ -148,8 +148,13 @@ pub fn hardware(image: &[u8]) -> Option<Hardware> {
     }
     let descriptor = layout::DESCRIPTOR.of(image)?;
     let banner = layout::BANNER.of(image)?;
-    let tagged = Chip::from_tag(descriptor);
-    let chip = tagged.or_else(|| Chip::from_banner(banner))?;
+    // The chip generation is decided by the boot loader banner and nothing else;
+    // the `MTEKMT19xx` descriptor tag is a stale vendor label (see
+    // `crate::image::detect_chip`). `tagged` is kept only to gate the descriptor's
+    // platform-code cross-check below (a tagged descriptor must agree on the
+    // platform), never to decide `chip`.
+    let tagged = Chip::from_tag(descriptor).is_some();
+    let chip = Chip::from_banner(banner)?;
     let loader = loader(banner)?;
 
     let mut records = (CODE.start..=CODE.end - RECORD_LEN).filter(|&at| is_record(&image[at..]));
@@ -158,11 +163,13 @@ pub fn hardware(image: &[u8]) -> Option<Hardware> {
         return None;
     }
     let unique = record + MARKER.len();
-    if Chip::from_tag(&image[unique + RECORD_TAG..unique + RECORD_TAG + 10]) != Some(chip) {
-        return None;
-    }
+    // Structural corruption guard: the record must carry a parseable MT19xx tag.
+    // We do NOT require it to equal `chip` — the record tag, like the descriptor
+    // tag, is the stale vendor label and legitimately disagrees with the banner
+    // on JB8/JBC6/JBP6/BUP1 builds (tag MT1939, banner/code MT1959).
+    Chip::from_tag(&image[unique + RECORD_TAG..unique + RECORD_TAG + 10])?;
     let platform = trim(&image[unique + RECORD_PLATFORM..unique + RECORD_PLATFORM + PLATFORM_LEN]);
-    if tagged.is_some()
+    if tagged
         && trim(&descriptor[DESCRIPTOR_PLATFORM..DESCRIPTOR_PLATFORM + PLATFORM_LEN]) != platform
     {
         return None;

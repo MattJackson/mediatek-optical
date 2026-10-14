@@ -4,6 +4,41 @@ All notable changes to `mediatek-optical` are documented here. The format follow
 [Keep a Changelog](https://keepachangelog.com/) and the project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Changed (breaking)
+- **The chip generation (MT1959 vs MT1939) is now decided by the boot loader
+  banner at `0x3000` and by nothing else.** The `MTEKMT19xx` identity string in
+  the descriptor is a stale vendor label: it is retained only as an optional
+  display field and drives no logic — no detection, no fallback, no gate, no
+  family-hash input. Evidence: across a 119-image corpus of clean OEM images the
+  banner agrees with the actual code generation 119/119, while the identity tag
+  is wrong for the JB8/JBC6/JBP6/BUP1 builds (LG WH16NS58/WH16NS60/BH16NS40..NS50,
+  tag `MTEKMT1939` but an MT1959 boot loader and MT1959 code).
+  - `image::detect_chip` / `ChipInfo`: `family` now comes from `Chip::from_banner`
+    over the boot banner. The old `confidence` field and the `Confidence` enum
+    (`TagString` / `BannerFallback`) are removed — there is a single source now.
+    The matched identity string is kept as `ChipInfo::identity_tag: Option<String>`
+    (display/audit only; was `tag_string`). `ChipInfo` is now `#[non_exhaustive]`.
+  - `ChipError` is reduced to `Undetectable` (the banner names no supported
+    MT19xx generation); the tag-derived `Unsupported` / `Conflicting` variants are
+    gone.
+  - `Identity::chip()` reads the drive's boot banner only (was descriptor tag,
+    else banner).
+  - `image::family` / `image::hardware`: the family hash's `chip` component now
+    comes from the banner. **This changes the family hash of the affected
+    tag-1939/banner-1959 builds** (their key flips `chip=MT1939` → `chip=MT1959`);
+    KAT/corpus expectations are updated to match. The hardware record's tag is
+    still checked structurally (must name a supported generation) but is no longer
+    required to equal the banner chip.
+  - `update`: the drive's chip is read from its boot banner only; the
+    `PrepareError::DriveDescriptor` variant is removed.
+
+### Added
+- `tests/hoard_chip.rs`: an env-gated corpus test (`MEDIATEK_OPTICAL_HOARD`) that
+  runs `detect_chip` over every non-patched, non-fragment MediaTek image in the
+  hoard and asserts each image's reported chip equals its boot-banner chip.
+
 ## [0.6.0] - 2026-10-11
 
 ### Added

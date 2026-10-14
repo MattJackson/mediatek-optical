@@ -13,9 +13,11 @@ fn fixtures_have_the_reference_families() {
             "11e7527216405467",
         ),
         (
+            // JB8 ships an "MT1959 Boot JB8" banner, so its chip is MT1959 even
+            // though its descriptor tag is the stale MTEKMT1939 label.
             JB8,
-            "chip=MT1939\x1fplatform=JB8\x1floader=JB8\x1fiface=00000007\x1fmedium=39\x1fbdwrite=1",
-            "70f72c46f9603141",
+            "chip=MT1959\x1fplatform=JB8\x1floader=JB8\x1fiface=00000007\x1fmedium=39\x1fbdwrite=1",
+            "336e449ab6a827e3",
         ),
         (
             BU3,
@@ -77,8 +79,11 @@ fn every_key_field_separates_boards() {
             bd_write: false,
             ..JB7
         },
+        // The chip field is separated by the BOOT BANNER (the authoritative
+        // chip signal), not the descriptor tag: an "MT1959 Boot" banner makes
+        // this MT1959 while keeping the "Code" loader.
         Board {
-            tag: "MTEKMT1959",
+            banner: "MT1959 Boot Code",
             ..JB7
         },
     ];
@@ -164,8 +169,12 @@ fn incomplete_or_inconsistent_hardware_has_no_family() {
             }),
         ),
         (
-            "record tag names the other chip",
-            edited(|i| i[unique + 0x18..unique + 0x1A].copy_from_slice(b"59")),
+            // The record tag naming the *other* supported chip is no longer an
+            // inconsistency (the tag is a stale label the banner overrides), but
+            // a tag naming NO supported MT19xx generation still fails the
+            // structural guard.
+            "record tag names no supported MT19xx generation",
+            edited(|i| i[unique + 0x18..unique + 0x1A].copy_from_slice(b"69")),
         ),
         (
             "descriptor platform differs",

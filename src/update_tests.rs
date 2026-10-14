@@ -1,5 +1,5 @@
 use super::*;
-use crate::fixtures::{self, Board, BU3, JB7, JB8};
+use crate::fixtures::{self, Board, BU3, JB7};
 use crate::INQUIRY_LEN;
 
 /// The live identity of a drive running `image`.
@@ -49,26 +49,35 @@ fn same_family_prepares_for_another_build() {
 /// is refused in both directions.
 #[test]
 fn another_board_line_of_the_same_model_is_refused() {
+    // Two board lines of the SAME chip (both MT1939, banner "MT1939 Boot Code")
+    // and the same model, differing only by platform → a family mismatch, not a
+    // chip mismatch.
     let jb7 = fixtures::image(&JB7, 1);
-    let jb8 = fixtures::image(&JB8, 1);
-    assert_eq!(JB7.model, JB8.model);
-    let (f7, f8) = (family(&jb7).unwrap(), family(&jb8).unwrap());
+    let other_line = Board {
+        platform: "JB9",
+        descriptor_platform: "JB9",
+        ..JB7
+    };
+    let jb9 = fixtures::image(&other_line, 1);
+    assert_eq!(JB7.model, other_line.model);
+    let (f7, f9) = (family(&jb7).unwrap(), family(&jb9).unwrap());
+    assert_ne!(f7, f9);
     assert_eq!(
-        prepare(&jb8, &jb7).unwrap_err(),
+        prepare(&jb9, &jb7).unwrap_err(),
         PrepareError::FamilyMismatch {
             installed: f7,
-            target: f8
+            target: f9
         }
     );
     assert_eq!(
-        prepare(&jb7, &jb8).unwrap_err(),
+        prepare(&jb7, &jb9).unwrap_err(),
         PrepareError::FamilyMismatch {
-            installed: f8,
+            installed: f9,
             target: f7
         }
     );
     // The image alone is a valid update for the drive's chip.
-    assert_eq!(PreparedUpdate::check(&jb8, &identity_of(&jb7)), Ok(f8));
+    assert_eq!(PreparedUpdate::check(&jb9, &identity_of(&jb7)), Ok(f9));
 }
 
 /// Strip the hardware record so no family can be derived, keeping the
@@ -110,12 +119,14 @@ fn chips_must_match() {
             drive: Chip::Mt1959
         }
     );
-    // A tagged image needs the drive's descriptor tag.
-    let untagged = Identity::parse(&[0; INQUIRY_LEN], b"MT1939 Boot Code", &[]).unwrap();
-    assert_eq!(
-        PreparedUpdate::check(&mt1939, &untagged),
-        Err(PrepareError::DriveDescriptor)
-    );
+    // The drive's chip comes from its boot banner, not any descriptor tag: a
+    // drive that reports only a banner is identified fine (here it matches the
+    // MT1939 image's chip, so the check proceeds past the chip gate).
+    let banner_only = Identity::parse(&[0; INQUIRY_LEN], b"MT1939 Boot Code", &[]).unwrap();
+    assert!(!matches!(
+        PreparedUpdate::check(&mt1939, &banner_only),
+        Err(PrepareError::ChipMismatch { .. } | PrepareError::UnknownDriveChip)
+    ));
 }
 
 /// An image with no chip tag at all is matched by the drive's banner. It has

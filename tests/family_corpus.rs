@@ -23,9 +23,9 @@ type Row = (
 
 const TABLE: &[Row] = &[
     (
-        "70f72c46f9603141",
+        "336e449ab6a827e3",
         83,
-        "chip=MT1939 platform=JB8 loader=JB8 iface=00000007 medium=39 bdwrite=1",
+        "chip=MT1959 platform=JB8 loader=JB8 iface=00000007 medium=39 bdwrite=1",
         &[
             ("ASUS BW-16D1H-U", &["A203", "A204"]),
             ("ASUS BW-16D1HT", &["3.01", "3.02", "3.03", "3.10"]),
@@ -81,9 +81,9 @@ const TABLE: &[Row] = &[
         ],
     ),
     (
-        "5c0106040dc09ba3",
+        "8c779fa82f683729",
         18,
-        "chip=MT1939 platform=JB8 loader=JBC6 iface=00000007 medium=39 bdwrite=0",
+        "chip=MT1959 platform=JB8 loader=JBC6 iface=00000007 medium=39 bdwrite=0",
         &[
             ("ASUS BC-12D2HT", &["3.00", "3.01", "3.11"]),
             ("ASUS b", &["3.01", "3.11"]),
@@ -102,9 +102,9 @@ const TABLE: &[Row] = &[
         ],
     ),
     (
-        "8c84ecac7bfe7efd",
+        "c6031f4c104ccf7",
         7,
-        "chip=MT1939 platform=JB8 loader=JBP6 iface=00000007 medium=39 bdwrite=1",
+        "chip=MT1959 platform=JB8 loader=JBP6 iface=00000007 medium=39 bdwrite=1",
         &[("HL-DT-ST BE16NU50", &["1.01", "1.02", "1.04", "INTM"])],
     ),
     (
@@ -126,9 +126,9 @@ const TABLE: &[Row] = &[
         &[("HL-DT-ST UH12NS30", &["1.01", "1.02"])],
     ),
     (
-        "f2b46b4f3ca80b5",
+        "7977ec490f2eb807",
         1,
-        "chip=MT1939 platform=BU1 loader=BUP1 iface=00000007 medium=2b bdwrite=1",
+        "chip=MT1959 platform=BU1 loader=BUP1 iface=00000007 medium=2b bdwrite=1",
         &[("HL-DT-ST BP50NB40", &["1.00"])],
     ),
     (
@@ -181,12 +181,9 @@ fn corpus_reproduces_the_research_table() {
             if image.len() != layout::IMAGE_SIZE {
                 wrong_size += 1;
             } else {
-                let descriptor = layout::DESCRIPTOR.of(&image).unwrap();
                 let banner = layout::BANNER.of(&image).unwrap();
                 assert!(
-                    Chip::from_tag(descriptor)
-                        .or_else(|| Chip::from_banner(banner))
-                        .is_none(),
+                    Chip::from_banner(banner).is_none(),
                     "{} names a chip but has no family",
                     path.display()
                 );

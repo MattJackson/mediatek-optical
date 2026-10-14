@@ -274,10 +274,12 @@ impl Identity {
             ""
         }
     }
-    /// The controller generation: the descriptor's identity tag, else the
-    /// boot banner. `None` for a drive that names neither.
+    /// The controller generation, decided by the drive's boot banner
+    /// ([`Chip::from_banner`]) and nothing else. The `MTEKMT19xx` identity tag
+    /// is a stale vendor label and is never consulted. `None` for a drive whose
+    /// banner names no supported generation.
     pub fn chip(&self) -> Option<Chip> {
-        Chip::from_tag(&self.descriptor).or_else(|| Chip::from_banner(&self.banner))
+        Chip::from_banner(&self.banner)
     }
     /// The update dialect this drive speaks: [`DriveClass::Mt19`] for a drive
     /// that names an MT1959 or MT1939 chip, else `None`.

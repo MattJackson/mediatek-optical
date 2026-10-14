@@ -36,14 +36,22 @@ fn identity_fields() {
 }
 
 #[test]
-fn descriptor_tag_beats_banner() {
-    // MT1939 parts can ship an "MT1959 Boot" banner; the descriptor tag decides.
+fn banner_decides_chip_not_the_tag() {
+    // JB8 parts ship an "MT1959 Boot" banner with a stale MTEKMT1939 descriptor
+    // tag; the banner decides, so this drive is MT1959. The tag never flips it.
     let id = Identity::parse(&inquiry(), b"MT1959 Boot JB8", &descriptor(b"MTEKMT1939")).unwrap();
-    assert_eq!(id.chip(), Some(Chip::Mt1939));
-    let banner_only = Identity::parse(&inquiry(), b"MT1939 Boot JB7", &[]).unwrap();
+    assert_eq!(id.chip(), Some(Chip::Mt1959));
+    assert!(
+        id.has_descriptor(),
+        "descriptor tag still gates identity-page edits"
+    );
+    let banner_only = Identity::parse(&inquiry(), b"MT1939 Boot Code", &[]).unwrap();
     assert_eq!(banner_only.chip(), Some(Chip::Mt1939));
     assert!(!banner_only.has_descriptor());
     assert_eq!(banner_only.sku(), "");
+    // A drive with no readable banner names no chip, even when a tag is present.
+    let tag_only = Identity::parse(&inquiry(), b"", &descriptor(b"MTEKMT1939")).unwrap();
+    assert_eq!(tag_only.chip(), None);
     let neither = Identity::parse(&inquiry(), b"", &[]).unwrap();
     assert_eq!(neither.chip(), None);
     assert!(!neither.is_mt19());

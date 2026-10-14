@@ -7,7 +7,7 @@ mod chip;
 pub mod cmac;
 mod family;
 
-pub use chip::{detect_chip, ChipError, ChipInfo, Confidence};
+pub use chip::{detect_chip, ChipError, ChipInfo};
 pub use family::{family, hardware, Family, Hardware, FAMILY_SCHEME};
 
 use crate::layout;

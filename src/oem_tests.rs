@@ -7,6 +7,15 @@ const STORED_BOOT: u8 = 0xB7;
 fn oem_image(chip: &[u8; 10], build: u8, uhd: bool) -> Vec<u8> {
     let mut img: Vec<u8> = (0..IMAGE_SIZE).map(|i| (i % 251) as u8 ^ build).collect();
     img[BOOT_PAGE.start..BOOT_PAGE.end()].fill(STORED_BOOT);
+    // The chip generation is decided by the boot banner (never the tag), so set
+    // one matching the generation this fixture stands for.
+    let banner: &[u8] = if chip == b"MTEKMT1959" {
+        b"MT1959 Boot BU5"
+    } else {
+        b"MT1939 Boot Code"
+    };
+    img[layout::BANNER.start..layout::BANNER.end()].fill(0);
+    img[layout::BANNER.start..layout::BANNER.start + banner.len()].copy_from_slice(banner);
     img[0x1E_C034..0x1E_C03E].copy_from_slice(chip);
     for (i, range) in DRIVE_WRITTEN.iter().enumerate() {
         img[range.start..range.end()].fill(0x10 + i as u8);
@@ -141,8 +150,10 @@ fn refusals() {
         Err(RebuildError::NoFactory(Chip::Mt1939))
     );
 
+    // The chip is read from the boot banner now, so erase the banner (not the
+    // descriptor tag) to make the image name no chip.
     let mut nameless = drive_read(&oem);
-    nameless[0x1E_C034..0x1E_C03E].fill(0);
+    nameless[layout::BANNER.start..layout::BANNER.end()].fill(0);
     assert!(matches!(
         rebuild(&nameless, &catalog),
         Err(RebuildError::Chip(_))

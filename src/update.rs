@@ -23,7 +23,7 @@
 
 use std::ops::RangeInclusive;
 
-use crate::image::{cmac, detect_chip, family, is_drive_read, Confidence, Family};
+use crate::image::{cmac, detect_chip, family, is_drive_read, Family};
 use crate::{cdb, layout, Chip, DriveClass, Identity};
 
 #[cfg(feature = "drive")]
@@ -44,10 +44,7 @@ pub enum PrepareError {
     DriveRead,
     /// The image names no supported chip.
     UnknownChip,
-    /// The drive's identity descriptor carries no chip tag, so the chip of
-    /// an image that has one cannot be confirmed.
-    DriveDescriptor,
-    /// The drive names no chip in its descriptor or boot banner.
+    /// The drive's boot banner names no supported chip generation.
     UnknownDriveChip,
     /// The image is for another chip than the drive's.
     ChipMismatch {
@@ -86,13 +83,9 @@ impl core::fmt::Display for PrepareError {
                  flashable image",
             ),
             Self::UnknownChip => f.write_str("image names no MT1959 or MT1939 chip"),
-            Self::DriveDescriptor => f.write_str(
-                "could not read this drive's identity descriptor to confirm its controller \
-                 generation (MT1959/MT1939)",
-            ),
             Self::UnknownDriveChip => f.write_str(
                 "could not read this drive's controller generation (MT1959/MT1939) from its \
-                 identity descriptor or boot banner",
+                 boot banner",
             ),
             Self::ChipMismatch { image, drive } => write!(
                 f,
@@ -279,19 +272,11 @@ impl PreparedUpdate {
             return Err(PrepareError::DriveRead);
         }
         let image_chip = detect_chip(image).map_err(|_| PrepareError::UnknownChip)?;
-        // The descriptor tag decides the drive's chip. Its banner names the
-        // bootloader generation, so it is trusted only for an image that
-        // itself has no tag.
-        let drive_chip = match (
-            Chip::from_tag(drive.descriptor_bytes()),
-            image_chip.confidence,
-        ) {
-            (Some(chip), _) => chip,
-            (None, Confidence::BannerFallback) => {
-                Chip::from_banner(drive.banner_bytes()).ok_or(PrepareError::UnknownDriveChip)?
-            }
-            (None, _) => return Err(PrepareError::DriveDescriptor),
-        };
+        // The drive's chip generation is decided by its boot banner and nothing
+        // else, exactly as the image's is (see `crate::image::detect_chip`); the
+        // `MTEKMT19xx` descriptor tag is a stale vendor label.
+        let drive_chip =
+            Chip::from_banner(drive.banner_bytes()).ok_or(PrepareError::UnknownDriveChip)?;
         if image_chip.family != drive_chip {
             return Err(PrepareError::ChipMismatch {
                 image: image_chip.family,
