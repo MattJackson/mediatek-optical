@@ -4,7 +4,7 @@ All notable changes to `mediatek-optical` are documented here. The format follow
 [Keep a Changelog](https://keepachangelog.com/) and the project adheres to
 [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.7.0] - 2026-10-14
 
 ### Changed (breaking)
 - **The chip generation (MT1959 vs MT1939) is now decided by the boot loader
@@ -33,6 +33,11 @@ All notable changes to `mediatek-optical` are documented here. The format follow
     required to equal the banner chip.
   - `update`: the drive's chip is read from its boot banner only; the
     `PrepareError::DriveDescriptor` variant is removed.
+
+### Fixed
+- `image::family` searches for the hardware record from the end of the remapped
+  boot area (`0x1000`) instead of the end of the boot page (`0x400`), so the
+  sector a drive read serves remapped can no longer contribute to the key.
 
 ### Added
 - `tests/hoard_chip.rs`: an env-gated corpus test (`MEDIATEK_OPTICAL_HOARD`) that
