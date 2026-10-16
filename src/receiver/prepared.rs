@@ -1,5 +1,5 @@
-//! Receiver-bound preparation. Entry contracts remain an independent proof
-//! obligation; this layer binds encoding and pre-write receiver revalidation.
+//! Receiver-bound preparation, immutable entry/encoding selection and
+//! pre-write receiver revalidation.
 use super::{Encoding, Receiver};
 use crate::{envelope::Envelope, update};
 
@@ -50,6 +50,9 @@ impl Receiver {
         envelope: &Envelope,
         installed: &update::InstalledFirmware,
     ) -> Result<PreparedUpdate, update::PrepareError> {
+        if installed.identity().inquiry != self.identity.inquiry {
+            return Err(update::PrepareError::InstalledMismatch);
+        }
         let update = update::PreparedUpdate::prepare(envelope.image(), installed)?;
         Ok(PreparedUpdate {
             plan: TransferPlan::new(self, envelope.image(), update.class())?,
@@ -207,6 +210,12 @@ mod tests {
                 );
                 assert_eq!(prepared.plan().receiver(), &receiver);
             }
+            let mut changed = receiver.clone();
+            changed.identity.inquiry[32] = b'2';
+            assert!(matches!(
+                changed.prepare(&Envelope::load(&image).unwrap(), &installed),
+                Err(update::PrepareError::InstalledMismatch)
+            ));
         }
     }
 }

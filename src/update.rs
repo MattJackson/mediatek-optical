@@ -13,8 +13,8 @@
 //! None of these can be overridden. The prepared update carries the
 //! [`DriveClass`] dialect chosen from the identity, which owns the command
 //! sequence, chunking, readiness timing and read-back verification; with the
-//! `drive` feature, [`PreparedUpdate::flash`] runs it over a caller's
-//! transport.
+//! `drive` and `enc` features, [`crate::receiver::Receiver::prepare`] binds it
+//! to the live receiver before executable transfer preparation.
 //!
 //! The caller still owns the drive: opening it, the pre-flash backup, tray and
 //! consent policy, model checks and reporting.
@@ -145,7 +145,7 @@ pub struct Step {
 impl DriveClass {
     /// The commands of one update session for a [`layout::IMAGE_SIZE`] image,
     /// as the OEM tool sends them. Readiness polling and read-back
-    /// verification follow; see [`PreparedUpdate::flash`].
+    /// verification follow in the receiver-bound executor.
     pub fn steps(self) -> Vec<Step> {
         let chunk = self.chunk();
         let step = |label, cdb, direction, length| Step {
@@ -316,8 +316,8 @@ impl PreparedUpdate {
 
     /// Stream the AES-128-ECB transport envelope instead of the plaintext.
     /// Read-back still compares the plaintext the drive stores.
-    #[cfg(feature = "enc")]
-    pub fn encrypted(mut self) -> Self {
+    #[cfg(all(feature = "enc", test))]
+    pub(crate) fn encrypted(mut self) -> Self {
         let mut transfer = self.image.clone();
         crate::enc::encrypt(&mut transfer).expect("an update image is whole AES blocks");
         self.transfer = Some(transfer);

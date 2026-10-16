@@ -1,7 +1,8 @@
-//! Running a [`PreparedUpdate`] over a caller's transport.
+//! Shared transfer and verification over a caller's transport.
 
 use core::time::Duration;
 
+#[cfg(test)]
 use super::PreparedUpdate;
 use crate::drive::{self, Error, Transport};
 use crate::sense::{self, Triplet};
@@ -37,7 +38,7 @@ pub enum Status<'a, E> {
     Failed(&'a Error<E>),
 }
 
-/// Host timing and progress for [`PreparedUpdate::flash`].
+/// Host timing and progress for receiver-bound update execution.
 pub trait FlashRuntime<E> {
     /// Monotonic time from a fixed origin; must advance across
     /// [`FlashRuntime::sleep`].
@@ -204,6 +205,7 @@ fn status<T: Transport, H: FlashRuntime<T::Error>>(
     }
 }
 
+#[cfg(test)]
 impl PreparedUpdate {
     /// Write the update and prove it: PROBE, TEST UNIT READY, PREPARE, the
     /// transfer in STREAM chunks, COMMIT, TEST UNIT READY and REQUEST SENSE;
@@ -213,7 +215,7 @@ impl PreparedUpdate {
     ///
     /// First capture a backup, enforce tray and consent policy and exclude
     /// other users of the drive. A failure stops at once; nothing is retried.
-    pub fn flash<R, W, H>(
+    pub(crate) fn flash<R, W, H>(
         &self,
         io: FlashTransport<'_, R, W>,
         runtime: &mut H,

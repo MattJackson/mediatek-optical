@@ -121,7 +121,7 @@ and `oem::content_key`.
 ## Example
 
 ```rust,ignore
-use mediatek_optical::{drive, update};
+use mediatek_optical::{drive, update, receiver, envelope::Envelope};
 
 struct Sg(/* your pass-through */);
 
@@ -135,7 +135,9 @@ impl drive::Transport for Sg {
 
 let id = drive::identify(&mut reads)?;
 let installed = update::InstalledFirmware::new(id, &backup)?;
-let prepared = update::PreparedUpdate::prepare(&image, &installed)?;
+let mode = receiver::detect_mode(&mut reads)?;
+let receiver = receiver::detect(&mut reads, &mode)?;
+let prepared = receiver.prepare(&Envelope::load(&image)?, &installed)?;
 let verified = prepared.flash(
     update::FlashTransport { reads: &mut reads, writes: &mut writes },
     &mut runtime, // your update::FlashRuntime: clock, sleep, progress

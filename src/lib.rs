@@ -21,7 +21,7 @@
 //!   the provenance of every substituted byte. Implies `image`.
 //! - `image` also enables [`update`]: an update prepared against the installed
 //!   firmware, refused across chips and hardware families. With `drive`,
-//!   [`update::PreparedUpdate::flash`] runs it.
+//!   the receiver-bound [`receiver::PreparedUpdate::flash`] runs it.
 //! - `std` — links the standard library (implied by `image`).
 //!
 //! ## Drive memory
