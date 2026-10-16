@@ -5,6 +5,8 @@
 //! semantics only: dispatcher reachability, completion and image acceptance
 //! must be established separately before authorizing a transfer plan.
 
+pub mod application;
+
 /// A mode-1 branch into a proven four-bit CDB-to-MMIO flag copy.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct LegacyCandidate {

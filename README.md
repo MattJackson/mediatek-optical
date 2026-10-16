@@ -211,6 +211,14 @@ published images match exactly one grammar (98 legacy, 38 dual entry). The full
 1024-image hoard has 102 legacy and 38 dual-entry matches; 884 other images
 remain unresolved. No error-continuation policy is inferred from these matches.
 
+`receiver::entry::application::inspect` binds an application command table to
+the unique MMIO update-flag clearing block. All 136 published images match:
+25 inline Thumb tables and 111 compiler-helper tables, with 18 mode-1 targets
+reaching the block through one branch. Helper candidates require a separate
+bounded read checked by `matches_helper`. These bindings do not prove entry
+guards, complete flag-copy semantics, opcode dispatch or completion behavior,
+and do not authorize a transfer.
+
 The private website corpus test replays both receiver modes for every package:
 
 ```sh

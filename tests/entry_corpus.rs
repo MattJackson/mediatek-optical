@@ -1,4 +1,5 @@
 //! Independent real-image census and semantic mutations, without device I/O.
+use mediatek_optical::receiver::entry::application;
 use mediatek_optical::receiver::entry::{inspect_boot_dual, inspect_boot_legacy};
 use std::{
     collections::BTreeMap,
@@ -171,4 +172,80 @@ fn entire_hoard_entry_inventory_keeps_unmatched_images_explicit() {
         files.len(),
         files.len() - matched - dual_count
     );
+}
+
+#[test]
+#[ignore = "requires MTK_IMAGE_ROOT and MTK_RECEIVER_CENSUS"]
+fn application_tables_bind_the_update_flags_instead_of_read_buffer_tables() {
+    let census: serde_json::Value = serde_json::from_slice(
+        &std::fs::read(std::env::var("MTK_RECEIVER_CENSUS").unwrap()).unwrap(),
+    )
+    .unwrap();
+    let images = census["unique_images"].as_object().unwrap();
+    assert_eq!(images.len(), 136);
+    let mut files = BTreeMap::new();
+    index(
+        Path::new(&std::env::var("MTK_IMAGE_ROOT").unwrap()),
+        &mut files,
+    );
+    let mut helpers = 0;
+    let mut indirect = 0;
+    for (hash, row) in images {
+        let data = std::fs::read(&files[hash]).unwrap();
+        let window = &data[0x98000..0xb4000];
+        let expected: Vec<_> = row["receivers"]["application"]["dispatch_tables"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|t| t["mode1_reaches_flag_body"] == true)
+            .collect();
+        assert_eq!(
+            expected.len(),
+            1,
+            "{hash}: independent binding must be unique"
+        );
+        let expected = expected[0];
+        let found = application::inspect(window, 0x98000)
+            .unwrap_or_else(|| panic!("{hash}: no application binding"));
+        assert_eq!(
+            found.table as u64,
+            expected["address"].as_u64().unwrap(),
+            "{hash}"
+        );
+        assert_eq!(
+            found.entry as u64,
+            expected["mode1_flag_target"].as_u64().unwrap()
+        );
+        assert_eq!(
+            found.mode1_target as u64,
+            expected["mode_targets"]["1"].as_u64().unwrap()
+        );
+        assert_eq!(
+            found.mode6_target as u64,
+            expected["mode_targets"]["6"].as_u64().unwrap()
+        );
+        assert_eq!(found.helper.map(u64::from), expected["helper"].as_u64());
+        indirect += usize::from(found.entry != found.mode1_target);
+        if let Some(at) = found.helper {
+            helpers += 1;
+            let helper = &data[at as usize..at as usize + application::HELPER_BYTES];
+            assert!(application::matches_helper(helper));
+            for i in 0..helper.len() {
+                let mut bad = helper.to_vec();
+                bad[i] ^= 1;
+                assert!(!application::matches_helper(&bad));
+            }
+            assert!(!application::matches_helper(&helper[..helper.len() - 1]));
+        }
+        let mut changed = window.to_vec();
+        // Corrupt the MMIO nibble-clear shift, preserving superficial table bytes.
+        changed[(found.entry + 4 - 0x98000) as usize] ^= 1;
+        assert!(
+            application::inspect(&changed, 0x98000).is_none(),
+            "{hash}: bad flags"
+        );
+        assert!(application::inspect(window, u32::MAX - 4).is_none());
+    }
+    assert_eq!(indirect, 18);
+    eprintln!("136 application bindings, {helpers} compiler helpers, {indirect} indirect mode-1 branches; no write authorization inferred");
 }
