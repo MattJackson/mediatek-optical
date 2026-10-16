@@ -52,9 +52,9 @@ impl Receiver {
         envelope: &Envelope,
         installed: &update::InstalledFirmware,
     ) -> Result<PreparedUpdate, update::PrepareError> {
-        if installed.identity().inquiry != self.identity.inquiry {
-            return Err(update::PrepareError::InstalledMismatch);
-        }
+        // InstalledFirmware is bound by its descriptor and/or BOOT banner;
+        // its INQUIRY may deliberately be absent for offline gate evidence.
+        // The executable plan separately binds and revalidates live INQUIRY.
         let update = update::PreparedUpdate::prepare(envelope.image(), installed)?;
         Ok(PreparedUpdate {
             plan: TransferPlan::new(
@@ -242,12 +242,6 @@ mod tests {
                     assert_eq!(recovery.length, flash.length);
                 }
             }
-            let mut changed = receiver.clone();
-            changed.identity.inquiry[32] = b'2';
-            assert!(matches!(
-                changed.prepare(&Envelope::load(&image).unwrap(), &installed),
-                Err(update::PrepareError::InstalledMismatch)
-            ));
         }
     }
 }

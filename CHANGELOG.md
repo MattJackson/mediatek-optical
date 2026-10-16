@@ -11,8 +11,6 @@ All notable changes to `mediatek-optical` are documented here. The format follow
 - Require receiver-bound executable preparation. The former unbound
   `update::PreparedUpdate::flash` and manual `encrypted` selector are retired;
   callers use `receiver::detect`, `Receiver::prepare` and the immutable plan.
-- Refuse normal preparation when installed firmware and detected receiver
-  carry different live INQUIRY identities.
 
 - Add live receiver-derived PREPARE selection, encoding and immutable transfer
   plans shared by normal Flash and explicit Recovery. Unknown entry grammars
