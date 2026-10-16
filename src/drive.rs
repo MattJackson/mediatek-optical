@@ -229,10 +229,18 @@ impl<T: Transport> Session<'_, T> {
 /// Enter the flash session: PROBE (a [`cdb::PROBE_LEN`]-byte descriptor
 /// read), TEST UNIT READY, then PREPARE. Any failure stops before PREPARE.
 pub fn enter_update<T: Transport>(t: &mut T) -> Result<Session<'_, T>, Error<T::Error>> {
+    enter_update_command(t, cdb::Prepare::ModeOne)
+}
+
+pub(crate) fn enter_update_command<T: Transport>(
+    t: &mut T,
+    prepare: cdb::Prepare,
+) -> Result<Session<'_, T>, Error<T::Error>> {
     let mut probe = [0; cdb::PROBE_LEN];
     read(t, &cdb::probe(), &mut probe, cdb::PROBE_LEN)?;
     test_unit_ready(t)?;
-    enter_recovery(t)
+    write(t, &prepare.command(), &[])?;
+    Ok(Session { t })
 }
 
 /// Enter an explicitly selected recovery receiver: PREPARE only.
@@ -250,9 +258,10 @@ pub fn enter_recovery<T: Transport>(t: &mut T) -> Result<Session<'_, T>, Error<T
 #[cfg(feature = "image")]
 pub(crate) fn enter_recovery_reporting<T: Transport>(
     t: &mut T,
+    prepare: cdb::Prepare,
     mut failed: impl FnMut(&Error<T::Error>),
 ) -> Session<'_, T> {
-    if let Err(error) = write(t, &cdb::enter_update(), &[]) {
+    if let Err(error) = write(t, &prepare.command(), &[]) {
         failed(&error);
     }
     Session { t }

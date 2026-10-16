@@ -66,6 +66,14 @@ impl Drive {
     }
 
     fn exec(&mut self, via: Via, cdb: &[u8], data: Data<'_>) -> Result<usize, &'static str> {
+        if cdb == crate::cdb::Prepare::ModeOne.command()
+            || cdb == crate::cdb::Prepare::ModeSix67.command()
+        {
+            assert!(
+                matches!(&data, Data::Out(bytes) if bytes.is_empty()),
+                "PREPARE must retain zero-length data-out"
+            );
+        }
         let len = match &data {
             Data::None => 0,
             Data::In(buf) => buf.len(),
@@ -325,6 +333,7 @@ fn run_recovery_payload(
         },
         clock,
         crate::update::flash::ExecutionMode::Recovery,
+        cdb::Prepare::ModeOne,
     )
 }
 
@@ -354,6 +363,67 @@ fn recovery_reports_failed_prepare_once_then_streams_and_verifies() {
         1
     );
     assert!(!d.log.iter().any(|(_, c, _)| c == &cdb::probe()));
+}
+
+#[test]
+fn both_prepare_dialects_keep_flash_strict_and_recovery_single_attempt() {
+    use crate::update::flash::{ExecutionMode, Payload};
+    for prepare in [cdb::Prepare::ModeOne, cdb::Prepare::ModeSix67] {
+        for recovery in [false, true] {
+            for refused in [false, true] {
+                let (drive, update, _) = setup();
+                if refused {
+                    drive.borrow_mut().refuse = Some(prepare.command().to_vec());
+                }
+                let (mut reads, mut writes) = (
+                    Handle(drive.clone(), Via::Reads),
+                    Handle(drive.clone(), Via::Writes),
+                );
+                let mut clock = Clock::default();
+                let result = Payload {
+                    class: update.class(),
+                    image: update.image(),
+                    transfer: update.transfer(),
+                }
+                .flash(
+                    FlashTransport {
+                        reads: &mut reads,
+                        writes: &mut writes,
+                    },
+                    &mut clock,
+                    if recovery {
+                        ExecutionMode::Recovery
+                    } else {
+                        ExecutionMode::Flash
+                    },
+                    prepare,
+                );
+                let log = &drive.borrow().log;
+                assert_eq!(
+                    log.iter()
+                        .filter(|(_, cmd, _)| cmd == &prepare.command())
+                        .count(),
+                    1
+                );
+                if refused && !recovery {
+                    assert!(matches!(result, Err(FlashError::Entry(_))));
+                    assert!(!log
+                        .iter()
+                        .any(|(_, cmd, _)| cmd == &cdb::transfer(0, cdb::CHUNK as u16)));
+                } else {
+                    assert!(result.unwrap().checked > 0);
+                }
+                assert_eq!(
+                    clock
+                        .events
+                        .iter()
+                        .filter(|e| e.starts_with("recovery PREPARE failed"))
+                        .count(),
+                    usize::from(refused && recovery)
+                );
+            }
+        }
+    }
 }
 
 #[test]

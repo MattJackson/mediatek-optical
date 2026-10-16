@@ -370,3 +370,98 @@ fn application_preludes_and_flag_stores_match_the_independent_census() {
     eprintln!("38 mode-six/0x67 shared entries; 98 zero-buffer stream guards; 408 guard mutations rejected");
     eprintln!("136 bound preludes and four-bit flag stores; 73 guard helpers; {mutations} instruction mutations rejected");
 }
+
+#[test]
+#[ignore = "requires MTK_IMAGE_ROOT, MTK_RECEIVER_CENSUS and MTK_APP_FLAGS_CENSUS"]
+fn live_detection_selects_prepare_and_encoding_for_every_published_receiver() {
+    use mediatek_optical::{
+        cdb,
+        drive::{Data, Transport},
+        receiver::{self, Encoding, Mode},
+    };
+    struct Device {
+        bytes: Vec<u8>,
+        boot: bool,
+    }
+    impl Transport for Device {
+        type Error = &'static str;
+        fn sense(&self) -> Option<(u8, u8, u8)> {
+            None
+        }
+        fn exec(&mut self, command: &[u8], data: Data<'_>) -> Result<usize, Self::Error> {
+            let Data::In(out) = data else {
+                panic!("live detection attempted a write")
+            };
+            match command[0] {
+                0x12 => {
+                    out.fill(b' ');
+                    out[0] = 5;
+                    out[4] = 31;
+                    out[8..36].copy_from_slice(&self.bytes[0x1ec000..0x1ec01c]);
+                    if self.boot {
+                        out[32..36].copy_from_slice(b"BOOT");
+                    }
+                }
+                0x3c => {
+                    let at = u32::from_be_bytes([0, command[3], command[4], command[5]]) as usize;
+                    out.copy_from_slice(self.bytes.get(at..at + out.len()).ok_or("out of bounds")?);
+                }
+                _ => return Err("unexpected command"),
+            }
+            Ok(out.len())
+        }
+    }
+    let census: serde_json::Value = serde_json::from_slice(
+        &std::fs::read(std::env::var("MTK_RECEIVER_CENSUS").unwrap()).unwrap(),
+    )
+    .unwrap();
+    let flags: serde_json::Value = serde_json::from_slice(
+        &std::fs::read(std::env::var("MTK_APP_FLAGS_CENSUS").unwrap()).unwrap(),
+    )
+    .unwrap();
+    let mut files = BTreeMap::new();
+    index(
+        Path::new(&std::env::var("MTK_IMAGE_ROOT").unwrap()),
+        &mut files,
+    );
+    let mut count = 0;
+    for (hash, row) in census["unique_images"].as_object().unwrap() {
+        for boot in [true, false] {
+            let mut device = Device {
+                bytes: std::fs::read(&files[hash]).unwrap(),
+                boot,
+            };
+            let mode = receiver::detect_mode(&mut device).unwrap();
+            let detected = receiver::detect(&mut device, &mode)
+                .unwrap_or_else(|e| panic!("{hash} BOOT={boot}: {e}"));
+            let expected_mode = if boot { Mode::Boot } else { Mode::Firmware };
+            let expected_encoding = match row["receivers"]
+                [if boot { "boot" } else { "application" }]["encoding_evidence"]
+                .as_str()
+                .unwrap()
+            {
+                "plaintext" => Encoding::Plaintext,
+                "encrypted" => Encoding::Encrypted,
+                other => panic!("unknown independent encoding {other}"),
+            };
+            assert_eq!(detected.mode(), expected_mode);
+            assert_eq!(detected.encoding(), expected_encoding);
+            let alternate = !boot
+                && expected_encoding == Encoding::Encrypted
+                && flags["images"][hash]["mode_six"]["buffer_id"] == 0x67;
+            assert_eq!(
+                detected.prepare_command(),
+                Some(if alternate {
+                    cdb::Prepare::ModeSix67
+                } else {
+                    cdb::Prepare::ModeOne
+                })
+            );
+            device.bytes[detected.signature_address() as usize] ^= 1;
+            assert!(detected.revalidate(&mut device).is_err());
+            count += 1;
+        }
+    }
+    assert_eq!(count, 272);
+    eprintln!("272 live receiver mode/encoding/PREPARE selections and stale-binding refusals passed; no device writes");
+}

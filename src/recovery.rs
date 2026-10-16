@@ -61,7 +61,7 @@ impl Receiver {
         let Some(chip) = Chip::from_banner(&banner) else {
             return Ok(None);
         };
-        let receiver = receiver::detect_encoding(t, &mode).map_err(Error::Receiver)?;
+        let receiver = receiver::detect(t, &mode).map_err(Error::Receiver)?;
         Ok(Some(Self {
             receiver,
             chip,
@@ -111,17 +111,9 @@ impl Receiver {
                 drive: self.chip,
             });
         }
-        let transfer = if self.encoding() == receiver::Encoding::Encrypted {
-            let mut bytes = image.to_vec();
-            crate::enc::encrypt(&mut bytes).expect("whole AES blocks");
-            Some(bytes)
-        } else {
-            None
-        };
         Ok(PreparedRecovery {
             receiver: self.clone(),
-            image: image.to_vec(),
-            transfer,
+            plan: receiver::TransferPlan::new(&self.receiver, image, DriveClass::of(self.chip))?,
         })
     }
 }
@@ -130,8 +122,7 @@ impl Receiver {
 #[derive(Debug, Clone)]
 pub struct PreparedRecovery {
     receiver: Receiver,
-    image: Vec<u8>,
-    transfer: Option<Vec<u8>>,
+    plan: receiver::TransferPlan,
 }
 impl PreparedRecovery {
     /// Required wire encoding.
@@ -144,7 +135,11 @@ impl PreparedRecovery {
     }
     /// Bytes transmitted; the canonical image remains separate for verification.
     pub fn transfer(&self) -> &[u8] {
-        self.transfer.as_deref().unwrap_or(&self.image)
+        self.plan.transfer()
+    }
+    /// Immutable receiver-derived transfer and PREPARE plan.
+    pub fn plan(&self) -> &receiver::TransferPlan {
+        &self.plan
     }
     /// Revalidate, PREPARE, stream and verify, then confirm the target started.
     /// A PREPARE error is reported through `FlashRuntime::recovery_entry_failed`
@@ -160,21 +155,26 @@ impl PreparedRecovery {
         R: Transport<Error = W::Error>,
         H: FlashRuntime<W::Error>,
     {
-        self.receiver.revalidate(io.reads)?;
-        let verified = crate::update::flash::Payload {
-            class: DriveClass::of(self.receiver.chip),
-            image: &self.image,
-            transfer: self.transfer(),
+        let mut banner = [0; layout::BANNER.len];
+        drive::read_memory(io.reads, layout::BANNER.start as u32, &mut banner)
+            .map_err(Error::Read)?;
+        if banner != self.receiver.banner {
+            return Err(Error::Changed);
         }
-        .flash(
-            FlashTransport {
-                reads: io.reads,
-                writes: io.writes,
-            },
-            runtime,
-            crate::update::flash::ExecutionMode::Recovery,
-        )
-        .map_err(Error::Flash)?;
+        let verified = self
+            .plan
+            .execute(
+                FlashTransport {
+                    reads: io.reads,
+                    writes: io.writes,
+                },
+                runtime,
+                crate::update::flash::ExecutionMode::Recovery,
+            )
+            .map_err(|e| match e {
+                receiver::ExecuteError::Receiver(e) => Error::Receiver(e),
+                receiver::ExecuteError::Flash(e) => Error::Flash(e),
+            })?;
         let mode = receiver::detect_mode(io.reads).map_err(Error::Receiver)?;
         if mode.mode() != receiver::Mode::Firmware {
             return Err(Error::Startup);
@@ -184,7 +184,9 @@ impl PreparedRecovery {
             .map_err(Error::Read)?;
         // Includes target model, revision and build metadata; exclude the
         // device-written tail. No descriptor was required before the write.
-        let expected = layout::DESCRIPTOR.of(&self.image).expect("complete image");
+        let expected = layout::DESCRIPTOR
+            .of(self.plan.image())
+            .expect("complete image");
         if descriptor[..0x58] != expected[..0x58] || mode.inquiry()[8..36] != expected[..28] {
             return Err(Error::Startup);
         }

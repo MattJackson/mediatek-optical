@@ -228,7 +228,7 @@ impl PreparedUpdate {
             image: &self.image,
             transfer: self.transfer(),
         }
-        .flash(io, runtime, ExecutionMode::Flash)
+        .flash(io, runtime, ExecutionMode::Flash, cdb::Prepare::ModeOne)
     }
 }
 
@@ -252,6 +252,7 @@ impl Payload<'_> {
         io: FlashTransport<'_, R, W>,
         runtime: &mut H,
         mode: ExecutionMode,
+        prepare: cdb::Prepare,
     ) -> Result<Verified, FlashError<W::Error>>
     where
         W: Transport,
@@ -261,10 +262,14 @@ impl Payload<'_> {
         let transfer = self.transfer;
         runtime.starting(transfer.len());
         let mut session = match mode {
-            ExecutionMode::Recovery => drive::enter_recovery_reporting(io.writes, |error| {
-                runtime.recovery_entry_failed(error)
-            }),
-            ExecutionMode::Flash => drive::enter_update(io.writes).map_err(FlashError::Entry)?,
+            ExecutionMode::Recovery => {
+                drive::enter_recovery_reporting(io.writes, prepare, |error| {
+                    runtime.recovery_entry_failed(error)
+                })
+            }
+            ExecutionMode::Flash => {
+                drive::enter_update_command(io.writes, prepare).map_err(FlashError::Entry)?
+            }
         };
         let chunk = self.class.chunk();
         for (index, piece) in transfer.chunks(chunk).enumerate() {

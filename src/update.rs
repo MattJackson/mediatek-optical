@@ -35,6 +35,8 @@ pub use flash::{FlashError, FlashRuntime, FlashTransport, Stage, Status, Verifie
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum PrepareError {
+    /// No complete live entry profile was identified before preparation.
+    ReceiverEntry,
     /// The image is not [`layout::IMAGE_SIZE`] bytes.
     Size(usize),
     /// The image fails its AES-CMAC integrity table.
@@ -72,6 +74,9 @@ pub enum PrepareError {
 impl core::fmt::Display for PrepareError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
+            Self::ReceiverEntry => f.write_str(
+                "receiver entry profile is unknown; detect the live receiver before preparing",
+            ),
             Self::Size(n) => write!(
                 f,
                 "image is {n} bytes; an update image is exactly {} bytes",

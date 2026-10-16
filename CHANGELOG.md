@@ -6,6 +6,15 @@ All notable changes to `mediatek-optical` are documented here. The format follow
 
 ## Unreleased
 
+- Add live receiver-derived PREPARE selection, encoding and immutable transfer
+  plans shared by normal Flash and explicit Recovery. Unknown entry grammars
+  refuse preparation; code/table bindings are revalidated before writing.
+- Recognize mode-one and shared mode-six/buffer-0x67 entry bodies. Validate
+  272 BOOT/application selections across all 136 published unique images.
+- Preserve zero-length PREPARE data-out direction. Explicit Recovery reports a
+  PREPARE failure and continues once under host recovery policy; normal Flash
+  remains strict. Stream failures never retry. Hardware validation is pending.
+
 - Reject an MT19xx hardware record when its tag or platform bytes would reach
   into the drive-written UHD-revocation region. Hardware identity is now
   derived wholly from immutable code bytes.

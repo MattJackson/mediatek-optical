@@ -102,6 +102,27 @@ pub const fn enter_update() -> [u8; 12] {
     ]
 }
 
+/// PREPARE dialects whose flag-copy bodies are recognized by the entry parser.
+/// A byte constructor is not receiver detection or authorization to write.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Prepare {
+    /// Legacy WRITE BUFFER mode 1, buffer zero.
+    ModeOne,
+    /// WRITE BUFFER mode 6, buffer 0x67, entering the same flag-copy body.
+    ModeSix67,
+}
+impl Prepare {
+    /// OEM zero-length data-out command, retaining the byte-nine 0x0B flags.
+    pub const fn command(self) -> [u8; 12] {
+        let mut command = enter_update();
+        if matches!(self, Self::ModeSix67) {
+            command[1] = 6;
+            command[2] = 0x67;
+        }
+        command
+    }
+}
+
 /// STREAM: WRITE BUFFER mode 6 of `len` bytes at file offset `off` (24 bits).
 pub const fn transfer(off: u32, len: u16) -> [u8; 12] {
     [

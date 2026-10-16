@@ -11,12 +11,13 @@ pub struct PreparedUpdate {
 }
 
 /// Immutable encoding and receiver binding for one normal Flash operation.
-/// Entry dialect currently follows the legacy executor; this type does not
-/// claim the separate entry-contract proof has been completed.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TransferPlan {
     receiver: Receiver,
-    update: update::PreparedUpdate,
+    class: crate::DriveClass,
+    image: Vec<u8>,
+    transfer: Option<Vec<u8>>,
+    prepare: crate::cdb::Prepare,
 }
 
 /// Receiver revalidation or execution failed.
@@ -50,15 +51,8 @@ impl Receiver {
         installed: &update::InstalledFirmware,
     ) -> Result<PreparedUpdate, update::PrepareError> {
         let update = update::PreparedUpdate::prepare(envelope.image(), installed)?;
-        let update = match self.encoding() {
-            Encoding::Plaintext => update,
-            Encoding::Encrypted => update.encrypted(),
-        };
         Ok(PreparedUpdate {
-            plan: TransferPlan {
-                receiver: self.clone(),
-                update,
-            },
+            plan: TransferPlan::new(self, envelope.image(), update.class())?,
         })
     }
 }
@@ -80,20 +74,67 @@ impl PreparedUpdate {
         H: update::FlashRuntime<W::Error>,
     {
         self.plan
-            .receiver
-            .revalidate(io.reads)
-            .map_err(ExecuteError::Receiver)?;
-        self.plan
-            .update
-            .flash(io, runtime)
-            .map_err(ExecuteError::Flash)
+            .execute(io, runtime, update::flash::ExecutionMode::Flash)
     }
 }
 
 impl TransferPlan {
+    pub(crate) fn new(
+        receiver: &Receiver,
+        image: &[u8],
+        class: crate::DriveClass,
+    ) -> Result<Self, update::PrepareError> {
+        let prepare = receiver
+            .profile
+            .as_ref()
+            .ok_or(update::PrepareError::ReceiverEntry)?
+            .prepare;
+        let transfer = if receiver.encoding() == Encoding::Encrypted {
+            let mut wire = image.to_vec();
+            crate::enc::encrypt(&mut wire).expect("validated image is whole AES blocks");
+            Some(wire)
+        } else {
+            None
+        };
+        Ok(Self {
+            receiver: receiver.clone(),
+            class,
+            image: image.to_vec(),
+            transfer,
+            prepare,
+        })
+    }
+
+    pub(crate) fn execute<R, W, H>(
+        &self,
+        io: update::FlashTransport<'_, R, W>,
+        runtime: &mut H,
+        mode: update::flash::ExecutionMode,
+    ) -> Result<update::Verified, ExecuteError<W::Error>>
+    where
+        W: crate::drive::Transport,
+        R: crate::drive::Transport<Error = W::Error>,
+        H: update::FlashRuntime<W::Error>,
+    {
+        self.receiver
+            .revalidate(io.reads)
+            .map_err(ExecuteError::Receiver)?;
+        update::flash::Payload {
+            class: self.class,
+            image: self.image(),
+            transfer: self.transfer(),
+        }
+        .flash(io, runtime, mode, self.prepare)
+        .map_err(ExecuteError::Flash)
+    }
+
+    /// Receiver-derived PREPARE dialect, fixed at preparation.
+    pub fn prepare_command(&self) -> crate::cdb::Prepare {
+        self.prepare
+    }
     /// Controller dialect retained by the validated update.
     pub fn class(&self) -> crate::DriveClass {
-        self.update.class()
+        self.class
     }
     /// Active receiver whose instructions determine the wire format.
     pub fn receiver(&self) -> &Receiver {
@@ -101,15 +142,21 @@ impl TransferPlan {
     }
     /// Canonical bytes used for protected readback verification.
     pub fn image(&self) -> &[u8] {
-        self.update.image()
+        &self.image
     }
     /// Actual bytes sent to the running receiver.
     pub fn transfer(&self) -> &[u8] {
-        self.update.transfer()
+        self.transfer.as_deref().unwrap_or(&self.image)
     }
     /// Ordered session commands from the current shared executor.
     pub fn steps(&self) -> std::vec::Vec<update::Step> {
-        self.update.steps()
+        let mut steps = self.class.steps();
+        for step in &mut steps {
+            if step.label == "PREPARE" {
+                step.cdb = self.prepare.command();
+            }
+        }
+        steps
     }
 }
 
@@ -143,6 +190,7 @@ mod tests {
                 encoding,
                 site: super::super::Evidence::new(0x98000, &[1, 2]),
                 transform: None,
+                profile: Some(super::super::profile::Profile::testing()),
             };
             for input in [&image, &ciphertext] {
                 let prepared = receiver

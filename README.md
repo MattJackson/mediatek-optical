@@ -245,6 +245,16 @@ record to the handler's Thumb pointer. All 136 published images match the
 independent opcode/callback census. This is static table evidence; initializer,
 lookup execution, pre-dispatch predicates and completion remain separate proofs.
 
+For executable operations, use `receiver::detect(transport, &mode)`. It binds
+encoding, the complete entry prelude/body, mode-six guard, compiler helper and
+WRITE BUFFER registration to bounded live reads. Unknown entry code fails
+closed. Encrypted applications with a proven shared 0x67 entry select that
+dialect; the other recognized receivers select the proven mode-one path.
+Both Flash and explicit Recovery store the resulting command in the same
+immutable `TransferPlan`, revalidate its code/table snapshots before writing,
+and execute through the shared transfer/readback engine. `detect_encoding`
+remains a read-only encoding probe and cannot supply an executable plan.
+
 The private website corpus test replays both receiver modes for every package:
 
 ```sh
