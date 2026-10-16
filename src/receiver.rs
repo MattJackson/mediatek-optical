@@ -16,6 +16,11 @@ use crate::{
 
 pub mod entry;
 
+#[cfg(all(feature = "image", feature = "enc"))]
+mod prepared;
+#[cfg(all(feature = "image", feature = "enc"))]
+pub use prepared::{ExecuteError, PreparedUpdate, TransferPlan};
+
 /// Code currently handling commands.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Mode {
