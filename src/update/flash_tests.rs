@@ -324,7 +324,7 @@ fn run_recovery_payload(
             writes: &mut writes,
         },
         clock,
-        true,
+        crate::update::flash::ExecutionMode::Recovery,
     )
 }
 

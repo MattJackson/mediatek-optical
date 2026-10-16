@@ -228,7 +228,7 @@ impl PreparedUpdate {
             image: &self.image,
             transfer: self.transfer(),
         }
-        .flash(io, runtime, false)
+        .flash(io, runtime, ExecutionMode::Flash)
     }
 }
 
@@ -238,12 +238,20 @@ pub(crate) struct Payload<'a> {
     pub(crate) image: &'a [u8],
     pub(crate) transfer: &'a [u8],
 }
+
+/// Host policy is separate from receiver encoding and entry-command evidence.
+/// Only the corresponding public prepared operation selects this mode.
+#[derive(Clone, Copy)]
+pub(crate) enum ExecutionMode {
+    Flash,
+    Recovery,
+}
 impl Payload<'_> {
     pub(crate) fn flash<R, W, H>(
         &self,
         io: FlashTransport<'_, R, W>,
         runtime: &mut H,
-        recovery: bool,
+        mode: ExecutionMode,
     ) -> Result<Verified, FlashError<W::Error>>
     where
         W: Transport,
@@ -252,10 +260,11 @@ impl Payload<'_> {
     {
         let transfer = self.transfer;
         runtime.starting(transfer.len());
-        let mut session = if recovery {
-            drive::enter_recovery_reporting(io.writes, |error| runtime.recovery_entry_failed(error))
-        } else {
-            drive::enter_update(io.writes).map_err(FlashError::Entry)?
+        let mut session = match mode {
+            ExecutionMode::Recovery => drive::enter_recovery_reporting(io.writes, |error| {
+                runtime.recovery_entry_failed(error)
+            }),
+            ExecutionMode::Flash => drive::enter_update(io.writes).map_err(FlashError::Entry)?,
         };
         let chunk = self.class.chunk();
         for (index, piece) in transfer.chunks(chunk).enumerate() {

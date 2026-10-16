@@ -172,7 +172,7 @@ impl PreparedRecovery {
                 writes: io.writes,
             },
             runtime,
-            true,
+            crate::update::flash::ExecutionMode::Recovery,
         )
         .map_err(Error::Flash)?;
         let mode = receiver::detect_mode(io.reads).map_err(Error::Receiver)?;
