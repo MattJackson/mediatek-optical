@@ -4,6 +4,14 @@ All notable changes to `mediatek-optical` are documented here. The format follow
 [Keep a Changelog](https://keepachangelog.com/) and the project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## Unreleased
+
+- Add hash-pinned integrity/encoding tests for 124 MT19xx corpus images, including
+  71 with OEM installer provenance, using stored tags and independent OpenSSL
+  expectations. Cover inclusive CMAC ranges, signing order, exact stock rebuilds,
+  mirrored-readback rejection, and AES transport encoding.
+- Add 73 small OEM CMAC known-answer records for CI without external firmware.
+
 ## [0.7.0] - 2026-10-14
 
 ### Changed (breaking)
