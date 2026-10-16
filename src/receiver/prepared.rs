@@ -91,6 +91,10 @@ impl PreparedUpdate {
 }
 
 impl TransferPlan {
+    /// Controller dialect retained by the validated update.
+    pub fn class(&self) -> crate::DriveClass {
+        self.update.class()
+    }
     /// Active receiver whose instructions determine the wire format.
     pub fn receiver(&self) -> &Receiver {
         &self.receiver
