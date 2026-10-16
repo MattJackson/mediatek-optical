@@ -6,6 +6,9 @@ All notable changes to `mediatek-optical` are documented here. The format follow
 
 ## Unreleased
 
+- Reject an MT19xx hardware record when its tag or platform bytes would reach
+  into the drive-written UHD-revocation region. Hardware identity is now
+  derived wholly from immutable code bytes.
 - Add hash-pinned integrity/encoding tests for 124 MT19xx corpus images, including
   71 with OEM installer provenance, using stored tags and independent OpenSSL
   expectations. Cover inclusive CMAC ranges, signing order, exact stock rebuilds,
