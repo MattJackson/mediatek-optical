@@ -52,3 +52,7 @@ required-features = ["image"]
 [[test]]
 name = "envelope_corpus"
 required-features = ["image", "enc"]
+
+[[test]]
+name = "entry_corpus"
+required-features = ["drive"]

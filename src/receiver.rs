@@ -14,6 +14,8 @@ use crate::{
     INQUIRY_LEN,
 };
 
+pub mod entry;
+
 /// Code currently handling commands.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Mode {

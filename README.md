@@ -25,7 +25,7 @@ mediatek-optical = { version = "0.6", features = ["drive", "image"] }
 | `layout` | — | 2 MiB image geometry; boot page, boot mirror, drive-written regions |
 | `sense` | — | Sense parsing; flash-fault and no-medium classification |
 | `drive` | `drive` | `Transport` trait; `identify`, `read_memory`, `feature`, `enter_update` → `Session` |
-| `receiver` | `drive` | Read-only `detect_mode`, `detect_encoding`, and pre-write `Receiver::revalidate` |
+| `receiver` | `drive` | Read-only `detect_mode`, `detect_encoding`, pre-write `Receiver::revalidate`, and bounded entry-code inspection |
 | `image` | `image` | `detect_chip`, `family` / `hardware`, `is_uhd`, `is_drive_read`; `cmac` verify / resign |
 | `update` | `image` (+ `drive` to flash) | `PreparedUpdate::prepare` against `InstalledFirmware`; `flash` with a `FlashRuntime` |
 | `enc` | `enc` | AES-128-ECB transport envelope |
@@ -192,6 +192,14 @@ unknown or conflicting signatures never default to plaintext. BOOT and
 application are evaluated independently, including images whose two receivers
 expect different formats. Read failures can prevent detection on a live drive;
 static corpus coverage does not establish physical-device read accessibility.
+
+`receiver::entry::inspect_boot_legacy(window, flash_address)` inspects the
+legacy PREPARE flag-copy grammar with checked operands, literals and branch
+targets. Its result is entry evidence, not transfer authorization: completion,
+dispatcher binding and image acceptance still need separate proof. The current
+136-image published census has 98 matches and 38 explicitly unmatched alternate
+grammars. The full 1024-image hoard has 102 matches; other images remain
+unresolved. No error-continuation policy is inferred from these matches.
 
 The private website corpus test replays both receiver modes for every package:
 
