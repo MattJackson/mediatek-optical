@@ -29,6 +29,7 @@ mediatek-optical = { version = "0.6", features = ["drive", "image"] }
 | `image` | `image` | `detect_chip`, `family` / `hardware`, `is_uhd`, `is_drive_read`; `cmac` verify / resign |
 | `update` | `image` (+ `drive` to flash) | `PreparedUpdate::prepare` against `InstalledFirmware`; `flash` with a `FlashRuntime` |
 | `enc` | `enc` | AES-128-ECB transport envelope |
+| `envelope` | `image`, `enc` | Validated input framing, canonical image and original/canonical SHA-256 |
 | `oem` | `oem` | `rebuild` with `Catalog`, `Factory`, `content_key`, `Provenance` |
 
 The default build and the `drive` feature are `no_std` and allocation-free.
@@ -70,6 +71,14 @@ established: a wrong size, no chip, a malformed banner, no or several
 records, a record for another chip or platform, or a broken feature template.
 
 ## Updates
+
+`envelope::Envelope::load(bytes)` recognizes plaintext and OEM AES input,
+validates the canonical image, and retains the original bytes and both hashes.
+Corrupt images, empty integrity tables and raw drive captures are rejected.
+Its `input_encoding()` describes the file only: the running receiver determines
+the required transfer encoding. Loading an envelope performs no drive I/O and
+does not authorize writing. Receiver-bound preparation is being migrated to
+consume this type; the existing update API below remains available meanwhile.
 
 `update::PreparedUpdate::prepare(image, &installed)` takes the image and the
 drive's `InstalledFirmware`: its live `Identity` bound to a complete read of

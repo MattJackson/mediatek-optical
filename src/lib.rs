@@ -41,6 +41,8 @@ pub mod cdb;
 pub mod drive;
 #[cfg(feature = "enc")]
 pub mod enc;
+#[cfg(all(feature = "image", feature = "enc"))]
+pub mod envelope;
 #[cfg(feature = "image")]
 pub mod image;
 pub mod layout;

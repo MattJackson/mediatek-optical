@@ -23,7 +23,7 @@ std = []
 # Command sequences over a caller-supplied transport. no_std, no alloc.
 drive = []
 # Firmware image analysis: chip detection and the AES-CMAC integrity table.
-image = ["std", "dep:aes", "dep:cmac"]
+image = ["std", "dep:aes", "dep:cmac", "dep:sha2"]
 # The AES-128-ECB `enc` transport envelope.
 enc = ["dep:aes"]
 # OEM image reconstruction from a drive read. Implies `image`.
@@ -48,3 +48,7 @@ required-features = ["image"]
 [[test]]
 name = "hoard_chip"
 required-features = ["image"]
+
+[[test]]
+name = "envelope_corpus"
+required-features = ["image", "enc"]
