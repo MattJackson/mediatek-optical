@@ -193,13 +193,15 @@ application are evaluated independently, including images whose two receivers
 expect different formats. Read failures can prevent detection on a live drive;
 static corpus coverage does not establish physical-device read accessibility.
 
-`receiver::entry::inspect_boot_legacy(window, flash_address)` inspects the
-legacy PREPARE flag-copy grammar with checked operands, literals and branch
-targets. Its result is entry evidence, not transfer authorization: completion,
-dispatcher binding and image acceptance still need separate proof. The current
-136-image published census has 98 matches and 38 explicitly unmatched alternate
-grammars. The full 1024-image hoard has 102 matches; other images remain
-unresolved. No error-continuation policy is inferred from these matches.
+`receiver::entry::inspect_boot_legacy(window, flash_address)` and
+`inspect_boot_dual(window, flash_address)` inspect PREPARE flag-copy grammars
+with checked operands, literals and branch targets. The latter binds mode 1
+and mode 6/buffer 0x67 to the same body and validates the unsupported-mode error
+path. Results are entry evidence, not transfer authorization: completion,
+dispatcher binding and image acceptance still need separate proof. All 136
+published images match exactly one grammar (98 legacy, 38 dual entry). The full
+1024-image hoard has 102 legacy and 38 dual-entry matches; 884 other images
+remain unresolved. No error-continuation policy is inferred from these matches.
 
 The private website corpus test replays both receiver modes for every package:
 

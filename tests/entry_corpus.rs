@@ -1,5 +1,5 @@
 //! Independent real-image census and semantic mutations, without device I/O.
-use mediatek_optical::receiver::entry::inspect_boot_legacy;
+use mediatek_optical::receiver::entry::{inspect_boot_dual, inspect_boot_legacy};
 use std::{
     collections::BTreeMap,
     path::{Path, PathBuf},
@@ -42,8 +42,32 @@ fn legacy_entry_grammar_agrees_with_independent_census_and_rejects_mutations() {
         let hit = inspect_boot_legacy(window, 0x3400);
         assert_eq!(hit.is_some(), expected.is_some(), "{hash}");
         let Some(hit) = hit else {
+            let dual = inspect_boot_dual(window, 0x3400).unwrap_or_else(|| {
+                panic!("{hash}: missing independently disassembled alternate grammar")
+            });
+            assert_eq!(dual.decoder, 0x3544);
+            assert_eq!(dual.stream, 0x35ba);
+            assert!([0x3576, 0x357a].contains(&dual.entry));
+            for offset in [0x354c, 0x3554, 0x3556, 0x3558, dual.entry + 8] {
+                let mut bad = window.to_vec();
+                bad[(offset - 0x3400) as usize] ^= 1;
+                assert!(
+                    inspect_boot_dual(&bad, 0x3400).is_none(),
+                    "{hash}: alternate mutation {offset:#x}"
+                );
+            }
+            for length in [
+                0,
+                1,
+                32,
+                (dual.entry - 0x3400) as usize,
+                (dual.stream - 0x3400 - 1) as usize,
+            ] {
+                assert!(inspect_boot_dual(&window[..length], 0x3400).is_none());
+            }
             continue;
         };
+        assert!(inspect_boot_dual(window, 0x3400).is_none());
         let expected = expected.unwrap();
         assert_eq!(hit.decoder, expected["dispatch"].as_u64().unwrap() as u32);
         assert_eq!(hit.entry, expected["mode1_target"].as_u64().unwrap() as u32);
@@ -90,9 +114,11 @@ fn legacy_entry_grammar_agrees_with_independent_census_and_rejects_mutations() {
     }
     assert_eq!(
         matched, 98,
-        "38 alternate BOOT grammars remain explicitly unmatched"
+        "38 other BOOT grammars must use the dual-entry matcher"
     );
-    eprintln!("136 images inspected: {matched} legacy matches; 38 explicit alternate grammars");
+    eprintln!(
+        "136 images inspected: {matched} legacy matches and 38 validated dual-entry grammars"
+    );
 }
 
 #[test]
@@ -103,18 +129,27 @@ fn entire_hoard_entry_inventory_keeps_unmatched_images_explicit() {
     index(&root, &mut files);
     let mut rows = Vec::new();
     let mut matched = 0;
+    let mut dual_count = 0;
     for (hash, path) in &files {
         let bytes = std::fs::read(path).unwrap();
         let hit = bytes
             .get(0x3400..0x3a00)
             .and_then(|w| inspect_boot_legacy(w, 0x3400));
         matched += usize::from(hit.is_some());
+        let dual = bytes
+            .get(0x3400..0x3a00)
+            .and_then(|w| inspect_boot_dual(w, 0x3400));
+        assert!(!(hit.is_some() && dual.is_some()));
+        dual_count += usize::from(dual.is_some());
         rows.push(serde_json::json!({
             "sha256": hash,
             "path": path.strip_prefix(&root).unwrap().to_string_lossy(),
             "bytes": bytes.len(),
             "entry_evidence": hit.map(|h| serde_json::json!({
                 "decoder": h.decoder, "entry": h.entry, "end": h.end,
+            })),
+            "dual_entry_evidence": dual.map(|h| serde_json::json!({
+                "decoder": h.decoder, "entry": h.entry, "stream": h.stream,
             })),
             "complete_contract": false,
         }));
@@ -126,14 +161,14 @@ fn entire_hoard_entry_inventory_keeps_unmatched_images_explicit() {
     );
     let report = serde_json::json!({
         "qualification": "Entry flag-copy evidence only; unmatched is unresolved, not unsupported. No transfer authorized.",
-        "images": rows, "matched": matched, "unmatched": files.len() - matched,
+        "images": rows, "legacy": matched, "dual_entry": dual_count, "unmatched": files.len() - matched - dual_count,
     });
     if let Ok(path) = std::env::var("MTK_ENTRY_REPORT") {
         std::fs::write(path, serde_json::to_string_pretty(&report).unwrap() + "\n").unwrap();
     }
     eprintln!(
-        "entire hoard: {} images, {matched} legacy entry candidates, {} explicitly unresolved",
+        "entire hoard: {} images, {matched} legacy and {dual_count} dual entry candidates, {} explicitly unresolved",
         files.len(),
-        files.len() - matched
+        files.len() - matched - dual_count
     );
 }

@@ -16,6 +16,18 @@ pub struct LegacyCandidate {
     pub end: u32,
 }
 
+/// BOOT entry supporting mode 1 and mode 6/buffer 0x67 through the same body.
+/// As with [`LegacyCandidate`], this is evidence, not transfer authorization.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct DualCandidate {
+    /// Start of the validated CDB decoder function.
+    pub decoder: u32,
+    /// Shared entry body.
+    pub entry: u32,
+    /// Start of stream parameter handling after the entry body.
+    pub stream: u32,
+}
+
 struct Window<'a> {
     bytes: &'a [u8],
     base: u32,
@@ -45,6 +57,14 @@ impl Window<'_> {
             return None;
         }
         u32::try_from(i64::from(address) + 4 + i64::from(op as u8 as i8) * 2).ok()
+    }
+    fn branch(&self, address: u32) -> Option<u32> {
+        let op = self.word(address)?;
+        if op & 0xf800 != 0xe000 {
+            return None;
+        }
+        let delta = ((i32::from(op & 0x7ff) << 21) >> 20) as i64;
+        u32::try_from(i64::from(address) + 4 + delta).ok()
     }
 }
 
@@ -216,6 +236,143 @@ pub fn inspect_boot_legacy(bytes: &[u8], address: u32) -> Option<LegacyCandidate
     found
 }
 
+// Two compiler forms of the complete flag-copy body, including out-of-line
+// bit-zero/bit-two blocks and their backward branches. Only the first form's
+// PC-relative MMIO literal load varies; it is resolved and validated below.
+const DUAL_LOCAL: &[u8] = b"\x00\x48\x85\x69\x2d\x09\x2d\x01\x85\x61\x4d\x7a\xed\x07\x10\xd1\x4d\x7a\xad\x07\x02\xd5\x85\x69\x2c\x43\x84\x61\x4c\x7a\x64\x07\x0c\xd4\x49\x7a\x09\x07\x02\xd5\x81\x69\x11\x43\x81\x61\x05\xb0\xf0\xbd\x85\x69\x01\x26\x35\x43\x85\x61\xe9\xe7\x84\x69\x23\x43\x83\x61\xee\xe7";
+const DUAL_PRELOADED: &[u8] = b"\xb0\x69\x00\x09\x00\x01\xb0\x61\x48\x7a\xc0\x07\x10\xd1\x48\x7a\x80\x07\x02\xd5\xb0\x69\x20\x43\xb0\x61\x48\x7a\x40\x07\x0b\xd4\x48\x7a\x00\x07\x02\xd5\xb0\x69\x10\x43\xb0\x61\x09\xb0\xf0\xbd\xb0\x69\x38\x43\xb0\x61\xea\xe7\xb0\x69\x18\x43\xb0\x61\xef\xe7";
+
+fn dual_candidate(w: &Window<'_>, start: u32) -> Option<DualCandidate> {
+    let (register, cdb) = w.literal(start)?;
+    if register != 1 || !(0x0200_0000..0x0201_0000).contains(&cdb) {
+        return None;
+    }
+    let mut p = start.checked_add(2)?;
+    for op in [0xb5f0, 0x7848] {
+        if w.word(p)? != op {
+            return None;
+        }
+        p = p.checked_add(2)?;
+    }
+    let stack = w.word(p)?;
+    if !matches!(stack, 0xb085 | 0xb089) {
+        return None;
+    }
+    p = p.checked_add(2)?;
+    for op in [0x0700, 0x0f00, 0x7048, 0x7848, 0x2208, 0x2304, 0x2402] {
+        if w.word(p)? != op {
+            return None;
+        }
+        p = p.checked_add(2)?;
+    }
+    let preloaded = stack == 0xb089;
+    if preloaded {
+        if w.word(p)? != 0x2701 || w.literal(p.checked_add(2)?)? != (6, 0x0400_2040) {
+            return None;
+        }
+        p = p.checked_add(4)?;
+    }
+    if w.word(p)? != 0x2801 {
+        return None;
+    }
+    let entry = w.conditional(p.checked_add(2)?, 0xd000)?;
+    p = p.checked_add(4)?;
+    let (register, state) = w.literal(p)?;
+    if register != 5 || !(0x0200_0000..0x0201_0000).contains(&state) {
+        return None;
+    }
+    p = p.checked_add(2)?;
+    if w.word(p)? != 0x3d0a || w.word(p.checked_add(2)?)? != 0x2802 {
+        return None;
+    }
+    p = p.checked_add(4)?;
+    if w.conditional(p, 0xd000)? != p.checked_add(6)? {
+        return None;
+    }
+    if w.word(p.checked_add(2)?)? != 0x2806 {
+        return None;
+    }
+    let reject = w.conditional(p.checked_add(4)?, 0xd100)?;
+    p = p.checked_add(6)?;
+    if w.word(p)? != 0x7848 || w.word(p.checked_add(2)?)? != 0x2806 {
+        return None;
+    }
+    let stream = w.conditional(p.checked_add(4)?, 0xd100)?;
+    p = p.checked_add(6)?;
+    if w.word(p)? != 0x7888
+        || w.word(p.checked_add(2)?)? != 0x2867
+        || w.conditional(p.checked_add(4)?, 0xd100)? != stream
+    {
+        return None;
+    }
+    p = p.checked_add(6)?;
+    if p != entry {
+        return None;
+    }
+    let template = if preloaded {
+        DUAL_PRELOADED
+    } else {
+        DUAL_LOCAL
+    };
+    if !preloaded && w.literal(entry)? != (0, 0x0400_2040) {
+        return None;
+    }
+    let body = w.bytes(entry, template.len())?;
+    let skip = if preloaded { 0 } else { 1 };
+    if body[skip..] != template[skip..]
+        || entry.checked_add(u32::try_from(template.len()).ok()?)? != stream
+    {
+        return None;
+    }
+    // The unsupported-mode branch must reach the state error flag and return,
+    // not arbitrary code whose result happened to be ignored by the caller.
+    let mut error = w.branch(reject)?;
+    if preloaded {
+        if w.word(error)? != 0x712f {
+            return None;
+        } // STRB r7,[r5,#4]
+        error = error.checked_add(2)?;
+    } else {
+        if w.word(error)? != 0x2601 || w.word(error.checked_add(2)?)? != 0x712e {
+            return None;
+        }
+        error = error.checked_add(4)?;
+    }
+    let return_at = entry.checked_add(if preloaded { 44 } else { 46 })?;
+    if w.branch(error)? != return_at {
+        return None;
+    }
+    Some(DualCandidate {
+        decoder: start,
+        entry,
+        stream,
+    })
+}
+
+/// Inspect the alternate BOOT entry grammar, validating both mode branches,
+/// buffer 0x67, MMIO destination and the complete flag-copy control flow.
+/// Unknown, truncated or ambiguous windows return `None`; this does no I/O.
+pub fn inspect_boot_dual(bytes: &[u8], address: u32) -> Option<DualCandidate> {
+    let w = Window {
+        bytes,
+        base: address,
+    };
+    let mut found = None;
+    for index in (0..bytes.len()).step_by(2) {
+        let at = address.checked_add(u32::try_from(index).ok()?)?;
+        if at & 1 != 0 {
+            continue;
+        }
+        if let Some(hit) = dual_candidate(&w, at) {
+            if found.is_some() {
+                return None;
+            }
+            found = Some(hit);
+        }
+    }
+    found
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -271,5 +428,47 @@ mod tests {
         assert!(inspect_boot_legacy(&doubled, 0x3400).is_none());
         assert!(inspect_boot_legacy(&bytes, 0x3401).is_none());
         assert!(inspect_boot_legacy(&bytes, u32::MAX - 16).is_none());
+    }
+
+    #[test]
+    fn both_real_dual_entry_compiler_forms_bind_modes_and_flag_paths() {
+        for (prefix, literal_at, literals, entry, body) in [
+            ("de49f0b5487885b00007000f4870487808220423022401280bd0d74d0a3d022801d0062879d14878062824d18878672821d1d348", 0x38bc,
+             "8a0d0002fc0d000240200004", 0x3576, DUAL_LOCAL),
+            ("dd49f0b5487889b00007000f487048780822042302240127d84e01280bd0d54d0a3d022801d006286cd14878062822d1887867281fd1", 0x38b8,
+             "8a0d0002fc0d000240200004", 0x357a, DUAL_PRELOADED),
+        ] {
+            let mut bytes = std::vec![0xff; 0x600];
+            for (address, hex) in [(0x3544, prefix), (literal_at, literals)] {
+                for i in (0..hex.len()).step_by(2) {
+                    bytes[address - 0x3400 + i / 2] = u8::from_str_radix(&hex[i..i+2], 16).unwrap();
+                }
+            }
+            for (address, hex) in if entry == 0x3576 {
+                [(0x365e, "7ce0"), (0x375a, "01262e7121e7")]
+            } else {
+                [(0x3648, "dbe0"), (0x3802, "2f71cfe6")]
+            } {
+                for i in (0..hex.len()).step_by(2) {
+                    bytes[address - 0x3400 + i / 2] = u8::from_str_radix(&hex[i..i+2], 16).unwrap();
+                }
+            }
+            bytes[entry-0x3400..entry-0x3400+body.len()].copy_from_slice(body);
+            if entry == 0x3576 { bytes[entry-0x3400] = 0xd3; }
+            assert_eq!(inspect_boot_dual(&bytes, 0x3400), Some(DualCandidate {
+                decoder: 0x3544, entry: entry as u32, stream: 0x35ba,
+            }));
+            assert!(inspect_boot_legacy(&bytes, 0x3400).is_none());
+            for address in 0x3554..0x35ba {
+                // Literal relocation is variable; every other body byte and
+                // mode-routing byte is fixed in these complete compiler forms.
+                if address == entry { continue; }
+                let mut changed = bytes.clone(); changed[address-0x3400] ^= 1;
+                assert!(inspect_boot_dual(&changed, 0x3400).is_none(), "{entry:#x}: {address:#x}");
+            }
+            let mut doubled = bytes.clone(); doubled.extend_from_slice(&bytes);
+            assert!(inspect_boot_dual(&doubled, 0x3400).is_none());
+            assert!(inspect_boot_dual(&bytes, u32::MAX - 16).is_none());
+        }
     }
 }
