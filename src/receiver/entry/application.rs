@@ -6,6 +6,11 @@
 //! complete flag-copy semantics, opcode dispatch and completion still matter.
 use super::Window;
 
+mod prologue;
+pub use prologue::{inspect_prologue, Prologue};
+mod flags;
+pub use flags::{inspect_flags, FlagCopy};
+
 /// A command table bound to an update-flag clearing block.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Candidate {

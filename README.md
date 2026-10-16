@@ -225,6 +225,14 @@ mode 1/buffer 0; 63 images have no pre-table guard call in the independent
 census. Helper matching alone does not prove the caller's argument setup or
 rejection branch, and does not establish a receiver entry contract.
 
+`application::inspect_prologue` binds the caller's mode/buffer arguments,
+guard-result branch, CDB pointer and preloaded constants. `inspect_flags`
+revalidates those inputs against the supplied bytes and checks every bit test,
+OR operand, MMIO store, branch convergence and stack-restoring return. All 136
+published images match both grammars; 3,280 instruction mutations are rejected.
+These remain entry-body evidence: command dispatcher ownership, completion,
+mode-6 alternatives and acceptance/programming rules need their own proofs.
+
 The private website corpus test replays both receiver modes for every package:
 
 ```sh

@@ -252,7 +252,7 @@ fn application_tables_bind_the_update_flags_instead_of_read_buffer_tables() {
 
 #[test]
 #[ignore = "requires MTK_IMAGE_ROOT and MTK_APP_FLAGS_CENSUS"]
-fn complete_application_guard_helpers_match_the_independent_census() {
+fn application_preludes_and_flag_stores_match_the_independent_census() {
     let report: serde_json::Value = serde_json::from_slice(
         &std::fs::read(std::env::var("MTK_APP_FLAGS_CENSUS").unwrap()).unwrap(),
     )
@@ -265,13 +265,51 @@ fn complete_application_guard_helpers_match_the_independent_census() {
         &mut files,
     );
     let mut matched = 0;
+    let mut mutations = 0;
     for (hash, row) in rows {
+        let data = std::fs::read(&files[hash]).unwrap();
+        let window = &data[0x98000..0xb4000];
+        let candidate = application::inspect(window, 0x98000).unwrap();
+        let prelude = application::inspect_prologue(window, 0x98000, &candidate)
+            .unwrap_or_else(|| panic!("{hash}: unbound prelude"));
+        let flags = application::inspect_flags(window, 0x98000, &candidate, &prelude)
+            .unwrap_or_else(|| panic!("{hash}: unbound four-bit flag copy"));
+        let returns: Vec<_> = row["instructions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|i| i["mnemonic"] == "pop")
+            .collect();
+        assert_eq!(returns.len(), 1);
+        assert_eq!(
+            u64::from(flags.end),
+            returns[0]["address"].as_u64().unwrap() + 2
+        );
+        for instruction in row["instructions"].as_array().unwrap() {
+            let mnemonic = instruction["mnemonic"].as_str().unwrap();
+            if ![
+                "str", "orrs", "lsls", "ldrb", "pop", "b", "beq", "bne", "bpl", "bmi",
+            ]
+            .contains(&mnemonic)
+            {
+                continue;
+            }
+            let at = instruction["address"].as_u64().unwrap() as usize;
+            let mut changed = window.to_vec();
+            changed[at - 0x98000] ^= 1;
+            assert!(
+                application::inspect_flags(&changed, 0x98000, &candidate, &prelude).is_none(),
+                "{hash}: altered {mnemonic} at {at:x}"
+            );
+            mutations += 1;
+        }
         let guard = &row["prologue"]["guard"];
         if guard.is_null() {
+            assert_eq!(prelude.guard, None);
             continue;
         }
-        let data = std::fs::read(&files[hash]).unwrap();
         let at = guard["target"].as_u64().unwrap() as usize;
+        assert_eq!(prelude.guard, Some(at as u32));
         let found =
             application::ModeBufferGuard::inspect(&data[at..at + application::MODE_GUARD_BYTES])
                 .unwrap_or_else(|| panic!("{hash}: guard mismatch"));
@@ -281,4 +319,5 @@ fn complete_application_guard_helpers_match_the_independent_census() {
     }
     assert_eq!(matched, 73);
     assert_eq!(rows.len() - matched, 63);
+    eprintln!("136 bound preludes and four-bit flag stores; 73 guard helpers; {mutations} instruction mutations rejected");
 }
