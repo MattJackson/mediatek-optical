@@ -12,6 +12,8 @@ mod flags;
 pub use flags::{inspect_flags, FlagCopy};
 mod mode_six;
 pub use mode_six::{inspect_mode_six, ModeSix};
+mod registration;
+pub use registration::{inspect_registration, Registration};
 
 /// A command table bound to an update-flag clearing block.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

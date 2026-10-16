@@ -273,6 +273,18 @@ fn application_preludes_and_flag_stores_match_the_independent_census() {
         let candidate = application::inspect(window, 0x98000).unwrap();
         let prelude = application::inspect_prologue(window, 0x98000, &candidate)
             .unwrap_or_else(|| panic!("{hash}: unbound prelude"));
+        let registration = application::inspect_registration(&data, 0, prelude.start)
+            .unwrap_or_else(|| panic!("{hash}: no unique WRITE BUFFER registration"));
+        assert_eq!(
+            u64::from(registration.record),
+            row["write_buffer_registration"]["record"].as_u64().unwrap()
+        );
+        assert_eq!(
+            u64::from(registration.callback),
+            row["write_buffer_registration"]["callback"]
+                .as_u64()
+                .unwrap()
+        );
         let flags = application::inspect_flags(window, 0x98000, &candidate, &prelude)
             .unwrap_or_else(|| panic!("{hash}: unbound four-bit flag copy"));
         let returns: Vec<_> = row["instructions"]

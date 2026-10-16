@@ -240,6 +240,11 @@ guard. All 136 cases and 408 guard mutations are checked against the independent
 census. This establishes the alternate entry body, not stream acceptance or
 command completion.
 
+`application::inspect_registration` binds a unique aligned WRITE BUFFER/type-1
+record to the handler's Thumb pointer. All 136 published images match the
+independent opcode/callback census. This is static table evidence; initializer,
+lookup execution, pre-dispatch predicates and completion remain separate proofs.
+
 The private website corpus test replays both receiver modes for every package:
 
 ```sh
