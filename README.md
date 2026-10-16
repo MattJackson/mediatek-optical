@@ -219,6 +219,12 @@ bounded read checked by `matches_helper`. These bindings do not prove entry
 guards, complete flag-copy semantics, opcode dispatch or completion behavior,
 and do not authorize a transfer.
 
+`application::ModeBufferGuard` recognizes the complete 40-byte mode/buffer
+exclusion helper present in 73 published images. Its return value permits
+mode 1/buffer 0; 63 images have no pre-table guard call in the independent
+census. Helper matching alone does not prove the caller's argument setup or
+rejection branch, and does not establish a receiver entry contract.
+
 The private website corpus test replays both receiver modes for every package:
 
 ```sh

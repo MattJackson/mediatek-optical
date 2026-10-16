@@ -33,6 +33,35 @@ pub fn matches_helper(bytes: &[u8]) -> bool {
 /// Required bounded read length at [`Candidate::helper`].
 pub const HELPER_BYTES: usize = ARM_HELPER.len();
 
+/// Complete size of the supported mode/buffer exclusion helper.
+pub const MODE_GUARD_BYTES: usize = 40;
+const MODE_GUARD: &[u8; MODE_GUARD_BYTES] = b"\x01\x22\x02\x28\x04\xd0\x05\x28\x05\xd0\x0a\x28\x0a\xd1\x08\xe0\x8f\x29\x07\xd1\x05\xe0\x04\x29\x03\xd0\x05\x29\x01\xd0\x06\x29\x00\xd1\x00\x22\x10\x00\x70\x47";
+
+/// Evidence for the complete mode/buffer exclusion helper. This establishes
+/// the helper's return value only; the caller must separately prove argument
+/// setup and how it uses that return value.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ModeBufferGuard(());
+
+impl ModeBufferGuard {
+    /// Match every instruction, including conditional branches and return.
+    /// Unknown or truncated helpers never acquire an inferred behavior.
+    pub fn inspect(bytes: &[u8]) -> Option<Self> {
+        (bytes.get(..MODE_GUARD_BYTES) == Some(MODE_GUARD.as_slice())).then_some(Self(()))
+    }
+
+    /// Whether the matched helper returns one for its mode and buffer inputs.
+    /// A one is not itself authorization: interpretation belongs to the caller.
+    pub fn returns_one(self, mode: u8, buffer: u8) -> bool {
+        match mode {
+            2 => buffer != 0x8f,
+            5 => !(4..=6).contains(&buffer),
+            10 => false,
+            _ => true,
+        }
+    }
+}
+
 fn clear_site(w: &Window<'_>, address: u32) -> Option<u32> {
     let load = w.word(address)?;
     if load & 0xffc0 != 0x6980 {
@@ -167,6 +196,28 @@ pub fn inspect(bytes: &[u8], address: u32) -> Option<Candidate> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn complete_guard_signature_preserves_mode_and_buffer_exclusions() {
+        let guard = ModeBufferGuard::inspect(MODE_GUARD).unwrap();
+        assert!(guard.returns_one(1, 0));
+        assert!(guard.returns_one(6, 0x67));
+        for buffer in 0..=255 {
+            assert!(!guard.returns_one(10, buffer));
+            assert_eq!(guard.returns_one(2, buffer), buffer != 0x8f);
+        }
+        for buffer in [4, 5, 6] {
+            assert!(!guard.returns_one(5, buffer));
+        }
+        assert!(guard.returns_one(5, 3));
+        assert!(guard.returns_one(5, 7));
+        for i in 0..MODE_GUARD_BYTES {
+            let mut changed = *MODE_GUARD;
+            changed[i] ^= 1;
+            assert!(ModeBufferGuard::inspect(&changed).is_none());
+            assert!(ModeBufferGuard::inspect(&MODE_GUARD[..i]).is_none());
+        }
+    }
 
     // Real instruction excerpts, independently disassembled from V1 and INTM.
     fn fixture(base: usize, length: usize, fragments: &[(usize, &str)]) -> std::vec::Vec<u8> {

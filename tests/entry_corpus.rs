@@ -249,3 +249,36 @@ fn application_tables_bind_the_update_flags_instead_of_read_buffer_tables() {
     assert_eq!(indirect, 18);
     eprintln!("136 application bindings, {helpers} compiler helpers, {indirect} indirect mode-1 branches; no write authorization inferred");
 }
+
+#[test]
+#[ignore = "requires MTK_IMAGE_ROOT and MTK_APP_FLAGS_CENSUS"]
+fn complete_application_guard_helpers_match_the_independent_census() {
+    let report: serde_json::Value = serde_json::from_slice(
+        &std::fs::read(std::env::var("MTK_APP_FLAGS_CENSUS").unwrap()).unwrap(),
+    )
+    .unwrap();
+    let rows = report["images"].as_object().unwrap();
+    assert_eq!(rows.len(), 136);
+    let mut files = BTreeMap::new();
+    index(
+        Path::new(&std::env::var("MTK_IMAGE_ROOT").unwrap()),
+        &mut files,
+    );
+    let mut matched = 0;
+    for (hash, row) in rows {
+        let guard = &row["prologue"]["guard"];
+        if guard.is_null() {
+            continue;
+        }
+        let data = std::fs::read(&files[hash]).unwrap();
+        let at = guard["target"].as_u64().unwrap() as usize;
+        let found =
+            application::ModeBufferGuard::inspect(&data[at..at + application::MODE_GUARD_BYTES])
+                .unwrap_or_else(|| panic!("{hash}: guard mismatch"));
+        assert!(found.returns_one(1, 0));
+        assert_eq!(guard["returns_one_for_mode1_buffer0"], true);
+        matched += 1;
+    }
+    assert_eq!(matched, 73);
+    assert_eq!(rows.len() - matched, 63);
+}
