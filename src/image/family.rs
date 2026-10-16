@@ -43,6 +43,8 @@ const RECORD_TAG: usize = 0x10;
 const RECORD_PLATFORM: usize = 0x22;
 /// Length of a platform code.
 const PLATFORM_LEN: usize = 6;
+/// Complete record prefix consumed when deriving immutable hardware identity.
+const RECORD_USED_LEN: usize = MARKER.len() + RECORD_PLATFORM + PLATFORM_LEN;
 /// Offset of the platform code within the identity descriptor.
 const DESCRIPTOR_PLATFORM: usize = 0x46;
 /// Profile List, Core and the feature whose current profile is keyed.
@@ -157,7 +159,8 @@ pub fn hardware(image: &[u8]) -> Option<Hardware> {
     let chip = Chip::from_banner(banner)?;
     let loader = loader(banner)?;
 
-    let mut records = (CODE.start..=CODE.end - RECORD_LEN).filter(|&at| is_record(&image[at..]));
+    let mut records =
+        (CODE.start..=CODE.end - RECORD_USED_LEN).filter(|&at| is_record(&image[at..]));
     let record = records.next()?;
     if records.next().is_some() {
         return None;

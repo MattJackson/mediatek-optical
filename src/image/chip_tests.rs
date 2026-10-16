@@ -141,3 +141,50 @@ fn real_mk_1_03_is_mt1959() {
     assert_eq!(chip.family, Chip::Mt1959);
     assert_eq!(chip.rev, "1.03");
 }
+
+#[test]
+fn tag_scanner_handles_exact_and_truncated_oem_tags() {
+    for tag in [b"MTEKMT1939", b"MTEKMT1959"] {
+        for n in 0..10 {
+            assert_eq!(first_mtek_tag(&tag[..n]), None);
+        }
+        assert_eq!(
+            first_mtek_tag(tag).as_deref(),
+            Some(std::str::from_utf8(tag).unwrap())
+        );
+        let mut prefixed = b"MTEKMT19x9/MTEKMT195x/".to_vec();
+        prefixed.extend_from_slice(tag);
+        assert_eq!(
+            first_mtek_tag(&prefixed).as_deref(),
+            Some(std::str::from_utf8(tag).unwrap())
+        );
+    }
+}
+
+#[test]
+fn banner_and_descriptor_require_complete_records_at_the_boundary() {
+    let image = synthetic("MT1959 Boot BU5", "MTEKMT1959", "BD-RE BU40N", "1.00");
+    assert_eq!(read_banner(&image[..BANNER_OFFSET + BANNER_LEN - 1]), None);
+    assert_eq!(
+        read_banner(&image[..BANNER_OFFSET + BANNER_LEN]).as_deref(),
+        Some("MT1959 Boot BU5")
+    );
+    let short = parse_descriptor(&image[..DESCRIPTOR_OFFSET + DESCRIPTOR_LEN - 1]);
+    assert_eq!(
+        short,
+        (
+            String::new(),
+            String::new(),
+            String::new(),
+            String::new(),
+            None,
+            false
+        )
+    );
+    let exact = parse_descriptor(&image[..DESCRIPTOR_OFFSET + DESCRIPTOR_LEN]);
+    assert_eq!(exact.0, "HL-DT-ST");
+    assert_eq!(exact.1, "BD-RE BU40N");
+    assert_eq!(exact.2, "1.00");
+    assert_eq!(exact.4, None);
+    assert!(exact.5);
+}

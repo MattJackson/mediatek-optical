@@ -473,3 +473,16 @@ fn an_encrypted_transfer_verifies_the_plaintext() {
     let first = drive.borrow().pending[..16].to_vec();
     assert_eq!(first, update.transfer()[..16]);
 }
+
+#[test]
+fn unreadable_chunk_before_protected_ranges_does_not_invalidate_later_reads() {
+    let (drive, update, _) = setup();
+    drive.borrow_mut().short_at = Some(0x4000);
+    let mut clock = Clock::default();
+    let verified = run(&drive, &update, &mut clock).unwrap();
+    assert_eq!(verified.checked, PROTECTED);
+    assert!(!clock
+        .events
+        .iter()
+        .any(|event| event.starts_with("unverified")));
+}

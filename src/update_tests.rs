@@ -229,7 +229,8 @@ fn installed_firmware_must_be_the_live_drive() {
 
 #[test]
 fn steps_are_the_oem_session() {
-    let steps = DriveClass::Mt19.steps();
+    let image = fixtures::image(&JB7, 1);
+    let steps = prepare(&image, &image).unwrap().steps();
     assert_eq!(steps.len(), 3 + 128 + 3);
     let labels: Vec<&str> = steps.iter().map(|s| s.label).collect();
     assert_eq!(&labels[..3], ["PROBE", "READY", "PREPARE"]);

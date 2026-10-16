@@ -270,3 +270,75 @@ fn template_search_stops_at_the_boot_area() {
     image[..layout::BOOT_AREA.len].fill(0);
     assert_eq!(family(&image), None);
 }
+
+#[test]
+fn family_record_must_not_take_platform_bytes_from_drive_written_data() {
+    // The OEM record places its six platform bytes at record+0x24. All
+    // 0x2a bytes used for family identity must remain in immutable code.
+    let original = fixtures::image(&JB7, 0x17);
+    let expected = hardware(&original).unwrap();
+    let features = fixtures::template(&JB7);
+    let record = fixtures::record(&JB7);
+    for (remaining, accepted) in [(0x2a, true), (0x29, false), (0x1c, false), (0, false)] {
+        let mut image = original.clone();
+        image[TEMPLATE_AT..TEMPLATE_AT + features.len() + record.len()].fill(0);
+        let at = 0x1d8000 - remaining;
+        image[at - features.len()..at].copy_from_slice(&features);
+        image[at..at + record.len()].copy_from_slice(&record);
+        if accepted {
+            assert_eq!(hardware(&image), Some(expected.clone()));
+        } else {
+            assert_eq!(
+                hardware(&image),
+                None,
+                "record at {at:#x} crosses immutable code boundary"
+            );
+        }
+    }
+}
+
+#[test]
+fn hardware_record_prefix_and_boot_loader_tokens_are_bounded() {
+    let record = b"\x55\xaaUNIQUE1210311917MTEKMT1939";
+    for n in 0..record.len() {
+        assert!(!is_record(&record[..n]));
+    }
+    assert!(is_record(record));
+    for bad in [
+        b"MT19".as_slice(),
+        b"MT193",
+        b"MT19x9 Boot Code",
+        b"MT193x Boot Code",
+        b"MT1939 Boot ",
+    ] {
+        assert_eq!(loader(bad), None);
+    }
+    assert_eq!(loader(b"MT1939 Boot Code").as_deref(), Some("Code"));
+    assert_eq!(loader(b"MT1959 Boot BUP3 ").as_deref(), Some("BUP3"));
+}
+
+#[test]
+fn feature_template_requires_aligned_nonempty_profiles_and_core() {
+    // MMC descriptors: code BE, version, payload length, then payload. This
+    // minimal table has one BD-ROM profile followed by the Core interface.
+    let good = [0, 0, 3, 4, 0, 0x40, 0, 0, 0, 1, 11, 4, 0, 0, 0, 7];
+    for start in [0x1000, 0x1001, 0x1800] {
+        let mut image = vec![0xff; start + good.len()];
+        image[start..].copy_from_slice(&good);
+        let parsed = template(&image, image.len()).unwrap();
+        assert_eq!(parsed, vec![(0, &good[4..8]), (1, &good[12..16])]);
+        // Zero, misaligned, and overrun profile lengths are not a valid table.
+        for length in [0, 1, 3, 5, 252] {
+            let mut bad = image.clone();
+            bad[start + 3] = length;
+            assert!(template(&bad, bad.len()).is_none());
+        }
+        for first_code in [1, 2, 0xff] {
+            let mut bad = image.clone();
+            bad[start + 1] = first_code;
+            assert!(template(&bad, bad.len()).is_none());
+        }
+        let only_profile = &image[..start + 8];
+        assert!(template(only_profile, only_profile.len()).is_none());
+    }
+}
