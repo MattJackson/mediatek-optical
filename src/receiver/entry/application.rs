@@ -10,6 +10,8 @@ mod prologue;
 pub use prologue::{inspect_prologue, Prologue};
 mod flags;
 pub use flags::{inspect_flags, FlagCopy};
+mod mode_six;
+pub use mode_six::{inspect_mode_six, ModeSix};
 
 /// A command table bound to an update-flag clearing block.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

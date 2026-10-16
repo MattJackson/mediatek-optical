@@ -233,6 +233,13 @@ published images match both grammars; 3,280 instruction mutations are rejected.
 These remain entry-body evidence: command dispatcher ownership, completion,
 mode-6 alternatives and acceptance/programming rules need their own proofs.
 
+`application::inspect_mode_six` binds the CDB buffer guard through up to three
+compiler trampolines. In 38 images, buffer 0x67 reaches the same complete flag
+writer as mode one; 98 images have a positively matched zero-buffer stream
+guard. All 136 cases and 408 guard mutations are checked against the independent
+census. This establishes the alternate entry body, not stream acceptance or
+command completion.
+
 The private website corpus test replays both receiver modes for every package:
 
 ```sh

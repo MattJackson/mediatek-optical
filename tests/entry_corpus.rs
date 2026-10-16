@@ -266,6 +266,7 @@ fn application_preludes_and_flag_stores_match_the_independent_census() {
     );
     let mut matched = 0;
     let mut mutations = 0;
+    let mut alternate_entries = 0;
     for (hash, row) in rows {
         let data = std::fs::read(&files[hash]).unwrap();
         let window = &data[0x98000..0xb4000];
@@ -285,6 +286,40 @@ fn application_preludes_and_flag_stores_match_the_independent_census() {
             u64::from(flags.end),
             returns[0]["address"].as_u64().unwrap() + 2
         );
+        let mode_six = application::inspect_mode_six(window, 0x98000, &candidate, &prelude)
+            .unwrap_or_else(|| panic!("{hash}: unbound mode-six guard"));
+        let expected_guard = row["mode_six"]["guard"].as_u64().unwrap() as u32;
+        for (at, mask) in [
+            (expected_guard, 1),
+            (expected_guard + 2, 1),
+            (expected_guard + 5, 1),
+        ] {
+            let mut changed = window.to_vec();
+            changed[(at - 0x98000) as usize] ^= mask;
+            assert!(
+                application::inspect_mode_six(&changed, 0x98000, &candidate, &prelude).is_none(),
+                "{hash}: altered mode-six guard at {at:x}"
+            );
+        }
+        match mode_six {
+            application::ModeSix::Entry67 { guard, stream } => {
+                assert_eq!(guard, expected_guard);
+                assert_eq!(
+                    u64::from(stream),
+                    row["mode_six"]["not_equal_target"].as_u64().unwrap()
+                );
+                assert_eq!(row["mode_six"]["equal_reaches_mode1_flag_body"], true);
+                alternate_entries += 1;
+            }
+            application::ModeSix::StreamZero { guard, nonzero, .. } => {
+                assert_eq!(guard, expected_guard);
+                assert_eq!(
+                    u64::from(nonzero),
+                    row["mode_six"]["not_equal_target"].as_u64().unwrap()
+                );
+                assert_eq!(row["mode_six"]["buffer_id"], 0);
+            }
+        }
         for instruction in row["instructions"].as_array().unwrap() {
             let mnemonic = instruction["mnemonic"].as_str().unwrap();
             if ![
@@ -319,5 +354,7 @@ fn application_preludes_and_flag_stores_match_the_independent_census() {
     }
     assert_eq!(matched, 73);
     assert_eq!(rows.len() - matched, 63);
+    assert_eq!(alternate_entries, 38);
+    eprintln!("38 mode-six/0x67 shared entries; 98 zero-buffer stream guards; 408 guard mutations rejected");
     eprintln!("136 bound preludes and four-bit flag stores; 73 guard helpers; {mutations} instruction mutations rejected");
 }
