@@ -25,6 +25,7 @@ mediatek-optical = { version = "0.6", features = ["drive", "image"] }
 | `layout` | — | 2 MiB image geometry; boot page, boot mirror, drive-written regions |
 | `sense` | — | Sense parsing; flash-fault and no-medium classification |
 | `drive` | `drive` | `Transport` trait; `identify`, `read_memory`, `feature`, `enter_update` → `Session` |
+| `receiver` | `drive` | Read-only `detect_mode`, `detect_encoding`, and pre-write `Receiver::revalidate` |
 | `image` | `image` | `detect_chip`, `family` / `hardware`, `is_uhd`, `is_drive_read`; `cmac` verify / resign |
 | `update` | `image` (+ `drive` to flash) | `PreparedUpdate::prepare` against `InstalledFirmware`; `flash` with a `FlashRuntime` |
 | `enc` | `enc` | AES-128-ECB transport envelope |
@@ -166,3 +167,27 @@ are read-only.
 ## License
 
 MIT. See [LICENSE-MIT](LICENSE-MIT).
+
+## Receiver encoding detection
+
+With `drive`, `receiver::detect_mode(&mut transport)` identifies BOOT versus
+running firmware from INQUIRY. Pass that result to
+`receiver::detect_encoding(&mut transport, &mode)` to inspect the active
+receiver's code and obtain `Encoding::Plaintext` or `Encoding::Encrypted`.
+Call `Receiver::revalidate` immediately before writing. The caller owns flash
+policy and applies `PreparedUpdate::encrypted()` when required.
+
+Detection sends only INQUIRY and READ BUFFER mode 6. It recognizes positive
+Thumb instruction sequences in the audited MT1939/MT1959 receiver ranges;
+unknown or conflicting signatures never default to plaintext. BOOT and
+application are evaluated independently, including images whose two receivers
+expect different formats. Read failures can prevent detection on a live drive;
+static corpus coverage does not establish physical-device read accessibility.
+
+The private website corpus test replays both receiver modes for every package:
+
+```sh
+MTK_RECEIVER_AUDIT=/path/to/website-transfer-audit.json \
+MTK_HOARD_ROOT=/path/to/firmware-extractor \
+cargo test --all-features --test receiver_corpus -- --ignored --nocapture
+```

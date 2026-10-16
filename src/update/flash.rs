@@ -219,9 +219,41 @@ impl PreparedUpdate {
         R: Transport<Error = W::Error>,
         H: FlashRuntime<W::Error>,
     {
-        let transfer = self.transfer();
+        Payload {
+            class: self.class,
+            image: &self.image,
+            transfer: self.transfer(),
+        }
+        .flash(io, runtime, false)
+    }
+}
+
+/// Shared transfer and verification implementation; recovery supplies no family policy.
+pub(crate) struct Payload<'a> {
+    pub(crate) class: crate::DriveClass,
+    pub(crate) image: &'a [u8],
+    pub(crate) transfer: &'a [u8],
+}
+impl Payload<'_> {
+    pub(crate) fn flash<R, W, H>(
+        &self,
+        io: FlashTransport<'_, R, W>,
+        runtime: &mut H,
+        recovery: bool,
+    ) -> Result<Verified, FlashError<W::Error>>
+    where
+        W: Transport,
+        R: Transport<Error = W::Error>,
+        H: FlashRuntime<W::Error>,
+    {
+        let transfer = self.transfer;
         runtime.starting(transfer.len());
-        let mut session = drive::enter_update(io.writes).map_err(FlashError::Entry)?;
+        let mut session = if recovery {
+            drive::enter_recovery(io.writes)
+        } else {
+            drive::enter_update(io.writes)
+        }
+        .map_err(FlashError::Entry)?;
         let chunk = self.class.chunk();
         for (index, piece) in transfer.chunks(chunk).enumerate() {
             let offset = index * chunk;
@@ -264,7 +296,7 @@ impl PreparedUpdate {
         reads: &mut R,
         runtime: &mut H,
     ) -> Result<Verified, FlashError<R::Error>> {
-        let ranges = self.verification_ranges();
+        let ranges = self.class.verification_ranges(self.image);
         let protected = |at: usize| ranges.iter().any(|r| r.contains(&at));
         let (mut checked, mut differing, mut unverified) = (0, 0, 0);
         let mut first: Option<(usize, u8, u8)> = None;

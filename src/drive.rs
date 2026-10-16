@@ -232,6 +232,14 @@ pub fn enter_update<T: Transport>(t: &mut T) -> Result<Session<'_, T>, Error<T::
     let mut probe = [0; cdb::PROBE_LEN];
     read(t, &cdb::probe(), &mut probe, cdb::PROBE_LEN)?;
     test_unit_ready(t)?;
+    enter_recovery(t)
+}
+
+/// Enter an explicitly selected recovery receiver: PREPARE only.
+/// Unlike normal update entry, this requires no application descriptor or
+/// pre-write TEST UNIT READY. The caller must identify and validate the live
+/// receiver first. No write is retried.
+pub fn enter_recovery<T: Transport>(t: &mut T) -> Result<Session<'_, T>, Error<T::Error>> {
     write(t, &cdb::enter_update(), &[])?;
     Ok(Session { t })
 }

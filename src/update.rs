@@ -27,7 +27,7 @@ use crate::image::{cmac, detect_chip, family, is_drive_read, Family};
 use crate::{cdb, layout, Chip, DriveClass, Identity};
 
 #[cfg(feature = "drive")]
-mod flash;
+pub(crate) mod flash;
 #[cfg(feature = "drive")]
 pub use flash::{FlashError, FlashRuntime, FlashTransport, Stage, Status, Verified};
 

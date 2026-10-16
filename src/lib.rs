@@ -46,6 +46,10 @@ pub mod image;
 pub mod layout;
 #[cfg(feature = "oem")]
 pub mod oem;
+#[cfg(feature = "drive")]
+pub mod receiver;
+#[cfg(all(feature = "drive", feature = "image", feature = "enc"))]
+pub mod recovery;
 #[cfg(feature = "image")]
 pub mod update;
 
