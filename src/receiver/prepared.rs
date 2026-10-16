@@ -10,7 +10,8 @@ pub struct PreparedUpdate {
     plan: TransferPlan,
 }
 
-/// Immutable encoding and receiver binding for one normal Flash operation.
+/// Immutable encoding, entry sequence, host policy and receiver binding for
+/// one Flash or Recovery operation.
 #[derive(Debug, Clone)]
 pub struct TransferPlan {
     receiver: Receiver,
@@ -18,6 +19,7 @@ pub struct TransferPlan {
     image: Vec<u8>,
     transfer: Option<Vec<u8>>,
     prepare: crate::cdb::Prepare,
+    mode: update::flash::ExecutionMode,
 }
 
 /// Receiver revalidation or execution failed.
@@ -55,7 +57,12 @@ impl Receiver {
         }
         let update = update::PreparedUpdate::prepare(envelope.image(), installed)?;
         Ok(PreparedUpdate {
-            plan: TransferPlan::new(self, envelope.image(), update.class())?,
+            plan: TransferPlan::new(
+                self,
+                envelope.image(),
+                update.class(),
+                update::flash::ExecutionMode::Flash,
+            )?,
         })
     }
 }
@@ -76,8 +83,7 @@ impl PreparedUpdate {
         R: crate::drive::Transport<Error = W::Error>,
         H: update::FlashRuntime<W::Error>,
     {
-        self.plan
-            .execute(io, runtime, update::flash::ExecutionMode::Flash)
+        self.plan.execute(io, runtime)
     }
 }
 
@@ -86,6 +92,7 @@ impl TransferPlan {
         receiver: &Receiver,
         image: &[u8],
         class: crate::DriveClass,
+        mode: update::flash::ExecutionMode,
     ) -> Result<Self, update::PrepareError> {
         let prepare = receiver
             .profile
@@ -105,6 +112,7 @@ impl TransferPlan {
             image: image.to_vec(),
             transfer,
             prepare,
+            mode,
         })
     }
 
@@ -112,7 +120,6 @@ impl TransferPlan {
         &self,
         io: update::FlashTransport<'_, R, W>,
         runtime: &mut H,
-        mode: update::flash::ExecutionMode,
     ) -> Result<update::Verified, ExecuteError<W::Error>>
     where
         W: crate::drive::Transport,
@@ -127,7 +134,7 @@ impl TransferPlan {
             image: self.image(),
             transfer: self.transfer(),
         }
-        .flash(io, runtime, mode, self.prepare)
+        .flash(io, runtime, self.mode, self.prepare)
         .map_err(ExecuteError::Flash)
     }
 
@@ -154,6 +161,11 @@ impl TransferPlan {
     /// Ordered session commands from the current shared executor.
     pub fn steps(&self) -> std::vec::Vec<update::Step> {
         let mut steps = self.class.steps();
+        if self.mode == update::flash::ExecutionMode::Recovery {
+            // Recovery enters directly: the application-only PROBE and
+            // readiness preconditions must not block a BOOT receiver.
+            steps.drain(..2);
+        }
         for step in &mut steps {
             if step.label == "PREPARE" {
                 step.cdb = self.prepare.command();
@@ -209,6 +221,26 @@ mod tests {
                     }
                 );
                 assert_eq!(prepared.plan().receiver(), &receiver);
+                let steps = prepared.plan().steps();
+                assert_eq!(
+                    steps[..3].iter().map(|s| s.label).collect::<Vec<_>>(),
+                    ["PROBE", "READY", "PREPARE"]
+                );
+                let recovery = TransferPlan::new(
+                    &receiver,
+                    &image,
+                    prepared.plan().class(),
+                    update::flash::ExecutionMode::Recovery,
+                )
+                .unwrap();
+                let recovery_steps = recovery.steps();
+                assert_eq!(recovery_steps[0].label, "PREPARE");
+                assert_eq!(recovery_steps.len() + 2, steps.len());
+                for (recovery, flash) in recovery_steps.iter().zip(&steps[2..]) {
+                    assert_eq!(recovery.cdb, flash.cdb);
+                    assert_eq!(recovery.direction, flash.direction);
+                    assert_eq!(recovery.length, flash.length);
+                }
             }
             let mut changed = receiver.clone();
             changed.identity.inquiry[32] = b'2';

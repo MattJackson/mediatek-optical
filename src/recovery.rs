@@ -113,7 +113,12 @@ impl Receiver {
         }
         Ok(PreparedRecovery {
             receiver: self.clone(),
-            plan: receiver::TransferPlan::new(&self.receiver, image, DriveClass::of(self.chip))?,
+            plan: receiver::TransferPlan::new(
+                &self.receiver,
+                image,
+                DriveClass::of(self.chip),
+                crate::update::flash::ExecutionMode::Recovery,
+            )?,
         })
     }
 }
@@ -169,7 +174,6 @@ impl PreparedRecovery {
                     writes: io.writes,
                 },
                 runtime,
-                crate::update::flash::ExecutionMode::Recovery,
             )
             .map_err(|e| match e {
                 receiver::ExecuteError::Receiver(e) => Error::Receiver(e),

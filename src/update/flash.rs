@@ -243,7 +243,7 @@ pub(crate) struct Payload<'a> {
 
 /// Host policy is separate from receiver encoding and entry-command evidence.
 /// Only the corresponding public prepared operation selects this mode.
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum ExecutionMode {
     Flash,
     Recovery,
