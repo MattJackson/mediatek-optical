@@ -147,6 +147,8 @@ impl PreparedRecovery {
         self.transfer.as_deref().unwrap_or(&self.image)
     }
     /// Revalidate, PREPARE, stream and verify, then confirm the target started.
+    /// A PREPARE error is reported through `FlashRuntime::recovery_entry_failed`
+    /// and recovery continues once. STREAM errors remain fatal; no writes retry.
     /// No backup, full pre-read, model or family gate is performed.
     pub fn flash<R, W, H>(
         &self,

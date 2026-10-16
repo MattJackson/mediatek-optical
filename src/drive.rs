@@ -244,6 +244,20 @@ pub fn enter_recovery<T: Transport>(t: &mut T) -> Result<Session<'_, T>, Error<T
     Ok(Session { t })
 }
 
+/// Explicit recovery host policy: report one failed PREPARE and proceed to the
+/// stream. No retry, alternate entry command, status probe or reset is sent.
+/// Kept private so ordinary update entry cannot accidentally select this policy.
+#[cfg(feature = "image")]
+pub(crate) fn enter_recovery_reporting<T: Transport>(
+    t: &mut T,
+    mut failed: impl FnMut(&Error<T::Error>),
+) -> Session<'_, T> {
+    if let Err(error) = write(t, &cdb::enter_update(), &[]) {
+        failed(&error);
+    }
+    Session { t }
+}
+
 #[cfg(test)]
 #[path = "drive_tests.rs"]
 mod tests;

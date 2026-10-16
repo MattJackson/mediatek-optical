@@ -193,6 +193,14 @@ application are evaluated independently, including images whose two receivers
 expect different formats. Read failures can prevent detection on a live drive;
 static corpus coverage does not establish physical-device read accessibility.
 
+Explicit `recovery::PreparedRecovery::flash` reports a failed PREPARE through
+`FlashRuntime::recovery_entry_failed` and proceeds once to the selected image.
+This is recovery host policy, not a claim that the receiver always rejects
+PREPARE. Normal `PreparedUpdate::flash` remains strict. STREAM failures stop
+both paths, no firmware writes retry, and recovery still requires readback
+verification and confirmed application startup. Physical recovery remains
+unvalidated.
+
 `receiver::entry::inspect_boot_legacy(window, flash_address)` and
 `inspect_boot_dual(window, flash_address)` inspect PREPARE flag-copy grammars
 with checked operands, literals and branch targets. The latter binds mode 1

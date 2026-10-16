@@ -48,6 +48,10 @@ pub trait FlashRuntime<E> {
     fn starting(&mut self, _bytes: usize) {}
     /// A STREAM write completed.
     fn progress(&mut self, _written: usize, _total: usize) {}
+    /// Explicit Recovery only: PREPARE failed, was not retried, and recovery
+    /// proceeds to the selected image. Hosts should persist the full error.
+    /// Normal Flash never invokes this callback and aborts on entry failure.
+    fn recovery_entry_failed(&mut self, _error: &Error<E>) {}
     /// COMMIT failed. The drive programmed when the last chunk landed and may
     /// answer COMMIT while it reinitializes, so the flash goes on to its
     /// checks.
@@ -249,11 +253,10 @@ impl Payload<'_> {
         let transfer = self.transfer;
         runtime.starting(transfer.len());
         let mut session = if recovery {
-            drive::enter_recovery(io.writes)
+            drive::enter_recovery_reporting(io.writes, |error| runtime.recovery_entry_failed(error))
         } else {
-            drive::enter_update(io.writes)
-        }
-        .map_err(FlashError::Entry)?;
+            drive::enter_update(io.writes).map_err(FlashError::Entry)?
+        };
         let chunk = self.class.chunk();
         for (index, piece) in transfer.chunks(chunk).enumerate() {
             let offset = index * chunk;

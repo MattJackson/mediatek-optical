@@ -29,6 +29,8 @@ struct Drive {
     log: Vec<(Via, Vec<u8>, usize)>,
     /// Refuse this exact CDB.
     refuse: Option<Vec<u8>>,
+    /// Multiple independent command failures for recovery boundary tests.
+    refuse_commands: Vec<Vec<u8>>,
     /// TEST UNIT READY failures left once COMMIT was sent.
     busy: usize,
     /// Sense replies, in order; afterwards a clean `70 .. 00`.
@@ -70,7 +72,7 @@ impl Drive {
             Data::Out(bytes) => bytes.len(),
         };
         self.log.push((via, cdb.to_vec(), len));
-        if self.refuse.as_deref() == Some(cdb) {
+        if self.refuse.as_deref() == Some(cdb) || self.refuse_commands.iter().any(|c| c == cdb) {
             return Err("refused");
         }
         match (cdb[0], data) {
@@ -161,6 +163,9 @@ impl FlashRuntime<&'static str> for Clock {
     }
     fn commit_failed(&mut self, error: &Error<&'static str>) {
         self.events.push(format!("commit failed {error}"));
+    }
+    fn recovery_entry_failed(&mut self, error: &Error<&'static str>) {
+        self.events.push(format!("recovery PREPARE failed {error}"));
     }
     fn commit_not_ready(&mut self, error: &Error<&'static str>) {
         self.events.push(format!("commit not ready {error}"));
@@ -297,6 +302,74 @@ fn a_failed_entry_sends_no_firmware() {
         .log
         .iter()
         .any(|(_, c, _)| c[0] == 0x3B && c[1] == 0x06));
+}
+
+fn run_recovery_payload(
+    drive: &Rc<RefCell<Drive>>,
+    update: &PreparedUpdate,
+    clock: &mut Clock,
+) -> Result<Verified, FlashError<&'static str>> {
+    let (mut reads, mut writes) = (
+        Handle(drive.clone(), Via::Reads),
+        Handle(drive.clone(), Via::Writes),
+    );
+    crate::update::flash::Payload {
+        class: update.class(),
+        image: &update.image,
+        transfer: update.transfer(),
+    }
+    .flash(
+        FlashTransport {
+            reads: &mut reads,
+            writes: &mut writes,
+        },
+        clock,
+        true,
+    )
+}
+
+#[test]
+fn recovery_reports_failed_prepare_once_then_streams_and_verifies() {
+    let (drive, update, _) = setup();
+    drive.borrow_mut().refuse = Some(cdb::enter_update().to_vec());
+    let mut clock = Clock::default();
+    let verified = run_recovery_payload(&drive, &update, &mut clock).unwrap();
+    assert!(verified.checked > 0);
+    assert_eq!(
+        clock
+            .events
+            .iter()
+            .filter(|e| e.starts_with("recovery PREPARE failed"))
+            .count(),
+        1
+    );
+    let d = drive.borrow();
+    assert_eq!(d.log[0].1, cdb::enter_update());
+    assert_eq!(d.log[1].1, cdb::transfer(0, cdb::CHUNK as u16));
+    assert_eq!(
+        d.log
+            .iter()
+            .filter(|(_, c, _)| c == &cdb::enter_update())
+            .count(),
+        1
+    );
+    assert!(!d.log.iter().any(|(_, c, _)| c == &cdb::probe()));
+}
+
+#[test]
+fn recovery_prepare_exception_never_ignores_or_retries_a_failed_chunk() {
+    let (drive, update, _) = setup();
+    let failed_chunk = cdb::transfer(0x4000, 0x4000).to_vec();
+    drive.borrow_mut().refuse_commands = vec![cdb::enter_update().to_vec(), failed_chunk.clone()];
+    let error = run_recovery_payload(&drive, &update, &mut Clock::default()).unwrap_err();
+    assert!(matches!(error, FlashError::Transfer { offset: 0x4000, .. }));
+    let d = drive.borrow();
+    assert_eq!(
+        d.log.iter().filter(|(_, c, _)| c == &failed_chunk).count(),
+        1
+    );
+    assert!(!d.log.iter().any(|(_, c, _)| c == &cdb::finish()));
+    assert_eq!(d.log.last().unwrap().1, failed_chunk);
 }
 
 #[test]
