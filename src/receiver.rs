@@ -203,6 +203,17 @@ impl Receiver {
         if let Some(reference) = &self.reference {
             return reference.revalidate(t);
         }
+        self.revalidate_signature(t)?;
+        #[cfg(all(feature = "image", feature = "enc"))]
+        if let Some(profile) = &self.profile {
+            profile.revalidate(t)?;
+        }
+        Ok(())
+    }
+
+    // Detection finishes with a small coherence check. The complete snapshot
+    // is checked separately, immediately before any mutating execution.
+    fn revalidate_signature<T: Transport>(&self, t: &mut T) -> Result<(), Error<T::Error>> {
         if detect_mode(t)? != self.identity {
             return Err(Error::Changed);
         }
@@ -212,10 +223,6 @@ impl Receiver {
             if bytes[..e.len] != e.bytes[..e.len] {
                 return Err(Error::Changed);
             }
-        }
-        #[cfg(all(feature = "image", feature = "enc"))]
-        if let Some(profile) = &self.profile {
-            profile.revalidate(t)?;
         }
         Ok(())
     }

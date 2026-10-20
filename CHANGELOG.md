@@ -10,6 +10,10 @@ All notable changes to `mediatek-optical` are documented here. The format follow
   INTM scratch-header receiver forms, encrypt only their header block and use
   their boot-preserving command policy. Unknown or conflicting contracts refuse.
 - Reuse cached receiver analysis and expose known programmed/preserved ranges.
+- Capture each receiver code window once for encoding and entry analysis;
+  preserve physical signature checks and complete pre-write revalidation.
+- Bind validated targets to the receiver's captured controller generation,
+  refusing a target validated for another chip before issuing commands.
 - Add explicit Current-reference provenance and physical metadata revalidation;
   execution and verification always read the physical transport.
 - Confirm the selected target identity and build after programming, retaining

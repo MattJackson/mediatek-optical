@@ -258,11 +258,23 @@ impl TransferPlan {
         class: crate::DriveClass,
         mode: update::flash::ExecutionMode,
     ) -> Result<Self, update::PrepareError> {
-        let mut prepare = receiver
+        let profile = receiver
             .profile
             .as_ref()
-            .ok_or(update::PrepareError::ReceiverEntry)?
-            .prepare;
+            .ok_or(update::PrepareError::ReceiverEntry)?;
+        let image_chip = crate::Chip::from_banner(
+            crate::layout::BANNER
+                .of(image)
+                .ok_or(update::PrepareError::UnknownChip)?,
+        )
+        .ok_or(update::PrepareError::UnknownChip)?;
+        if image_chip != profile.chip {
+            return Err(update::PrepareError::ChipMismatch {
+                image: image_chip,
+                drive: profile.chip,
+            });
+        }
+        let mut prepare = profile.prepare;
         let (transfer, encoding, preserve_boot) = encode_transfer(receiver, image)?;
         if preserve_boot {
             use crate::cdb::Prepare;

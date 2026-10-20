@@ -328,3 +328,19 @@ been demonstrated for this residual general-acceptance question.
   its `MTK_HOARD_ROOT` must name the firmware-extractor repository. The newer
   decoding corpus uses the hoard directory itself. An initial combined run hit
   this fixture-root difference; the legacy suite passed with its correct root.
+
+### Capture reuse and receiver chip binding
+
+The encoding detector and entry analyzer now consume the same immutable code
+window captured once. Finishing detection checks physical INQUIRY and the small
+matched signature; it does not immediately repeat the full snapshot capture.
+Execution still re-reads every snapshot from the physical transport before any
+update-session command. The temporary analysis source cannot escape into the
+stored Receiver or execution. The application test fixture now performs 560
+one-KiB code/table reads during detection, with no extra 1088-byte scan; the
+mandatory execution check performs those 560 reads again.
+
+The captured boot banner supplies the receiver chip as well. Even an update
+already validated against another drive cannot bind across MT1939/MT1959.
+Regressions cover read counts, a changed signature during capture, a changed
+byte at the end of the registration snapshot, and cross-chip prepared binding.
