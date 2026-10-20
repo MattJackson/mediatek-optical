@@ -39,7 +39,9 @@ struct Drive {
     corrupt: Option<usize>,
     /// Answer the read of the chunk at this offset short.
     short_at: Option<usize>,
+    short_after_commit: bool,
     committed: bool,
+    inquiry_revision: Option<[u8; 4]>,
 }
 
 impl Drive {
@@ -66,8 +68,14 @@ impl Drive {
     }
 
     fn exec(&mut self, via: Via, cdb: &[u8], data: Data<'_>) -> Result<usize, &'static str> {
-        if cdb == crate::cdb::Prepare::ModeOne.command()
-            || cdb == crate::cdb::Prepare::ModeSix67.command()
+        if [
+            crate::cdb::Prepare::ModeOne,
+            crate::cdb::Prepare::ModeSix67,
+            crate::cdb::Prepare::ModeOnePreserveBoot,
+            crate::cdb::Prepare::ModeSix67PreserveBoot,
+        ]
+        .iter()
+        .any(|prepare| cdb == prepare.command())
         {
             assert!(
                 matches!(&data, Data::Out(bytes) if bytes.is_empty()),
@@ -84,6 +92,19 @@ impl Drive {
             return Err("refused");
         }
         match (cdb[0], data) {
+            (0x12, Data::In(buf)) => {
+                let mut inquiry = [0; crate::INQUIRY_LEN];
+                inquiry[0] = 5;
+                inquiry[4] = (crate::INQUIRY_LEN - 5) as u8;
+                inquiry[8..36].copy_from_slice(
+                    &self.flash[layout::DESCRIPTOR.start..layout::DESCRIPTOR.start + 28],
+                );
+                if let Some(revision) = self.inquiry_revision {
+                    inquiry[32..36].copy_from_slice(&revision);
+                }
+                buf.copy_from_slice(&inquiry[..buf.len()]);
+                Ok(buf.len())
+            }
             (0x00, _) if self.committed && self.busy > 0 => {
                 self.busy -= 1;
                 Err("not ready")
@@ -102,11 +123,12 @@ impl Drive {
             }
             (0x3C, Data::In(buf)) => {
                 let off = u32::from_be_bytes([0, cdb[3], cdb[4], cdb[5]]) as usize;
-                let n = if self.short_at == Some(off) {
-                    buf.len() - 1
-                } else {
-                    buf.len()
-                };
+                let n =
+                    if self.short_at == Some(off) && (self.committed || !self.short_after_commit) {
+                        buf.len() - 1
+                    } else {
+                        buf.len()
+                    };
                 buf[..n].copy_from_slice(&self.flash[off..off + n]);
                 if let Some(at) = self.corrupt {
                     if (off..off + n).contains(&at) {
@@ -366,9 +388,14 @@ fn recovery_reports_failed_prepare_once_then_streams_and_verifies() {
 }
 
 #[test]
-fn both_prepare_dialects_keep_flash_strict_and_recovery_single_attempt() {
+fn prepare_dialects_and_boot_policies_keep_flash_strict_and_recovery_single_attempt() {
     use crate::update::flash::{ExecutionMode, Payload};
-    for prepare in [cdb::Prepare::ModeOne, cdb::Prepare::ModeSix67] {
+    for prepare in [
+        cdb::Prepare::ModeOne,
+        cdb::Prepare::ModeSix67,
+        cdb::Prepare::ModeOnePreserveBoot,
+        cdb::Prepare::ModeSix67PreserveBoot,
+    ] {
         for recovery in [false, true] {
             for refused in [false, true] {
                 let (drive, update, _) = setup();
@@ -628,4 +655,127 @@ fn unreadable_chunk_before_protected_ranges_does_not_invalidate_later_reads() {
         .events
         .iter()
         .any(|event| event.starts_with("unverified")));
+}
+
+fn run_completed(
+    drive: &Rc<RefCell<Drive>>,
+    update: &PreparedUpdate,
+    mode: crate::update::flash::ExecutionMode,
+) -> Result<crate::update::Completion, FlashError<&'static str>> {
+    let mut reads = Handle(drive.clone(), Via::Reads);
+    let mut writes = Handle(drive.clone(), Via::Writes);
+    crate::update::flash::Payload {
+        class: update.class(),
+        image: update.image(),
+        transfer: update.transfer(),
+    }
+    .flash_completed(
+        FlashTransport {
+            reads: &mut reads,
+            writes: &mut writes,
+        },
+        &mut Clock::default(),
+        mode,
+        cdb::Prepare::ModeOne,
+    )
+}
+
+#[test]
+fn completion_requires_the_target_running_for_flash_and_recovery() {
+    use crate::update::{flash::ExecutionMode, ReadbackQuality, StartupError};
+    for mode in [ExecutionMode::Flash, ExecutionMode::Recovery] {
+        let (drive, update, target) = setup();
+        let completed = run_completed(&drive, &update, mode).unwrap();
+        assert!(matches!(
+            completed.readback,
+            ReadbackQuality::Complete(Verified {
+                checked: PROTECTED,
+                ..
+            })
+        ));
+        assert_eq!(
+            completed.startup.descriptor(),
+            &target[layout::DESCRIPTOR.start..layout::DESCRIPTOR.start + 0x58]
+        );
+        for revision in [*b"INTM", *b"BOOT"] {
+            let (drive, update, _) = setup();
+            drive.borrow_mut().inquiry_revision = Some(revision);
+            assert!(matches!(
+                run_completed(&drive, &update, mode),
+                Err(FlashError::Startup(StartupError::TargetMismatch))
+            ));
+            assert!(
+                drive.borrow().committed,
+                "the bytes were transferred; readiness alone cannot prove startup"
+            );
+        }
+    }
+}
+
+#[test]
+fn limited_readback_requires_target_startup_and_remains_qualified() {
+    use crate::update::{flash::ExecutionMode, ReadbackQuality, StartupError};
+    for mode in [ExecutionMode::Flash, ExecutionMode::Recovery] {
+        let (drive, update, _) = setup();
+        drive.borrow_mut().short_at = Some(0x14000);
+        let completed = run_completed(&drive, &update, mode).unwrap();
+        assert!(
+            matches!(completed.readback, ReadbackQuality::Limited { checked, unverified: 1 } if checked < PROTECTED)
+        );
+        assert!(matches!(
+            completed.into_verified::<&str>(),
+            Err(FlashError::Incomplete { unverified: 1, .. })
+        ));
+        let (drive, update, _) = setup();
+        drive.borrow_mut().short_at = Some(0x14000);
+        drive.borrow_mut().inquiry_revision = Some(*b"INTM");
+        assert!(matches!(
+            run_completed(&drive, &update, mode),
+            Err(FlashError::Startup(StartupError::TargetMismatch))
+        ));
+    }
+}
+
+#[test]
+fn completion_rejects_same_revision_with_wrong_build_and_unreadable_descriptor() {
+    use crate::update::{flash::ExecutionMode, StartupError};
+    for mode in [ExecutionMode::Flash, ExecutionMode::Recovery] {
+        let (drive, update, _) = setup();
+        // Outside the fixture's CMAC range: startup must independently compare build metadata.
+        drive.borrow_mut().corrupt = Some(layout::DESCRIPTOR.start + 0x30);
+        assert!(matches!(
+            run_completed(&drive, &update, mode),
+            Err(FlashError::Startup(StartupError::TargetMismatch))
+        ));
+        let (drive, update, _) = setup();
+        drive.borrow_mut().short_at = Some(layout::DESCRIPTOR.start);
+        drive.borrow_mut().short_after_commit = true;
+        let result = run_completed(&drive, &update, mode);
+        assert!(
+            matches!(result, Err(FlashError::Startup(StartupError::Read(_)))),
+            "{result:?}"
+        );
+    }
+}
+
+#[test]
+fn completion_never_probes_startup_after_partial_write_or_corrupt_readback() {
+    use crate::update::flash::ExecutionMode;
+    for mode in [ExecutionMode::Flash, ExecutionMode::Recovery] {
+        let (drive, update, _) = setup();
+        drive.borrow_mut().refuse =
+            Some(cdb::transfer(0x4000, update.class().chunk() as u16).to_vec());
+        assert!(matches!(
+            run_completed(&drive, &update, mode),
+            Err(FlashError::Transfer { .. })
+        ));
+        assert!(!drive.borrow().log.iter().any(|(_, cdb, _)| cdb[0] == 0x12));
+        let (drive, update, _) = setup();
+        drive.borrow_mut().corrupt = Some(fixtures::SIGNED.0 as usize);
+        assert!(matches!(
+            run_completed(&drive, &update, mode),
+            Err(FlashError::Mismatch { .. })
+        ));
+        assert!(!drive.borrow().log.iter().any(|(_, cdb, _)| cdb[0] == 0x12));
+    }
 }

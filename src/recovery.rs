@@ -19,6 +19,8 @@ pub struct Receiver {
 pub enum Error<E> {
     /// Receiver identification or revalidation failed.
     Receiver(receiver::Error<E>),
+    /// Explicit Current reference analysis or metadata binding failed.
+    Reference(receiver::reference::Error<E>),
     /// A required device read failed.
     Read(drive::Error<E>),
     /// Image size, integrity, form or chip is unacceptable.
@@ -33,7 +35,7 @@ pub enum Error<E> {
 impl<E: core::fmt::Debug> core::fmt::Display for Error<E> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
-            Self::Receiver(e)=>write!(f,"{e}"), Self::Read(e)=>write!(f,"{e}"),
+            Self::Receiver(e)=>write!(f,"{e}"), Self::Reference(e)=>write!(f,"{e}"), Self::Read(e)=>write!(f,"{e}"),
             Self::Image(e)=>write!(f,"{e}"), Self::Flash(e)=>write!(f,"{e}"),
             Self::Changed=>f.write_str("MediaTek boot banner changed; re-plan recovery"),
             Self::Startup=>f.write_str("recovery did not confirm startup of the selected firmware; drive may still be in BOOT"),
@@ -67,6 +69,22 @@ impl Receiver {
             chip,
             banner,
         }))
+    }
+    /// Identify using explicit Current firmware when live code cannot be read.
+    /// Physical identity and build metadata bind the offline instruction evidence.
+    pub fn identify_reference<T: Transport>(
+        t: &mut T,
+        envelope: &crate::envelope::Envelope,
+    ) -> Result<Self, Error<T::Error>> {
+        let receiver = receiver::reference::detect(t, envelope).map_err(Error::Reference)?;
+        let mut banner = [0; layout::BANNER.len];
+        drive::read_memory(t, layout::BANNER.start as u32, &mut banner).map_err(Error::Read)?;
+        let chip = Chip::from_banner(&banner).ok_or(Error::Changed)?;
+        Ok(Self {
+            receiver,
+            chip,
+            banner,
+        })
     }
     /// Active operating mode.
     pub fn mode(&self) -> receiver::Mode {
@@ -160,40 +178,34 @@ impl PreparedRecovery {
         R: Transport<Error = W::Error>,
         H: FlashRuntime<W::Error>,
     {
+        self.flash_completed(io, runtime)?
+            .into_verified()
+            .map_err(Error::Flash)
+    }
+
+    /// Execute recovery and require exact target startup, preserving limited
+    /// read-back as structured evidence for the host to report.
+    pub fn flash_completed<R, W, H>(
+        &self,
+        io: FlashTransport<'_, R, W>,
+        runtime: &mut H,
+    ) -> Result<crate::update::Completion, Error<W::Error>>
+    where
+        W: Transport,
+        R: Transport<Error = W::Error>,
+        H: FlashRuntime<W::Error>,
+    {
         let mut banner = [0; layout::BANNER.len];
         drive::read_memory(io.reads, layout::BANNER.start as u32, &mut banner)
             .map_err(Error::Read)?;
         if banner != self.receiver.banner {
             return Err(Error::Changed);
         }
-        let verified = self
-            .plan
-            .execute(
-                FlashTransport {
-                    reads: io.reads,
-                    writes: io.writes,
-                },
-                runtime,
-            )
+        self.plan
+            .execute_completed(io, runtime)
             .map_err(|e| match e {
                 receiver::ExecuteError::Receiver(e) => Error::Receiver(e),
                 receiver::ExecuteError::Flash(e) => Error::Flash(e),
-            })?;
-        let mode = receiver::detect_mode(io.reads).map_err(Error::Receiver)?;
-        if mode.mode() != receiver::Mode::Firmware {
-            return Err(Error::Startup);
-        }
-        let mut descriptor = [0; layout::DESCRIPTOR.len];
-        drive::read_memory(io.reads, layout::DESCRIPTOR.start as u32, &mut descriptor)
-            .map_err(Error::Read)?;
-        // Includes target model, revision and build metadata; exclude the
-        // device-written tail. No descriptor was required before the write.
-        let expected = layout::DESCRIPTOR
-            .of(self.plan.image())
-            .expect("complete image");
-        if descriptor[..0x58] != expected[..0x58] || mode.inquiry()[8..36] != expected[..28] {
-            return Err(Error::Startup);
-        }
-        Ok(verified)
+            })
     }
 }

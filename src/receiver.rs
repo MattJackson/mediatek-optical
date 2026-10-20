@@ -17,11 +17,24 @@ use crate::{
 pub mod entry;
 
 #[cfg(all(feature = "image", feature = "enc"))]
+pub mod analysis;
+#[cfg(all(feature = "image", feature = "enc"))]
+pub mod decoding;
+#[cfg(all(feature = "image", feature = "enc"))]
+pub mod layout;
+#[cfg(all(feature = "image", feature = "enc"))]
+pub mod programming;
+
+#[cfg(all(feature = "image", feature = "enc"))]
+mod mixed;
+#[cfg(all(feature = "image", feature = "enc"))]
 mod prepared;
 #[cfg(all(feature = "image", feature = "enc"))]
-pub use prepared::{ExecuteError, PreparedUpdate, TransferPlan};
+pub use prepared::{ExecuteError, PreparedUpdate, TransferEncoding, TransferPlan};
 #[cfg(all(feature = "image", feature = "enc"))]
 mod profile;
+#[cfg(all(feature = "image", feature = "enc"))]
+pub mod reference;
 #[cfg(all(feature = "image", feature = "enc"))]
 pub use profile::detect;
 
@@ -34,7 +47,9 @@ pub enum Mode {
     Firmware,
 }
 
-/// Transfer format expected by the active receiver.
+/// Encoding of a region in a receiver transfer plan.
+/// Legacy receiver detection reports the header path; executable plans expose
+/// header and body separately through `TransferEncoding`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Encoding {
     /// Send the canonical image unchanged.
@@ -153,13 +168,22 @@ pub struct Receiver {
     transform: Option<Evidence>,
     #[cfg(all(feature = "image", feature = "enc"))]
     profile: Option<profile::Profile>,
+    #[cfg(all(feature = "image", feature = "enc"))]
+    reference: Option<reference::Binding>,
 }
 impl Receiver {
+    /// Cached application evidence from the same snapshot used by live entry
+    /// detection. This is analysis, not a completed transfer authorization.
+    #[cfg(all(feature = "image", feature = "enc"))]
+    pub fn application_analysis(&self) -> Option<&analysis::ApplicationAnalysis> {
+        self.profile.as_ref()?.application.as_ref()
+    }
     /// Active receiver mode.
     pub fn mode(&self) -> Mode {
         self.identity.mode
     }
-    /// Required wire encoding.
+    /// Header-path classification retained for compatibility. Consult the
+    /// prepared transfer plan for separate header/body wire encodings.
     pub fn encoding(&self) -> Encoding {
         self.encoding
     }
@@ -175,6 +199,10 @@ impl Receiver {
     }
     /// Re-read identity and matched instructions immediately before writing.
     pub fn revalidate<T: Transport>(&self, t: &mut T) -> Result<(), Error<T::Error>> {
+        #[cfg(all(feature = "image", feature = "enc"))]
+        if let Some(reference) = &self.reference {
+            return reference.revalidate(t);
+        }
         if detect_mode(t)? != self.identity {
             return Err(Error::Changed);
         }
@@ -269,6 +297,8 @@ pub fn detect_encoding<T: Transport>(
                             transform: None,
                             #[cfg(all(feature = "image", feature = "enc"))]
                             profile: None,
+                            #[cfg(all(feature = "image", feature = "enc"))]
+                            reference: None,
                         });
                     }
                 }
@@ -298,6 +328,8 @@ pub fn detect_encoding<T: Transport>(
                                 transform: Some(Evidence::new(target, &routine)),
                                 #[cfg(all(feature = "image", feature = "enc"))]
                                 profile: None,
+                                #[cfg(all(feature = "image", feature = "enc"))]
+                                reference: None,
                             });
                         }
                     }

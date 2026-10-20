@@ -425,6 +425,10 @@ fn live_detection_selects_prepare_and_encoding_for_every_published_receiver() {
         &mut files,
     );
     let mut count = 0;
+    let mut scratch_receivers = 0;
+    let mut bulk_receivers = 0;
+    let mut transfer_counts = BTreeMap::<String, usize>::new();
+    let mut transfer_cases = Vec::new();
     for (hash, row) in census["unique_images"].as_object().unwrap() {
         for boot in [true, false] {
             let mut device = Device {
@@ -445,6 +449,31 @@ fn live_detection_selects_prepare_and_encoding_for_every_published_receiver() {
                 other => panic!("unknown independent encoding {other}"),
             };
             assert_eq!(detected.mode(), expected_mode);
+            if boot {
+                assert!(detected.application_analysis().is_none());
+            } else {
+                let analysis = detected
+                    .application_analysis()
+                    .expect("application evidence retained");
+                assert!(!analysis.conflicting_arguments(), "{hash}");
+                if !analysis.scratch_decoders().is_empty() {
+                    scratch_receivers += 1;
+                    assert_eq!(analysis.scratch_decoders().len(), 1, "{hash}");
+                }
+                if !analysis.bulk_decoders().is_empty() {
+                    bulk_receivers += 1;
+                    assert_eq!(analysis.bulk_decoders().len(), 1, "{hash}");
+                    assert!(
+                        analysis.scratch_decoders().is_empty(),
+                        "contradictory direct-plaintext and bulk evidence: {hash}"
+                    );
+                }
+                assert_eq!(
+                    !analysis.scratch_decoders().is_empty() || !analysis.bulk_decoders().is_empty(),
+                    expected_encoding == Encoding::Encrypted,
+                    "every published AES receiver needs independently traced header/body evidence: {hash}"
+                );
+            }
             assert_eq!(detected.encoding(), expected_encoding);
             let alternate = !boot
                 && expected_encoding == Encoding::Encrypted
@@ -457,11 +486,93 @@ fn live_detection_selects_prepare_and_encoding_for_every_published_receiver() {
                     cdb::Prepare::ModeOne
                 })
             );
+            // Exercise the shared executable-plan constructor with a real
+            // canonical image, not only the diagnostic encoding label.
+            let recovery = mediatek_optical::recovery::Receiver::identify(&mut device)
+                .unwrap()
+                .unwrap();
+            let prepared = recovery.prepare(&device.bytes);
+            let scratch_only = detected
+                .application_analysis()
+                .is_some_and(|a| !a.scratch_decoders().is_empty());
+            let prepared = prepared.unwrap_or_else(|e| panic!("{hash} BOOT={boot}: {e}"));
+            let mut expected = device.bytes.clone();
+            if scratch_only {
+                mediatek_optical::enc::encrypt(&mut expected[0x3000..0x3010]).unwrap();
+                assert_eq!(prepared.plan().prepare_command().command()[9], 0x0a);
+                assert_eq!(prepared.plan().encoding().header, Encoding::Encrypted);
+                assert_eq!(prepared.plan().encoding().body, Encoding::Plaintext);
+            } else if expected_encoding == Encoding::Encrypted {
+                mediatek_optical::enc::encrypt(&mut expected).unwrap();
+                assert_eq!(prepared.plan().encoding().body, Encoding::Encrypted);
+                assert_eq!(prepared.plan().prepare_command().command()[9], 0x0b);
+            } else {
+                assert_eq!(prepared.plan().encoding().header, Encoding::Plaintext);
+                assert_eq!(prepared.plan().encoding().body, Encoding::Plaintext);
+            }
+            assert_eq!(
+                prepared.transfer(),
+                expected,
+                "wire bytes {hash} BOOT={boot}"
+            );
+            assert_eq!(
+                prepared.plan().image(),
+                device.bytes,
+                "canonical bytes must remain intact"
+            );
+            let envelope = mediatek_optical::envelope::Envelope::load(&device.bytes).unwrap();
+            let identity = mediatek_optical::Identity::parse(
+                &[0; mediatek_optical::INQUIRY_LEN],
+                mediatek_optical::layout::BANNER.of(&device.bytes).unwrap(),
+                mediatek_optical::layout::DESCRIPTOR
+                    .of(&device.bytes)
+                    .unwrap(),
+            )
+            .unwrap();
+            let installed =
+                mediatek_optical::update::InstalledFirmware::new(identity, &device.bytes).unwrap();
+            let flash = detected
+                .prepare(&envelope, &installed)
+                .unwrap_or_else(|e| panic!("Flash {hash} BOOT={boot}: {e}"));
+            assert_eq!(
+                flash.plan().transfer(),
+                prepared.transfer(),
+                "Flash and Recovery share the same bytes"
+            );
+            assert_eq!(
+                flash.plan().prepare_command(),
+                prepared.plan().prepare_command()
+            );
+            let format = format!(
+                "header_{:?}_body_{:?}",
+                prepared.plan().encoding().header,
+                prepared.plan().encoding().body
+            );
+            *transfer_counts.entry(format.clone()).or_default() += 1;
+            transfer_cases.push(serde_json::json!({"sha256":hash,"mode":format!("{:?}",expected_mode),"format":format,"prepare":prepared.plan().prepare_command().command(),"flash_and_recovery_prepared":true}));
             device.bytes[detected.signature_address() as usize] ^= 1;
             assert!(detected.revalidate(&mut device).is_err());
             count += 1;
         }
     }
     assert_eq!(count, 272);
+    assert_eq!(
+        scratch_receivers, 2,
+        "held INTM applications have scratch-header/direct-signature evidence"
+    );
+    assert_eq!(bulk_receivers, 15);
+    assert_eq!(
+        transfer_counts.get("header_Plaintext_body_Plaintext"),
+        Some(&234)
+    );
+    assert_eq!(
+        transfer_counts.get("header_Encrypted_body_Encrypted"),
+        Some(&36)
+    );
+    assert_eq!(
+        transfer_counts.get("header_Encrypted_body_Plaintext"),
+        Some(&2)
+    );
+    std::fs::write("target/receiver-transfer-coverage.json", serde_json::to_vec_pretty(&serde_json::json!({"published_members":136,"receiver_modes":272,"transfer_combinations":transfer_counts,"cases":transfer_cases})).unwrap()).unwrap();
     eprintln!("272 live receiver mode/encoding/PREPARE selections and stale-binding refusals passed; no device writes");
 }

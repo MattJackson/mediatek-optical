@@ -129,6 +129,51 @@ fn chips_must_match() {
     ));
 }
 
+#[test]
+fn unavailable_installed_evidence_retains_all_target_and_chip_gates() {
+    let current = fixtures::image(&JB7, 1);
+    let live = identity_of(&current);
+    let mut target = fixtures::image(&JB7, 2);
+    target[layout::DESCRIPTOR.start + 0x18..layout::DESCRIPTOR.start + 0x1c]
+        .copy_from_slice(b"2.00");
+    let target = fixtures::sign(target);
+    assert_eq!(
+        PreparedUpdate::prepare_without_installed(&target, &live)
+            .unwrap()
+            .image(),
+        target
+    );
+    // No invented installed image or family: the live metadata can differ from
+    // the new image while each remaining non-waivable gate still applies.
+    assert_ne!(
+        layout::DESCRIPTOR.of(&current),
+        layout::DESCRIPTOR.of(&target)
+    );
+    let mut corrupt = target.clone();
+    corrupt[0x12000] ^= 1;
+    assert_eq!(
+        PreparedUpdate::prepare_without_installed(&corrupt, &live).unwrap_err(),
+        PrepareError::Integrity
+    );
+    assert_eq!(
+        PreparedUpdate::prepare_without_installed(&target[..100], &live).unwrap_err(),
+        PrepareError::Size(100)
+    );
+    assert_eq!(
+        PreparedUpdate::prepare_without_installed(&fixtures::drive_read(&target), &live)
+            .unwrap_err(),
+        PrepareError::DriveRead
+    );
+    assert_eq!(
+        PreparedUpdate::prepare_without_installed(&without_record(&JB7), &live).unwrap_err(),
+        PrepareError::UnknownTargetFamily
+    );
+    assert!(matches!(
+        PreparedUpdate::prepare_without_installed(&fixtures::image(&BU3, 2), &live),
+        Err(PrepareError::ChipMismatch { .. })
+    ));
+}
+
 /// An image with no chip tag at all is matched by the drive's banner. It has
 /// no hardware record either, so the family gate refuses it.
 #[test]

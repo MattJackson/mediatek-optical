@@ -4,7 +4,20 @@ All notable changes to `mediatek-optical` are documented here. The format follow
 [Keep a Changelog](https://keepachangelog.com/) and the project adheres to
 [Semantic Versioning](https://semver.org/).
 
-## Unreleased
+## [0.9.0] - Unreleased
+
+- Derive header and body transfer encoding separately. Recognize the two held
+  INTM scratch-header receiver forms, encrypt only their header block and use
+  their boot-preserving command policy. Unknown or conflicting contracts refuse.
+- Reuse cached receiver analysis and expose known programmed/preserved ranges.
+- Add explicit Current-reference provenance and physical metadata revalidation;
+  execution and verification always read the physical transport.
+- Confirm the selected target identity and build after programming, retaining
+  complete versus limited protected-region readback in the completion result.
+- Represent unavailable installed firmware explicitly, without substituting
+  target bytes. Support offline preparation of later stages before any writes.
+- Add receiver, mutation, completion and held-corpus regressions. Instruction
+  execution evidence remains conditional on the opaque verifier and hardware.
 
 ## [0.8.0] - 2026-10-16
 

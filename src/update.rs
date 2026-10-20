@@ -10,7 +10,9 @@
 //! - an image whose hardware family differs from the installed firmware's, or
 //!   where either family is unknown.
 //!
-//! None of these can be overridden. The prepared update carries the
+//! The explicit `prepare_without_installed` path retains target and chip gates
+//! but records that installed-family comparison is unavailable; host consent
+//! is required separately. The prepared update carries the
 //! [`DriveClass`] dialect chosen from the identity, which owns the command
 //! sequence, chunking, readiness timing and read-back verification; with the
 //! `drive` and `enc` features, [`crate::receiver::Receiver::prepare`] binds it
@@ -27,6 +29,10 @@ use crate::image::{cmac, detect_chip, family, is_drive_read, Family};
 use crate::{cdb, layout, Chip, DriveClass, Identity};
 
 #[cfg(feature = "drive")]
+mod completion;
+#[cfg(feature = "drive")]
+pub use completion::{Completion, ReadbackQuality, Startup, StartupError};
+#[cfg(feature = "drive")]
 pub(crate) mod flash;
 #[cfg(feature = "drive")]
 pub use flash::{FlashError, FlashRuntime, FlashTransport, Stage, Status, Verified};
@@ -37,6 +43,8 @@ pub use flash::{FlashError, FlashRuntime, FlashTransport, Stage, Status, Verifie
 pub enum PrepareError {
     /// No complete live entry profile was identified before preparation.
     ReceiverEntry,
+    /// Decoder evidence does not yet establish an executable transfer contract.
+    ReceiverContract,
     /// The image is not [`layout::IMAGE_SIZE`] bytes.
     Size(usize),
     /// The image fails its AES-CMAC integrity table.
@@ -77,6 +85,9 @@ impl core::fmt::Display for PrepareError {
             Self::ReceiverEntry => f.write_str(
                 "receiver entry profile is unknown; detect the live receiver before preparing",
             ),
+            Self::ReceiverContract => {
+                f.write_str("receiver transfer contract is incomplete; no firmware was sent")
+            }
             Self::Size(n) => write!(
                 f,
                 "image is {n} bytes; an update image is exactly {} bytes",
@@ -314,6 +325,20 @@ impl PreparedUpdate {
         })
     }
 
+    /// Prepare after the host explicitly accepted unavailable installed bytes.
+    /// Image integrity, framing, chip and target-family checks still apply.
+    /// Installed-family equality is unavailable, not inferred from the target.
+    /// This method does not confer backup consent or verify installed firmware.
+    pub fn prepare_without_installed(image: &[u8], live: &Identity) -> Result<Self, PrepareError> {
+        let (class, target) = Self::checked(image, live)?;
+        Ok(Self {
+            class,
+            family: target,
+            image: image.to_vec(),
+            transfer: None,
+        })
+    }
+
     /// Stream the AES-128-ECB transport envelope instead of the plaintext.
     /// Read-back still compares the plaintext the drive stores.
     #[cfg(all(feature = "enc", test))]
@@ -329,7 +354,8 @@ impl PreparedUpdate {
         self.class
     }
 
-    /// The hardware family the image and the installed firmware share.
+    /// The target hardware family. The captured-installed preparation path
+    /// also established equality with the installed family.
     pub fn family(&self) -> Family {
         self.family
     }

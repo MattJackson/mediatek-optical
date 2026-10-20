@@ -14,6 +14,8 @@ struct Snapshot {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct Profile {
     pub(super) prepare: cdb::Prepare,
+    pub(super) application: Option<super::analysis::ApplicationAnalysis>,
+    pub(super) mixed: Option<super::mixed::MixedContract>,
     snapshots: Vec<Snapshot>,
 }
 
@@ -25,12 +27,37 @@ fn read<T: Transport>(t: &mut T, address: u32, length: usize) -> Result<Snapshot
     Ok(Snapshot { address, bytes })
 }
 
+// Supplemental evidence reuses bytes already captured by a broader snapshot.
+// Each newly read range is retained exactly once for pre-write revalidation.
+fn evidence<T: Transport>(
+    t: &mut T,
+    snapshots: &mut Vec<Snapshot>,
+    address: u32,
+    length: usize,
+) -> Result<Vec<u8>, Error<T::Error>> {
+    for snapshot in snapshots.iter() {
+        if let Some(offset) = address.checked_sub(snapshot.address).map(|x| x as usize) {
+            if let Some(end) = offset.checked_add(length) {
+                if let Some(bytes) = snapshot.bytes.get(offset..end) {
+                    return Ok(bytes.to_vec());
+                }
+            }
+        }
+    }
+    let snapshot = read(t, address, length)?;
+    let bytes = snapshot.bytes.clone();
+    snapshots.push(snapshot);
+    Ok(bytes)
+}
+
 impl Profile {
     pub(super) fn detect<T: Transport>(
         t: &mut T,
         receiver: &Receiver,
     ) -> Result<Self, Error<T::Error>> {
         let mut snapshots = Vec::new();
+        let mut application = None;
+        let mut mixed = None;
         let prepare = match receiver.mode() {
             Mode::Boot => {
                 let code = read(t, 0x3400, 0x600)?;
@@ -45,6 +72,8 @@ impl Profile {
             }
             Mode::Firmware => {
                 let code = read(t, 0x98000, 0x1c000)?;
+                application =
+                    super::analysis::ApplicationAnalysis::inspect(&code.bytes, code.address);
                 let candidate = entry::application::inspect(&code.bytes, code.address)
                     .ok_or(Error::UnknownEntry)?;
                 let prelude =
@@ -71,8 +100,34 @@ impl Profile {
                     prelude.start,
                 )
                 .ok_or(Error::UnknownEntry)?;
+                let mixed_candidate = application.as_ref().and_then(|analysis| {
+                    super::mixed::Candidate::inspect(&code.bytes, code.address, analysis)
+                });
                 snapshots.push(code);
                 snapshots.push(registrations);
+                if let Some(candidate) = mixed_candidate {
+                    let wrapper = evidence(
+                        t,
+                        &mut snapshots,
+                        candidate.wrapper_address,
+                        candidate.wrapper_bytes(),
+                    )?;
+                    if let Some(program_address) = candidate.program_address(&wrapper) {
+                        let integrity = evidence(
+                            t,
+                            &mut snapshots,
+                            candidate.integrity_address,
+                            candidate.integrity_bytes(),
+                        )?;
+                        let program = evidence(
+                            t,
+                            &mut snapshots,
+                            program_address,
+                            candidate.program_bytes(),
+                        )?;
+                        mixed = candidate.bind(&wrapper, &integrity, &program);
+                    }
+                }
                 match (receiver.encoding(), mode_six) {
                     (Encoding::Encrypted, entry::application::ModeSix::Entry67 { .. }) => {
                         cdb::Prepare::ModeSix67
@@ -81,7 +136,12 @@ impl Profile {
                 }
             }
         };
-        Ok(Self { prepare, snapshots })
+        Ok(Self {
+            prepare,
+            application,
+            mixed,
+            snapshots,
+        })
     }
 
     pub(super) fn revalidate<T: Transport>(&self, t: &mut T) -> Result<(), Error<T::Error>> {
@@ -98,6 +158,8 @@ impl Profile {
     pub(super) fn testing() -> Self {
         Self {
             prepare: cdb::Prepare::ModeOne,
+            application: None,
+            mixed: None,
             snapshots: Vec::new(),
         }
     }

@@ -43,3 +43,16 @@ fn oem_flash_sequence_bytes() {
         [0x03, 0, 0, 0, 0x10, 0x80, 0, 0, 0, 0, 0, 0]
     );
 }
+
+#[test]
+fn preserving_boot_clears_only_the_receiver_range_selection_bit() {
+    for (normal, preserving) in [
+        (Prepare::ModeOne, Prepare::ModeOnePreserveBoot),
+        (Prepare::ModeSix67, Prepare::ModeSix67PreserveBoot),
+    ] {
+        let mut expected = normal.command();
+        assert_eq!(expected[9], 0x0b);
+        expected[9] = 0x0a;
+        assert_eq!(preserving.command(), expected);
+    }
+}

@@ -110,14 +110,25 @@ pub enum Prepare {
     ModeOne,
     /// WRITE BUFFER mode 6, buffer 0x67, entering the same flag-copy body.
     ModeSix67,
+    /// Legacy entry with update bit zero cleared, preserving the boot region
+    /// only when the receiver's range-selection contract establishes that meaning.
+    ModeOnePreserveBoot,
+    /// Buffer-0x67 entry with the same receiver-derived preservation policy.
+    ModeSix67PreserveBoot,
 }
 impl Prepare {
-    /// OEM zero-length data-out command, retaining the byte-nine 0x0B flags.
+    /// Zero-length data-out command with the selected boot policy.
     pub const fn command(self) -> [u8; 12] {
         let mut command = enter_update();
-        if matches!(self, Self::ModeSix67) {
+        if matches!(self, Self::ModeSix67 | Self::ModeSix67PreserveBoot) {
             command[1] = 6;
             command[2] = 0x67;
+        }
+        if matches!(
+            self,
+            Self::ModeOnePreserveBoot | Self::ModeSix67PreserveBoot
+        ) {
+            command[9] &= !1;
         }
         command
     }
