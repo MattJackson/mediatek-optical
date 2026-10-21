@@ -372,6 +372,7 @@ fn application_preludes_and_flag_stores_match_the_independent_census() {
 }
 
 #[test]
+#[cfg(all(feature = "image", feature = "enc"))]
 #[ignore = "requires MTK_IMAGE_ROOT, MTK_RECEIVER_CENSUS and MTK_APP_FLAGS_CENSUS"]
 fn live_detection_selects_prepare_and_encoding_for_every_published_receiver() {
     use mediatek_optical::{

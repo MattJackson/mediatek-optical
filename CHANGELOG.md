@@ -4,7 +4,16 @@ All notable changes to `mediatek-optical` are documented here. The format follow
 [Keep a Changelog](https://keepachangelog.com/) and the project adheres to
 [Semantic Versioning](https://semver.org/).
 
-## [0.9.0] - Unreleased
+## [1.0.0] - 2026-10-21
+
+- Establish the stable 1.0 public API alongside the sister optical library.
+- Validate every distinct feature configuration, doctests, all-feature packaging,
+  Rust 1.75 and bare-metal `no_std` builds in CI before publication.
+- Correct optional-feature documentation and test/example feature requirements;
+  add a compiled receiver-bound host integration example and update API guidance.
+- Add stable namespaced `CodedError` identifiers and standard error source chains;
+  give receiver layout failures `Display` and `std::error::Error` implementations.
+- Repair the default/drive test builds and plaintext flash simulation without AES.
 
 - Derive header and body transfer encoding separately. Recognize the two held
   INTM scratch-header receiver forms, encrypt only their header block and use

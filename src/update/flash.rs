@@ -173,7 +173,16 @@ impl<E: core::fmt::Debug> core::fmt::Display for FlashError<E> {
     }
 }
 
-impl<E: core::fmt::Debug + 'static> std::error::Error for FlashError<E> {}
+impl<E: core::fmt::Debug + 'static> std::error::Error for FlashError<E> {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::Entry(source) | Self::ReadyTimeout(source) => Some(source),
+            Self::Transfer { source, .. } => Some(source),
+            Self::Startup(source) => Some(source),
+            _ => None,
+        }
+    }
+}
 
 /// REQUEST SENSE as the OEM sequence issues it: the reply length and its
 /// parse.

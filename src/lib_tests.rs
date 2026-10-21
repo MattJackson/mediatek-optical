@@ -1,4 +1,5 @@
 use super::*;
+use std::string::ToString;
 
 fn inquiry() -> [u8; INQUIRY_LEN] {
     let mut b = [b' '; INQUIRY_LEN];

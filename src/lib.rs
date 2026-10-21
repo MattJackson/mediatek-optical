@@ -12,16 +12,16 @@
 //!
 //! Optional features add:
 //!
-//! - `drive` — [`drive`]: the command sequences (identify, memory read, flash
-//!   session) over a caller-supplied [`drive::Transport`].
-//! - `image` — [`image`]: chip detection from image bytes and the AES-CMAC
-//!   integrity table ([`image::cmac`]). Uses `std`.
-//! - `enc` — [`enc`]: the AES-128-ECB transport envelope.
-//! - `oem` — [`oem`]: rebuild the flashable OEM image from a drive read, with
+//! - `drive` — `drive`: the command sequences (identify, memory read, flash
+//!   session) over a caller-supplied `drive::Transport`.
+//! - `image` — `image`: chip detection from image bytes and the AES-CMAC
+//!   integrity table (`image::cmac`). Uses `std`.
+//! - `enc` — `enc`: the AES-128-ECB transport envelope.
+//! - `oem` — `oem`: rebuild the flashable OEM image from a drive read, with
 //!   the provenance of every substituted byte. Implies `image`.
-//! - `image` also enables [`update`]: an update prepared against the installed
+//! - `image` also enables `update`: an update prepared against the installed
 //!   firmware, refused across chips and hardware families. With `drive`,
-//!   the receiver-bound [`receiver::PreparedUpdate::flash`] runs it.
+//!   the receiver-bound `receiver::PreparedUpdate::flash` runs it.
 //! - `std` — links the standard library (implied by `image`).
 //!
 //! ## Drive memory
@@ -31,10 +31,16 @@
 //! [`layout::BOOT_MIRROR`] instead of its stored form. The drive also rewrites
 //! the regions in [`layout::DRIVE_WRITTEN`] at runtime (revocation lists,
 //! settings, calibration), so a read is never byte-identical to the image that
-//! was flashed. [`oem::rebuild`] undoes both.
+//! was flashed. `oem::rebuild` undoes both.
 #![cfg_attr(not(feature = "std"), no_std)]
 #![deny(missing_docs)]
 #![forbid(unsafe_code)]
+
+#[cfg(all(test, not(feature = "std")))]
+extern crate std;
+
+mod error_codes;
+pub use error_codes::CodedError;
 
 pub mod cdb;
 #[cfg(feature = "drive")]
@@ -90,8 +96,9 @@ impl Chip {
 
     /// The chip named by the first `MTEKMT19xx` identity tag in `bytes`.
     ///
-    /// This tag is authoritative. The boot banner names the bootloader
-    /// generation instead: MT1939 parts can carry an `MT1959 Boot` banner.
+    /// This is a label parser, not operational chip detection. OEM identity
+    /// tags can be stale; [`Identity::chip`] and image analysis use the boot
+    /// banner instead. Never use this label to override their result.
     pub fn from_tag(bytes: &[u8]) -> Option<Self> {
         const PREFIX: &[u8] = b"MTEKMT19";
         bytes
@@ -100,8 +107,9 @@ impl Chip {
             .find_map(|w| Self::from_digits(w[PREFIX.len()], w[PREFIX.len() + 1]))
     }
 
-    /// The chip named by a boot banner such as `MT1939 Boot JB7`. Weaker than
-    /// [`Chip::from_tag`]; use only when no identity tag exists.
+    /// The chip named by a boot banner such as `MT1939 Boot JB7`. This is the
+    /// source used by live identity and image analysis, even when a descriptor
+    /// carries a conflicting [`Chip::from_tag`] label.
     pub fn from_banner(banner: &[u8]) -> Option<Self> {
         banner
             .windows(6)
@@ -125,6 +133,9 @@ impl core::fmt::Display for UnknownChip {
         f.write_str("not an MT1959 or MT1939 label")
     }
 }
+
+#[cfg(feature = "std")]
+impl std::error::Error for UnknownChip {}
 
 impl core::str::FromStr for Chip {
     type Err = UnknownChip;
@@ -355,3 +366,7 @@ mod fixtures;
 #[cfg(test)]
 #[path = "lib_tests.rs"]
 mod tests;
+
+#[cfg(all(feature = "drive", feature = "image", feature = "enc"))]
+#[doc = include_str!("../README.md")]
+mod readme_examples {}

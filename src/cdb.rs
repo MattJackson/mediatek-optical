@@ -16,7 +16,7 @@ pub const CHUNK: usize = 0x4000;
 pub const PROBE_LEN: usize = 0x100;
 /// Bytes requested by [`request_sense`].
 pub const REQUEST_SENSE_LEN: usize = 16;
-/// INQUIRY allocation used by [`crate::drive::identify`].
+/// INQUIRY allocation used by `crate::drive::identify`.
 pub const INQUIRY_ALLOC: u16 = 96;
 /// GET CONFIGURATION feature carrying the ASCII serial number.
 pub const FEATURE_SERIAL: u16 = 0x0108;

@@ -51,7 +51,14 @@ impl<E: core::fmt::Debug> core::fmt::Display for ExecuteError<E> {
         }
     }
 }
-impl<E: core::fmt::Debug + 'static> std::error::Error for ExecuteError<E> {}
+impl<E: core::fmt::Debug + 'static> std::error::Error for ExecuteError<E> {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::Receiver(source) => Some(source),
+            Self::Flash(source) => Some(source),
+        }
+    }
+}
 
 impl Receiver {
     /// Bind an already validated update to this receiver without decoding or

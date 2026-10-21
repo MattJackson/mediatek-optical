@@ -82,7 +82,15 @@ impl<E: core::fmt::Debug> core::fmt::Display for StartupError<E> {
         }
     }
 }
-impl<E: core::fmt::Debug + 'static> std::error::Error for StartupError<E> {}
+impl<E: core::fmt::Debug + 'static> std::error::Error for StartupError<E> {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::Identity(source) => Some(source),
+            Self::Read(source) => Some(source),
+            Self::TargetMismatch => None,
+        }
+    }
+}
 
 pub(super) fn complete<T: drive::Transport>(
     reads: &mut T,

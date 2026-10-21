@@ -1,36 +1,38 @@
 name: Publish
-# Publish to crates.io on every push to main whose Cargo.toml version is new.
-# Tag pushes also publish, as a manual belt-and-braces trigger.
 on:
   push:
     branches: [main]
     tags: ["v*"]
 permissions:
   contents: read
+concurrency:
+  group: publish-${{ github.repository }}
+  cancel-in-progress: false
 jobs:
+  verify:
+    uses: ./.github/workflows/ci.yml
   publish:
+    needs: verify
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
-      - name: Compare Cargo.toml version against crates.io latest
+      - name: Check the exact version on crates.io
         id: gate
+        shell: bash
         run: |
-          current=$(awk -F '"' '/^version *=/ { print $2; exit }' Cargo.toml)
-          echo "current=$current" >> "$GITHUB_OUTPUT"
-          latest=$(curl -sfL -A "mediatek-optical-publish-ci" \
-            https://crates.io/api/v1/crates/mediatek-optical \
-            | sed -n 's/.*"max_stable_version":"\([^"]*\)".*/\1/p' | head -n1)
-          echo "latest=$latest" >> "$GITHUB_OUTPUT"
-          echo "mediatek-optical: on-disk=$current, crates.io=$latest"
-          if [ -n "$latest" ] && [ "$current" = "$latest" ]; then
-            echo "publish=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "publish=true" >> "$GITHUB_OUTPUT"
-          fi
-      - name: cargo publish
+          name=$(python3 -c 'import tomllib; print(tomllib.load(open("Cargo.toml", "rb"))["package"]["name"])')
+          version=$(python3 -c 'import tomllib; print(tomllib.load(open("Cargo.toml", "rb"))["package"]["version"])')
+          code=$(curl --silent --show-error --location \
+            --output "$RUNNER_TEMP/registry-version.json" --write-out '%{http_code}' \
+            --user-agent "$name-publish-ci" "https://crates.io/api/v1/crates/$name/$version")
+          case "$code" in
+            200) echo "publish=false" >> "$GITHUB_OUTPUT" ;;
+            404) echo "publish=true" >> "$GITHUB_OUTPUT" ;;
+            *) echo "Registry lookup failed: HTTP $code" >&2; exit 1 ;;
+          esac
+      - name: Publish verified package
         if: steps.gate.outputs.publish == 'true'
-        run: cargo publish --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
-      - name: Skipped (version already published)
-        if: steps.gate.outputs.publish != 'true'
-        run: echo "Skipping; crates.io already has ${{ steps.gate.outputs.current }}."
+        run: cargo publish --locked
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}

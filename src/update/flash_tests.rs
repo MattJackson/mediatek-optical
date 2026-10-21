@@ -56,7 +56,10 @@ impl Drive {
     fn program(&mut self) {
         let mut image = self.pending.clone();
         if self.decrypts {
+            #[cfg(feature = "enc")]
             crate::enc::decrypt(&mut image).unwrap();
+            #[cfg(not(feature = "enc"))]
+            panic!("encrypted test transport requires the enc feature");
         }
         let mirror = image[layout::BOOT_MIRROR.start..layout::BOOT_MIRROR.end()].to_vec();
         image[..layout::BOOT_PAGE.len].copy_from_slice(&mirror);

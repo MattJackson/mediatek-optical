@@ -268,7 +268,14 @@ impl core::fmt::Display for RebuildError {
     }
 }
 
-impl std::error::Error for RebuildError {}
+impl std::error::Error for RebuildError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::Chip(source) => Some(source),
+            _ => None,
+        }
+    }
+}
 
 /// Rebuild the flashable OEM image from `read`, a complete drive read (or an
 /// image already in stored form).

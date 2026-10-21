@@ -39,7 +39,14 @@ impl<E: core::fmt::Debug> core::fmt::Display for Error<E> {
         }
     }
 }
-impl<E: core::fmt::Debug> std::error::Error for Error<E> {}
+impl<E: core::fmt::Debug + 'static> std::error::Error for Error<E> {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::Analysis(source) => Some(source),
+            Self::Binding(source) => Some(source),
+        }
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct Binding {

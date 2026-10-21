@@ -112,7 +112,14 @@ impl<E: core::fmt::Debug> core::fmt::Display for Error<E> {
     }
 }
 #[cfg(feature = "std")]
-impl<E: core::fmt::Debug> std::error::Error for Error<E> {}
+impl<E: core::fmt::Debug + 'static> std::error::Error for Error<E> {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::Read(source) => Some(source),
+            _ => None,
+        }
+    }
+}
 
 /// Identify BOOT versus running firmware using standard INQUIRY only.
 /// No feature 0x010C, descriptor, update command or data-out is required.

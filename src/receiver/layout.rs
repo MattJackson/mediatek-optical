@@ -44,6 +44,21 @@ pub enum Error {
     ImageSize,
 }
 
+impl core::fmt::Display for Error {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Self::Alignment => f.write_str("receiver encoding requires complete AES blocks"),
+            Self::Range => f.write_str("receiver operation has an empty or out-of-bounds range"),
+            Self::Conflict { block } => write!(f, "conflicting wire encodings at {block:#x}"),
+            Self::MultipleDecryptions { block } => write!(f, "repeated AES decoding at {block:#x}"),
+            Self::NoProgram => f.write_str("receiver layout contains no programming operation"),
+            Self::ImageSize => f.write_str("image size differs from the receiver layout"),
+        }
+    }
+}
+
+impl std::error::Error for Error {}
+
 /// Encoding ranges derived from constraints on every observed/programmed block.
 /// Unconsumed bytes stay canonical. This does not attest to parser completeness.
 #[derive(Debug, Clone, PartialEq, Eq)]

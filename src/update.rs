@@ -15,7 +15,7 @@
 //! is required separately. The prepared update carries the
 //! [`DriveClass`] dialect chosen from the identity, which owns the command
 //! sequence, chunking, readiness timing and read-back verification; with the
-//! `drive` and `enc` features, [`crate::receiver::Receiver::prepare`] binds it
+//! `drive` and `enc` features, `crate::receiver::Receiver::prepare` binds it
 //! to the live receiver before executable transfer preparation.
 //!
 //! The caller still owns the drive: opening it, the pre-flash backup, tray and
