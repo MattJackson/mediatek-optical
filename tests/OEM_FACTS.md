@@ -10,6 +10,12 @@ MT1939/MT1959 directories, excluding entries marked patched or fragmented.
 Each row includes the image SHA-256, relative path, and source provenance.
 71 have an OEM installer (`.exe`) in their extraction provenance; 53 are
 supplementary standalone images, **not independently established OEM originals**.
+Two of those supplementary inputs (`822b229a9685f1e7…` and
+`b9b94841096f4500…`) are known generated freemkv BU40N outputs. They were removed
+from the canonical source hoard on 2026-10-21. They remain historical, hash-pinned
+regression inputs here, and must never be counted as OEM evidence. The release
+audit recovered their exact bytes from historical Git LFS objects into a private
+test overlay; it did not restore them to the source hoard.
 Directory labels alone are not accepted as hardware evidence.
 
 The image `961b6e23a0d110039529602a0a6783e89ae7913688c27c21cf11b808bf81a879`
