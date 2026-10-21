@@ -108,6 +108,8 @@ pub enum FlashError<E> {
     /// The drive did not answer TEST UNIT READY within
     /// [`crate::DriveClass::ready_timeout`]; the last poll's error.
     ReadyTimeout(Error<E>),
+    /// Readiness/read-back completed, but the selected target was not confirmed running.
+    Startup(super::StartupError<E>),
     /// A protected byte read back differently.
     Mismatch {
         /// Offset of the first differing byte.
@@ -148,6 +150,7 @@ impl<E: core::fmt::Debug> core::fmt::Display for FlashError<E> {
                 sense.0, sense.1, sense.2
             ),
             Self::ReadyTimeout(e) => write!(f, "drive did not settle after the burn: {e}"),
+            Self::Startup(error) => write!(f, "target startup was not confirmed: {error}"),
             Self::Mismatch {
                 address,
                 read,
@@ -170,7 +173,16 @@ impl<E: core::fmt::Debug> core::fmt::Display for FlashError<E> {
     }
 }
 
-impl<E: core::fmt::Debug + 'static> std::error::Error for FlashError<E> {}
+impl<E: core::fmt::Debug + 'static> std::error::Error for FlashError<E> {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::Entry(source) | Self::ReadyTimeout(source) => Some(source),
+            Self::Transfer { source, .. } => Some(source),
+            Self::Startup(source) => Some(source),
+            _ => None,
+        }
+    }
+}
 
 /// REQUEST SENSE as the OEM sequence issues it: the reply length and its
 /// parse.
@@ -307,6 +319,31 @@ impl Payload<'_> {
 
         runtime.verifying();
         self.verify(io.reads, runtime)
+    }
+
+    /// Execute and retain read-back quality, then require exact target startup.
+    pub(crate) fn flash_completed<R, W, H>(
+        &self,
+        io: FlashTransport<'_, R, W>,
+        runtime: &mut H,
+        mode: ExecutionMode,
+        prepare: cdb::Prepare,
+    ) -> Result<super::Completion, FlashError<W::Error>>
+    where
+        W: Transport,
+        R: Transport<Error = W::Error>,
+        H: FlashRuntime<W::Error>,
+    {
+        let result = self.flash(
+            FlashTransport {
+                reads: io.reads,
+                writes: io.writes,
+            },
+            runtime,
+            mode,
+            prepare,
+        );
+        super::completion::complete(io.reads, self.image, result)
     }
 
     /// Read back every chunk and compare the protected bytes.

@@ -1,4 +1,12 @@
 use super::*;
+use std::string::ToString;
+
+#[test]
+fn installed_firmware_read_capability_requires_current_for_both_mt19_chips() {
+    for chip in [Chip::Mt1939, Chip::Mt1959] {
+        assert!(!DriveClass::of(chip).can_read());
+    }
+}
 
 fn inquiry() -> [u8; INQUIRY_LEN] {
     let mut b = [b' '; INQUIRY_LEN];

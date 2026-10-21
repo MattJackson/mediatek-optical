@@ -1,4 +1,5 @@
 use super::*;
+use std::{vec, vec::Vec};
 
 /// A transport that answers reads from a flash image and records every CDB.
 struct Mock {

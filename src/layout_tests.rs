@@ -1,4 +1,5 @@
 use super::*;
+use std::vec;
 
 #[test]
 fn ranges_fit_the_image_and_do_not_overlap() {

@@ -1,7 +1,7 @@
 # Self-contained manifest (no workspace inheritance) so it packages for crates.io as-is.
 [package]
 name = "mediatek-optical"
-version = "0.8.0"
+version = "1.0.0"
 edition = "2021"
 rust-version = "1.75"
 license = "MIT"
@@ -11,6 +11,18 @@ repository = "https://github.com/MattJackson/mediatek-optical"
 homepage = "https://github.com/MattJackson/mediatek-optical"
 documentation = "https://docs.rs/mediatek-optical"
 readme = "README.md"
+include = [
+    "/src/**",
+    "/tests/**",
+    "/docs/**",
+    "/README.md",
+    "/CHANGELOG.md",
+    "/RELEASE.md",
+    "/LICENSE-MIT",
+    "/CODE_OF_CONDUCT.md",
+    "/.github/scripts/check-features.py",
+    "/examples/flash.rs",
+]
 keywords = ["mediatek", "optical", "scsi", "firmware", "bluray"]
 categories = ["hardware-support", "no-std::no-alloc"]
 
@@ -56,3 +68,7 @@ required-features = ["image", "enc"]
 [[test]]
 name = "entry_corpus"
 required-features = ["drive"]
+
+[[example]]
+name = "flash"
+required-features = ["drive", "image", "enc"]

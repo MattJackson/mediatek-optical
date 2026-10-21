@@ -4,7 +4,36 @@ All notable changes to `mediatek-optical` are documented here. The format follow
 [Keep a Changelog](https://keepachangelog.com/) and the project adheres to
 [Semantic Versioning](https://semver.org/).
 
-## Unreleased
+## [1.0.0] - 2026-10-21
+
+- Expose `DriveClass::can_read()` so hosts request a Current firmware file for
+  stock MediaTek update flows instead of offering unreliable automatic reads.
+
+- Establish the stable 1.0 public API alongside the sister optical library.
+- Validate every distinct feature configuration, doctests, all-feature packaging,
+  Rust 1.75 and bare-metal `no_std` builds in CI before publication.
+- Correct optional-feature documentation and test/example feature requirements;
+  add a compiled receiver-bound host integration example and update API guidance.
+- Add stable namespaced `CodedError` identifiers and standard error source chains;
+  give receiver layout failures `Display` and `std::error::Error` implementations.
+- Repair the default/drive test builds and plaintext flash simulation without AES.
+
+- Derive header and body transfer encoding separately. Recognize the two held
+  INTM scratch-header receiver forms, encrypt only their header block and use
+  their boot-preserving command policy. Unknown or conflicting contracts refuse.
+- Reuse cached receiver analysis and expose known programmed/preserved ranges.
+- Capture each receiver code window once for encoding and entry analysis;
+  preserve physical signature checks and complete pre-write revalidation.
+- Bind validated targets to the receiver's captured controller generation,
+  refusing a target validated for another chip before issuing commands.
+- Add explicit Current-reference provenance and physical metadata revalidation;
+  execution and verification always read the physical transport.
+- Confirm the selected target identity and build after programming, retaining
+  complete versus limited protected-region readback in the completion result.
+- Represent unavailable installed firmware explicitly, without substituting
+  target bytes. Support offline preparation of later stages before any writes.
+- Add receiver, mutation, completion and held-corpus regressions. Instruction
+  execution evidence remains conditional on the opaque verifier and hardware.
 
 ## [0.8.0] - 2026-10-16
 

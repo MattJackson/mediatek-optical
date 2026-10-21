@@ -35,7 +35,14 @@ impl core::fmt::Display for Error {
         }
     }
 }
-impl std::error::Error for Error {}
+impl std::error::Error for Error {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::Image(source) => Some(source),
+            _ => None,
+        }
+    }
+}
 
 /// Immutable input and canonical image, validated without authorizing a flash.
 #[derive(Clone)]

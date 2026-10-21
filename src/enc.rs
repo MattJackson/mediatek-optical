@@ -3,8 +3,8 @@
 //! Some update paths stream the image AES-128-ECB encrypted under a fixed,
 //! public transport key. This is a transport encoding, not a signature: the
 //! drive authenticates the decrypted image by its integrity table
-//! ([`crate::image::cmac`]). The flash sequence in [`crate::drive`] sends
-//! plaintext; apply [`encrypt`] only for a route that requires `enc`.
+//! (`crate::image::cmac`). Receiver-bound preparation chooses the wire encoding
+//! from firmware evidence; [`encrypt`] is the low-level codec primitive.
 //!
 //! Requires the `enc` feature.
 
