@@ -6,6 +6,9 @@ All notable changes to `mediatek-optical` are documented here. The format follow
 
 ## [1.0.0] - 2026-10-21
 
+- Expose `DriveClass::can_read()` so hosts request a Current firmware file for
+  stock MediaTek update flows instead of offering unreliable automatic reads.
+
 - Establish the stable 1.0 public API alongside the sister optical library.
 - Validate every distinct feature configuration, doctests, all-feature packaging,
   Rust 1.75 and bare-metal `no_std` builds in CI before publication.

@@ -166,6 +166,18 @@ pub enum DriveClass {
 }
 
 impl DriveClass {
+    /// Whether a host should offer automatic installed-firmware acquisition.
+    ///
+    /// Stock MT19 firmware does not provide a reliable complete firmware read.
+    /// Hosts should request a Current firmware file instead. Metadata and
+    /// restricted memory reads remain available; this does not forbid them or
+    /// a modified firmware's separate dump command.
+    pub const fn can_read(self) -> bool {
+        match self {
+            Self::Mt19 => false,
+        }
+    }
+
     /// The dialect of a drive with `chip`.
     pub const fn of(chip: Chip) -> Self {
         match chip {
