@@ -33,7 +33,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@1.75.0
+      - uses: dtolnay/rust-toolchain@1.120.0
       - run: python3 .github/scripts/check-features.py check --toolchain 1.75.0
   no-std:
     runs-on: ubuntu-latest
