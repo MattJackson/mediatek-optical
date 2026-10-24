@@ -4,6 +4,19 @@ All notable changes to `mediatek-optical` are documented here. The format follow
 [Keep a Changelog](https://keepachangelog.com/) and the project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+- Breaking: `receiver::Error`, `recovery::Error`, `envelope::Error`,
+  `update::StartupError`, `receiver::ExecuteError`, `receiver::layout::Error` and
+  `receiver::reference::Error` are now `#[non_exhaustive]`; freemkv-flash and other
+  hosts must add wildcard arms to exhaustive matches.
+- Breaking: `recovery::Error::Startup` now carries the `update::StartupError`, and a
+  recovery whose target never starts is reported as `Startup` instead of `Flash`.
+- Add `update::PrepareError::Layout` (code `mediatek.prepare.layout`) preserving the
+  receiver layout cause instead of the unit `ReceiverContract`.
+- `protocol::Incomplete` now implements `Display`, `std::error::Error` and `CodedError`
+  (`mediatek.protocol.incomplete`).
+
 ## [1.0.1] - 2026-10-23
 
 - Add `protocol::Evidence::parse` for complete live boot signatures, independent

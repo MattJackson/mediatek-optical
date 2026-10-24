@@ -3,6 +3,13 @@ use crate::{Chip, Identity};
 /// Required response bytes were not returned.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Incomplete;
+impl core::fmt::Display for Incomplete {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.write_str("required INQUIRY or boot-banner bytes were not returned")
+    }
+}
+#[cfg(feature = "std")]
+impl std::error::Error for Incomplete {}
 /// A complete boot-banner signature. It does not prove update support or mode.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Evidence {
@@ -11,7 +18,7 @@ pub struct Evidence {
 impl Evidence {
     /// Parse a complete 32-byte live banner. Names and descriptor labels do not select a chip.
     pub fn parse(inquiry: &[u8], banner: &[u8]) -> Result<Option<Self>, Incomplete> {
-        if inquiry.len() < crate::INQUIRY_LEN || banner.len() != 32 {
+        if inquiry.len() < crate::INQUIRY_LEN || banner.len() != crate::layout::BANNER.len {
             return Err(Incomplete);
         }
         if inquiry[0] & 0x1f != 5
