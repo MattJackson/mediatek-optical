@@ -391,7 +391,7 @@ impl Payload<'_> {
                 checked,
             });
         }
-        if !ranges.is_empty() && unverified > 0 {
+        if ranges.is_empty() || unverified > 0 {
             return Err(FlashError::Incomplete {
                 unverified,
                 checked,
