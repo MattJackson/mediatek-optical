@@ -50,11 +50,11 @@ fn banner_chip(image: &[u8]) -> Option<Chip> {
 }
 
 #[test]
+#[ignore = "requires private MEDIATEK_OPTICAL_HOARD"]
 fn every_image_chip_equals_its_banner_chip() {
-    let Some(root) = std::env::var_os("MEDIATEK_OPTICAL_HOARD").map(PathBuf::from) else {
-        eprintln!("MEDIATEK_OPTICAL_HOARD is unset; skipping the hoard chip-vs-banner check");
-        return;
-    };
+    let root = std::env::var_os("MEDIATEK_OPTICAL_HOARD")
+        .map(PathBuf::from)
+        .expect("MEDIATEK_OPTICAL_HOARD must be set for this ignored test");
     let index: Index = serde_json::from_slice(
         &std::fs::read(root.join("index/identities.json")).expect("read index/identities.json"),
     )
@@ -73,6 +73,7 @@ fn every_image_chip_equals_its_banner_chip() {
             let path = root.join(&image.path);
             let Ok(bytes) = std::fs::read(&path) else {
                 skipped += 1;
+                eprintln!("unreadable indexed image: {}", path.display());
                 continue;
             };
             checked += 1;
@@ -103,5 +104,6 @@ fn every_image_chip_equals_its_banner_chip() {
         "hoard chip-vs-banner: {checked} images checked ({recognized} recognized, \
          {banner_only} with no recognizable banner, {skipped} unreadable)"
     );
+    assert_eq!(skipped, 0, "{skipped} indexed images were unreadable");
     assert!(checked > 0, "no MediaTek images found under {root:?}");
 }
