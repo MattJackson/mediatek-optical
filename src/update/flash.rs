@@ -40,6 +40,8 @@ pub enum Status<'a, E> {
 
 /// Host timing and progress for receiver-bound update execution.
 pub trait FlashRuntime<E> {
+    /// Structured progress mirrored by the other optical protocol libraries.
+    fn operation_progress(&mut self, _progress: crate::operation::Progress) {}
     /// Monotonic time from a fixed origin; must advance across
     /// [`FlashRuntime::sleep`].
     fn elapsed(&self) -> Duration;
@@ -275,6 +277,10 @@ impl Payload<'_> {
     {
         let transfer = self.transfer;
         runtime.starting(transfer.len());
+        runtime.operation_progress(crate::operation::Progress::waiting(
+            crate::operation::Phase::Preparing,
+            crate::operation::Component::Firmware,
+        ));
         let mut session = match mode {
             ExecutionMode::Recovery => {
                 drive::enter_recovery_reporting(io.writes, prepare, |error| {
@@ -296,6 +302,12 @@ impl Payload<'_> {
                     source,
                 })?;
             runtime.progress(offset + piece.len(), transfer.len());
+            runtime.operation_progress(crate::operation::Progress::bytes(
+                crate::operation::Phase::Writing,
+                crate::operation::Component::Firmware,
+                offset + piece.len(),
+                transfer.len(),
+            ));
         }
         if let Err(error) = session.finish() {
             runtime.commit_failed(&error);
@@ -306,6 +318,10 @@ impl Payload<'_> {
         status(io.reads, runtime, Stage::Commit)?;
 
         runtime.uploaded(transfer.len());
+        runtime.operation_progress(crate::operation::Progress::waiting(
+            crate::operation::Phase::Restarting,
+            crate::operation::Component::Firmware,
+        ));
         let start = runtime.elapsed();
         while let Err(error) = drive::test_unit_ready(io.reads) {
             let waited = runtime.elapsed().saturating_sub(start);
@@ -359,6 +375,12 @@ impl Payload<'_> {
         let chunk = self.class.chunk();
         let mut buf = vec![0; chunk];
         for (index, piece) in self.image.chunks(chunk).enumerate() {
+            runtime.operation_progress(crate::operation::Progress::bytes(
+                crate::operation::Phase::Verifying,
+                crate::operation::Component::Firmware,
+                index * chunk,
+                self.image.len(),
+            ));
             let offset = index * chunk;
             let got = &mut buf[..piece.len()];
             match drive::read_memory(reads, offset as u32, got) {
@@ -382,6 +404,12 @@ impl Payload<'_> {
                 }
             }
         }
+        runtime.operation_progress(crate::operation::Progress::bytes(
+            crate::operation::Phase::Verifying,
+            crate::operation::Component::Firmware,
+            self.image.len(),
+            self.image.len(),
+        ));
         if let Some((address, read, wrote)) = first {
             return Err(FlashError::Mismatch {
                 address,
