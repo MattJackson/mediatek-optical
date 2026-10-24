@@ -4,7 +4,17 @@ All notable changes to `mediatek-optical` are documented here. The format follow
 [Keep a Changelog](https://keepachangelog.com/) and the project adheres to
 [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [1.1.0] - Unreleased
+
+- Recognize real MT1939/MT1959 boot windows containing instructions after the
+  terminated boot label. Retain complete-read, optical-device and chip-signature
+  checks; recognition still does not authorize an update.
+- Expose protocol-neutral operation phases, component labels, measured byte progress
+  and waiting states, matching the sister optical package's host contract.
+- Report writing, restart and firmware verification through the shared progress
+  callback without changing update command ordering or byte comparisons.
+- Add structured error categories alongside stable diagnostic codes. Recovery and
+  reference wrappers preserve the underlying cause's category for localized hosts.
 
 - Fixed: the receiver-code recognizers no longer reject valid compiler output: a legacy BOOT local literal may target r2 (or r7 unless bit zero relies on the preloaded r7), and a mode-six CDB reload is rejected only when it overwrites a bit constant (1, 2, 4 or 8) the flag body uses.
 - Breaking: `receiver::Error`, `recovery::Error`, `envelope::Error`,
