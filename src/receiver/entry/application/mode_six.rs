@@ -57,8 +57,9 @@ pub fn inspect_mode_six(
         if value != prelude.cdb_address {
             return None;
         }
-        // The reload must not clobber a constant the flag body relies on.
-        if prelude.constants[reg as usize].is_some() {
+        // The reload must not clobber a constant the flag body relies on; the
+        // body only ever uses the bit constants 1, 2, 4 and 8.
+        if matches!(prelude.constants[reg as usize], Some(1 | 2 | 4 | 8)) {
             return None;
         }
         cdb = 1 << reg;

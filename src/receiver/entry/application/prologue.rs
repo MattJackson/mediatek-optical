@@ -303,6 +303,12 @@ mod tests {
             guarded(2),
             Some(super::super::ModeSix::Entry67 { .. })
         ));
+        // r5 holds the constant 0, which the flag body never uses, so a
+        // reload into it leaves the proven flag semantics intact.
+        assert!(matches!(
+            guarded(5),
+            Some(super::super::ModeSix::Entry67 { .. })
+        ));
         // r6 and r1 hold prelude constants used by the flag body.
         assert!(guarded(6).is_none());
         assert!(guarded(1).is_none());

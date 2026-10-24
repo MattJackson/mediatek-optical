@@ -6,6 +6,7 @@ All notable changes to `mediatek-optical` are documented here. The format follow
 
 ## [Unreleased]
 
+- Fixed: the receiver-code recognizers no longer reject valid compiler output: a legacy BOOT local literal may target r2 (or r7 unless bit zero relies on the preloaded r7), and a mode-six CDB reload is rejected only when it overwrites a bit constant (1, 2, 4 or 8) the flag body uses.
 - Breaking: `receiver::Error`, `recovery::Error`, `envelope::Error`,
   `update::StartupError`, `receiver::ExecuteError`, `receiver::layout::Error` and
   `receiver::reference::Error` are now `#[non_exhaustive]`; freemkv-flash and other
