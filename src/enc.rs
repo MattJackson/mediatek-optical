@@ -9,6 +9,7 @@
 //! Requires the `enc` feature.
 
 use aes::cipher::generic_array::GenericArray;
+use aes::cipher::inout::InOutBuf;
 use aes::cipher::{BlockDecrypt, BlockEncrypt, KeyInit};
 use aes::Aes128;
 
@@ -48,9 +49,8 @@ fn check(data: &[u8]) -> Result<(), LengthError> {
 pub fn encrypt(data: &mut [u8]) -> Result<(), LengthError> {
     check(data)?;
     let cipher = Aes128::new(GenericArray::from_slice(&KEY));
-    for block in data.chunks_mut(BLOCK) {
-        cipher.encrypt_block(GenericArray::from_mut_slice(block));
-    }
+    let (blocks, _) = InOutBuf::from(data).into_chunks();
+    cipher.encrypt_blocks_inout(blocks);
     Ok(())
 }
 
@@ -58,9 +58,8 @@ pub fn encrypt(data: &mut [u8]) -> Result<(), LengthError> {
 pub fn decrypt(data: &mut [u8]) -> Result<(), LengthError> {
     check(data)?;
     let cipher = Aes128::new(GenericArray::from_slice(&KEY));
-    for block in data.chunks_mut(BLOCK) {
-        cipher.decrypt_block(GenericArray::from_mut_slice(block));
-    }
+    let (blocks, _) = InOutBuf::from(data).into_chunks();
+    cipher.decrypt_blocks_inout(blocks);
     Ok(())
 }
 

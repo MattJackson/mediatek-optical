@@ -55,7 +55,8 @@ impl std::error::Error for Error {
 #[derive(Clone)]
 pub struct Envelope {
     original: Vec<u8>,
-    canonical: Vec<u8>,
+    /// `None` when the canonical image is the original bytes (plaintext input).
+    canonical: Option<Vec<u8>>,
     encoding: InputEncoding,
     chip: Chip,
     input_hash: [u8; 32],
@@ -65,7 +66,7 @@ pub struct Envelope {
 impl core::fmt::Debug for Envelope {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("Envelope")
-            .field("length", &self.canonical.len())
+            .field("length", &self.image().len())
             .field("input_encoding", &self.encoding)
             .field("chip", &self.chip)
             .field("input_sha256", &self.input_hash)
@@ -102,20 +103,37 @@ impl Envelope {
             return Err(Error::Image(PrepareError::Size(input.len())));
         }
         let plain = recognized(input).then(|| validate(input));
-        let mut decoded = input.to_vec();
-        crate::enc::decrypt(&mut decoded).expect("complete image contains whole AES blocks");
-        let encrypted = recognized(&decoded).then(|| validate(&decoded));
+        // AES-ECB: a decrypted block depends only on its own ciphertext block,
+        // so decrypting the banner blocks alone decides `recognized(decoded)`.
+        const _: () = assert!(layout::BANNER.start % crate::enc::BLOCK == 0);
+        const _: () = assert!(layout::BANNER.len % crate::enc::BLOCK == 0);
+        let mut banner = [0u8; layout::BANNER.len];
+        banner.copy_from_slice(
+            &input[layout::BANNER.start..layout::BANNER.start + layout::BANNER.len],
+        );
+        crate::enc::decrypt(&mut banner).expect("banner contains whole AES blocks");
+        let decoded = Chip::from_banner(&banner).is_some().then(|| {
+            let mut decoded = input.to_vec();
+            crate::enc::decrypt(&mut decoded).expect("complete image contains whole AES blocks");
+            decoded
+        });
+        let encrypted = decoded.as_deref().map(validate);
         let (canonical, encoding, chip) = match (plain, encrypted) {
             (Some(Ok(_)), Some(Ok(_))) => return Err(Error::Ambiguous),
-            (Some(Ok(chip)), _) => (input.to_vec(), InputEncoding::Plaintext, chip),
+            (Some(Ok(chip)), _) => (None, InputEncoding::Plaintext, chip),
             (_, Some(Ok(chip))) => (decoded, InputEncoding::Encrypted, chip),
             (Some(Err(error)), _) | (_, Some(Err(error))) => return Err(Error::Image(error)),
             (None, None) => return Err(Error::UnknownFraming),
         };
+        let input_hash: [u8; 32] = Sha256::digest(input).into();
+        let image_hash = match &canonical {
+            None => input_hash,
+            Some(canonical) => Sha256::digest(canonical).into(),
+        };
         Ok(Self {
             original: input.to_vec(),
-            input_hash: Sha256::digest(input).into(),
-            image_hash: Sha256::digest(&canonical).into(),
+            input_hash,
+            image_hash,
             canonical,
             encoding,
             chip,
@@ -128,7 +146,7 @@ impl Envelope {
     }
     /// Canonical stored image, used for acceptance and readback verification.
     pub fn image(&self) -> &[u8] {
-        &self.canonical
+        self.canonical.as_deref().unwrap_or(&self.original)
     }
     /// Original input encoding; does not select the receiver's transfer mode.
     pub fn input_encoding(&self) -> InputEncoding {
