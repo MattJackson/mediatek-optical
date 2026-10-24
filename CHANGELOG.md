@@ -4,6 +4,41 @@ All notable changes to `mediatek-optical` are documented here. The format follow
 [Keep a Changelog](https://keepachangelog.com/) and the project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [1.1.0] - Unreleased
+
+- Faster envelope loading, AES transport encoding, family detection and lower peak
+  memory; results unchanged.
+- Recognize real MT1939/MT1959 boot windows containing instructions after the
+  terminated boot label. Retain complete-read, optical-device and chip-signature
+  checks; recognition still does not authorize an update.
+- Expose protocol-neutral operation phases, component labels, measured byte progress
+  and waiting states, matching the sister optical package's host contract.
+- Report writing, restart and firmware verification through the shared progress
+  callback without changing update command ordering or byte comparisons.
+- Add structured error categories alongside stable diagnostic codes. Recovery and
+  reference wrappers preserve the underlying cause's category for localized hosts.
+
+- Fixed: the receiver-code recognizers no longer reject valid compiler output: a legacy BOOT local literal may target r2 (or r7 unless bit zero relies on the preloaded r7), and a mode-six CDB reload is rejected only when it overwrites a bit constant (1, 2, 4 or 8) the flag body uses.
+- Breaking: `receiver::Error`, `recovery::Error`, `envelope::Error`,
+  `update::StartupError`, `receiver::ExecuteError`, `receiver::layout::Error` and
+  `receiver::reference::Error` are now `#[non_exhaustive]`; freemkv-flash and other
+  hosts must add wildcard arms to exhaustive matches.
+- Breaking: `recovery::Error::Startup` now carries the `update::StartupError`, and a
+  recovery whose target never starts is reported as `Startup` instead of `Flash`.
+- Add `update::PrepareError::Layout` (code `mediatek.prepare.layout`) preserving the
+  receiver layout cause instead of the unit `ReceiverContract`.
+- `protocol::Incomplete` now implements `Display`, `std::error::Error` and `CodedError`
+  (`mediatek.protocol.incomplete`).
+- Refuse before any write an image whose integrity table leaves no protected
+  region to read back, and never report a zero-range readback as complete.
+- `cmac::resign` orders entries that overlap any part of the integrity table, so a
+  re-signed image verifies.
+- Receiver-code recognizers reject register reuse that breaks the proven
+  data flow (entry literal loads, flag read-modify-write, mode-6 CDB reload,
+  plain-signature length register).
+- Corpus tests that need external firmware are reported as ignored when it is not
+  configured, instead of passing without running.
+
 ## [1.0.1] - 2026-10-23
 
 - Add `protocol::Evidence::parse` for complete live boot signatures, independent

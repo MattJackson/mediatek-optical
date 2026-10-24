@@ -99,3 +99,13 @@ fn sense_parsing_and_classes() {
     assert!(sense::is_no_medium(0x02, 0x3A));
     assert!(!sense::is_no_medium(0x02, 0x04));
 }
+
+#[test]
+fn protocol_incomplete_is_a_coded_displayable_error() {
+    use crate::CodedError;
+    assert_eq!(
+        crate::protocol::Incomplete.code(),
+        "mediatek.protocol.incomplete"
+    );
+    assert!(!crate::protocol::Incomplete.to_string().is_empty());
+}

@@ -111,15 +111,11 @@ fn too_small_image_is_refused() {
 
 /// The real BU40N 1.00 stock image, if present, must resolve to MT1959.
 #[test]
+#[ignore = "requires FREEMKV_KAT_BASE (OEM BU40N 1.00 image)"]
 fn real_stock_1_00_is_mt1959() {
-    let Ok(path) = std::env::var("FREEMKV_KAT_BASE") else {
-        eprintln!("skipping: FREEMKV_KAT_BASE unset (OEM BU40N 1.00 image)");
-        return;
-    };
-    let Ok(img) = std::fs::read(&path) else {
-        eprintln!("skipping: stock 1.00 image not present at {path}");
-        return;
-    };
+    let path = std::env::var("FREEMKV_KAT_BASE")
+        .expect("FREEMKV_KAT_BASE must be set for this ignored test");
+    let img = std::fs::read(&path).unwrap_or_else(|e| panic!("{path}: {e}"));
     let chip = detect_chip(&img).unwrap();
     assert_eq!(chip.family, Chip::Mt1959);
     assert_eq!(chip.rev, "1.00");
@@ -128,15 +124,11 @@ fn real_stock_1_00_is_mt1959() {
 
 /// The real MK-signed BU40N 1.03 image, if present, must also resolve to MT1959.
 #[test]
+#[ignore = "requires FREEMKV_KAT_MK103 (MK-signed BU40N 1.03 image)"]
 fn real_mk_1_03_is_mt1959() {
-    let Ok(path) = std::env::var("FREEMKV_KAT_MK103") else {
-        eprintln!("skipping: FREEMKV_KAT_MK103 unset (MK-signed BU40N 1.03 image)");
-        return;
-    };
-    let Ok(img) = std::fs::read(&path) else {
-        eprintln!("skipping: MK 1.03 image not present at {path}");
-        return;
-    };
+    let path = std::env::var("FREEMKV_KAT_MK103")
+        .expect("FREEMKV_KAT_MK103 must be set for this ignored test");
+    let img = std::fs::read(&path).unwrap_or_else(|e| panic!("{path}: {e}"));
     let chip = detect_chip(&img).unwrap();
     assert_eq!(chip.family, Chip::Mt1959);
     assert_eq!(chip.rev, "1.03");

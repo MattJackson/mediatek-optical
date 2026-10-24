@@ -101,7 +101,7 @@ pub fn inspect_flags(
         if w.word(set)? & 0xf800 == 0x2000 {
             let op = w.word(set)?;
             let register = (op >> 8) & 7;
-            if register == base {
+            if register == base || register == work {
                 return None;
             }
             after_set[register as usize] = Some(u32::from(op & 255));

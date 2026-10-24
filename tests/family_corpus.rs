@@ -164,11 +164,10 @@ fn name(descriptor: &[u8]) -> String {
 type Found = BTreeMap<String, (usize, String, BTreeMap<String, BTreeSet<String>>)>;
 
 #[test]
+#[ignore = "requires MEDIATEK_OPTICAL_FAMILY_CORPUS"]
 fn corpus_reproduces_the_research_table() {
-    let Some(dirs) = std::env::var_os("MEDIATEK_OPTICAL_FAMILY_CORPUS") else {
-        eprintln!("MEDIATEK_OPTICAL_FAMILY_CORPUS is unset; skipping the corpus table");
-        return;
-    };
+    let dirs = std::env::var_os("MEDIATEK_OPTICAL_FAMILY_CORPUS")
+        .expect("MEDIATEK_OPTICAL_FAMILY_CORPUS must be set for this ignored test");
     let mut paths = Vec::new();
     for dir in std::env::split_paths(&dirs) {
         images(&dir, &mut paths);

@@ -33,7 +33,14 @@ pub struct TransferPlan {
 }
 
 /// Receiver revalidation or execution failed.
+///
+/// Hosts must keep a wildcard arm; the set of variants may grow.
+///
+/// ```compile_fail,E0004
+/// fn f(e: mediatek_optical::receiver::ExecuteError<()>) -> u8 { match e { mediatek_optical::receiver::ExecuteError::Receiver { .. } => 0, mediatek_optical::receiver::ExecuteError::Flash { .. } => 1, } }
+/// ```
 #[derive(Debug)]
+#[non_exhaustive]
 pub enum ExecuteError<E> {
     /// No write was attempted because the receiver could not be revalidated.
     Receiver(super::Error<E>),
@@ -141,6 +148,15 @@ impl PreparedUpdate {
     }
 }
 
+fn wire(
+    image: &[u8],
+    operations: &[super::layout::Operation],
+) -> Result<Vec<u8>, update::PrepareError> {
+    let layout =
+        super::layout::analyze(image.len(), operations).map_err(update::PrepareError::Layout)?;
+    layout.encode(image).map_err(update::PrepareError::Layout)
+}
+
 // Both Flash and Recovery use this decision. A recognized scratch decoder must
 // never fall back to whole-image encryption merely because it calls AES.
 fn encode_transfer(
@@ -182,11 +198,7 @@ fn encode_transfer(
             for range in contract.programmed_ranges() {
                 operations.push(Operation::Program(range.clone()));
             }
-            let layout = super::layout::analyze(image.len(), &operations)
-                .map_err(|_| update::PrepareError::ReceiverContract)?;
-            let wire = layout
-                .encode(image)
-                .map_err(|_| update::PrepareError::ReceiverContract)?;
+            let wire = wire(image, &operations)?;
             return Ok((
                 Some(wire),
                 TransferEncoding {
@@ -280,6 +292,9 @@ impl TransferPlan {
                 image: image_chip,
                 drive: profile.chip,
             });
+        }
+        if class.verification_ranges(image).is_empty() {
+            return Err(update::PrepareError::Integrity);
         }
         let mut prepare = profile.prepare;
         let (transfer, encoding, preserve_boot) = encode_transfer(receiver, image)?;
@@ -400,10 +415,56 @@ impl TransferPlan {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn contradictory_layout_keeps_its_cause() {
+        use super::super::layout::{Error, Operation};
+        let image = vec![0; layout::IMAGE_SIZE];
+        let operations = [
+            Operation::CheckDecrypted(0x3000..0x3010),
+            Operation::CheckPlaintext(0x3000..0x3010),
+            Operation::Program(0..layout::IMAGE_SIZE),
+        ];
+        assert!(matches!(
+            wire(&image, &operations),
+            Err(update::PrepareError::Layout(Error::Conflict { .. }))
+        ));
+    }
     use crate::{
         fixtures::{self, BU3},
         layout, Identity, INQUIRY_LEN,
     };
+
+    #[test]
+    fn an_image_with_no_verifiable_ranges_is_refused_before_any_write() {
+        let mut image = fixtures::image(&BU3, 7);
+        let at = crate::image::cmac::TABLE_OFFSET;
+        image[at + 4..at + 8].copy_from_slice(&0u32.to_le_bytes());
+        image[at + 8..at + 12].copy_from_slice(&0xFFFu32.to_le_bytes());
+        let image = crate::image::cmac::resign(&image).unwrap();
+        let class = crate::DriveClass::of(crate::Chip::Mt1959);
+        assert!(class.verification_ranges(&image).is_empty());
+        let receiver = Receiver {
+            identity: super::super::DetectedMode {
+                mode: super::super::Mode::Firmware,
+                inquiry: [0; INQUIRY_LEN],
+            },
+            encoding: Encoding::Plaintext,
+            site: super::super::Evidence::new(0x98000, &[1, 2]),
+            transform: None,
+            reference: None,
+            profile: Some(super::super::profile::Profile::testing()),
+        };
+        assert!(matches!(
+            TransferPlan::new(
+                &receiver,
+                &image,
+                class,
+                update::flash::ExecutionMode::Flash
+            ),
+            Err(update::PrepareError::Integrity)
+        ));
+    }
 
     #[test]
     fn input_envelope_never_selects_the_running_receivers_wire_encoding() {

@@ -129,8 +129,15 @@ fn candidate(w: &Window<'_>, start: u32) -> Option<LegacyCandidate> {
     }
     let preloaded_one = prologue(w, start)?;
     let mut p = start.checked_add(10)?;
+    // The first literal runs before `CMP r2,#1`, so it may not clobber the CDB
+    // pointer (r0), the compared mode nibble (r2) or the preloaded bit-zero one
+    // (r7) that the proof relies on.
+    let clobbers = |reg: u16| reg == 0 || reg == 2 || (preloaded_one && reg == 7);
     let mut mmio = w.literal(p);
-    if mmio.is_some() {
+    if let Some((reg, _)) = mmio {
+        if clobbers(reg) {
+            return None;
+        }
         p = p.checked_add(2)?;
     }
     if w.word(p)? != 0x2a01 {
@@ -138,7 +145,18 @@ fn candidate(w: &Window<'_>, start: u32) -> Option<LegacyCandidate> {
     }
     let entry = w.conditional(p.checked_add(2)?, 0xd000)?;
     p = entry;
+    // r7 holds the preloaded one only until a local literal overwrites it; a
+    // later bit clause relying on that implicit value is then rejected.
+    let mut one_live = preloaded_one;
     if let Some(local) = w.literal(p) {
+        // After the branch r0's pointer and r2's compare are dead, but r0 stays
+        // reserved; r2 may be the MMIO base and r7 may be rebuilt.
+        if local.0 == 0 {
+            return None;
+        }
+        if local.0 == 7 {
+            one_live = false;
+        }
         mmio = Some(local);
         p = p.checked_add(2)?;
     }
@@ -185,7 +203,7 @@ fn candidate(w: &Window<'_>, start: u32) -> Option<LegacyCandidate> {
             }
             p = p.checked_add(2)?;
             (op >> 8) & 7
-        } else if bit == 0 && preloaded_one && base != 7 {
+        } else if bit == 0 && one_live {
             7
         } else {
             return None;
@@ -420,6 +438,87 @@ mod tests {
                 "{address:#x}"
             );
         }
+    }
+
+    // The V9 window with its entry rebuilt around `base`: an optional literal
+    // load between the decoder and `CMP r2,#1` (`first`) and an optional local
+    // literal at the entry (`local`), each naming its destination register.
+    fn v9_rebuilt(first: u16, local: Option<u16>, base: u16) -> std::vec::Vec<u8> {
+        v9_rebuilt_with(first, local, base, false)
+    }
+
+    // `explicit_one` spells bit zero's constant as a MOV instead of relying on
+    // the preloaded r7.
+    fn v9_rebuilt_with(
+        first: u16,
+        local: Option<u16>,
+        base: u16,
+        explicit_one: bool,
+    ) -> std::vec::Vec<u8> {
+        let mut bytes = v9_window();
+        let mut put = |address: usize, op: u16| {
+            bytes[address - 0x3400..address - 0x3400 + 2].copy_from_slice(&op.to_le_bytes());
+        };
+        put(0x3544, 0x4800 | first << 8 | 0xe0);
+        let mut p = 0x35de;
+        if let Some(reg) = local {
+            put(p, 0x4800 | reg << 8 | 0xba);
+            p += 2;
+        }
+        let load = 0x6800 | (6 << 6) | (base << 3) | 1;
+        let source = if base == 2 { 3 } else { 2 };
+        let mut ops = std::vec![load, 0x0909, 0x0109, 0x6000 | (6 << 6) | (base << 3) | 1];
+        for (bit, tmp, constant) in [
+            (0u16, 1u16, explicit_one.then_some(source)),
+            (1, 1, Some(source)),
+            (2, 1, Some(source)),
+            (3, 0, Some(1)),
+        ] {
+            ops.push(0x7800 | (9 << 6) | tmp);
+            ops.push(((31 - bit) << 6) | (tmp << 3) | tmp);
+            let (condition, length) = match (bit, constant) {
+                (0, None) => (0xd000, 2),
+                (0, Some(_)) => (0xd000, 3),
+                _ => (0xd500, 3),
+            };
+            ops.push(condition | length);
+            ops.push(0x6800 | (6 << 6) | (base << 3) | tmp);
+            let register = constant.unwrap_or(7);
+            if constant.is_some() {
+                ops.push(0x2000 | register << 8 | (1 << bit));
+            }
+            ops.push(0x4300 | (register << 3) | tmp);
+            ops.push(0x6000 | (6 << 6) | (base << 3) | tmp);
+        }
+        ops.extend([0xb009, 0xbdf0]);
+        for op in ops {
+            put(p, op);
+            p += 2;
+        }
+        bytes
+    }
+
+    #[test]
+    fn literal_loads_cannot_clobber_the_cdb_pointer_compare_or_preloaded_one() {
+        // Controls: the rebuilt forms are accepted when no register the proof
+        // relies on (r0 CDB pointer, r2 compare, r7 preloaded one) is touched.
+        assert!(inspect_boot_legacy(&v9_rebuilt(6, None, 6), 0x3400).is_some());
+        assert!(inspect_boot_legacy(&v9_rebuilt(5, Some(3), 3), 0x3400).is_some());
+        // A first literal into r0 is superseded by a local literal, but still
+        // destroys the CDB pointer before the mode nibble is compared.
+        assert!(inspect_boot_legacy(&v9_rebuilt(0, Some(3), 3), 0x3400).is_none());
+        // A first literal into r2 clobbers the compared mode nibble.
+        assert!(inspect_boot_legacy(&v9_rebuilt(2, None, 2), 0x3400).is_none());
+        // The same holds for r7, which carries the preloaded bit-zero one.
+        assert!(inspect_boot_legacy(&v9_rebuilt(7, Some(3), 3), 0x3400).is_none());
+        // After the branch r2 is dead, so a local literal may make it the base.
+        assert!(inspect_boot_legacy(&v9_rebuilt(6, Some(2), 2), 0x3400).is_some());
+        // A local literal into r0 still destroys the CDB pointer.
+        assert!(inspect_boot_legacy(&v9_rebuilt(6, Some(0), 0), 0x3400).is_none());
+        // A local literal into r7 is fine unless bit zero relies on the
+        // preloaded r7 one.
+        assert!(inspect_boot_legacy(&v9_rebuilt(6, Some(7), 7), 0x3400).is_none());
+        assert!(inspect_boot_legacy(&v9_rebuilt_with(6, Some(7), 7, true), 0x3400).is_some());
     }
 
     #[test]

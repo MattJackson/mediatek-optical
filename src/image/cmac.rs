@@ -66,9 +66,10 @@ impl CmacEntry {
         self.enabled == ENABLED
     }
 
-    /// Whether this entry's covered range includes the integrity table itself.
+    /// Whether this entry's covered range overlaps the integrity table itself.
     pub fn covers_table(&self) -> bool {
-        (self.start as usize) <= TABLE_OFFSET && (self.end as usize) >= TABLE_OFFSET
+        let table_end = TABLE_OFFSET + ENTRY_COUNT * ENTRY_SIZE;
+        (self.start as usize) < table_end && (self.end as usize) >= TABLE_OFFSET
     }
 }
 
@@ -121,12 +122,17 @@ pub fn compute_stored_digest(image: &[u8], start: u32, end: u32) -> Result<[u8; 
     if end < start || end >= image.len() {
         return Err(CmacError::BadRange { start, end });
     }
-    let mut data = image[start..=end].to_vec();
-    reverse_blocks(&mut data);
-
     let mut mac = <Cmac<Aes128> as Mac>::new_from_slice(&CMAC_KEY)
         .expect("AES-128 key length is always valid for CMAC");
-    mac.update(&data);
+    // Pieces are a multiple of 16 bytes from `start`, so each 16-byte reversal
+    // block (and the short final one) is exactly as in the whole range.
+    let mut buf = [0u8; 1024];
+    for piece in image[start..=end].chunks(buf.len()) {
+        let part = &mut buf[..piece.len()];
+        part.copy_from_slice(piece);
+        reverse_blocks(part);
+        mac.update(part);
+    }
     let tag = mac.finalize().into_bytes();
 
     let mut digest = [0u8; 16];

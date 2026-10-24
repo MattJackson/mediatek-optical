@@ -40,6 +40,8 @@
 extern crate std;
 
 mod error_codes;
+/// Common lifecycle observations for generic firmware applications.
+pub mod operation;
 pub use error_codes::CodedError;
 
 pub mod cdb;

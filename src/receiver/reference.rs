@@ -21,7 +21,14 @@ pub enum Provenance {
 }
 
 /// Reference analysis or physical metadata binding failed.
+///
+/// Hosts must keep a wildcard arm; the set of variants may grow.
+///
+/// ```compile_fail,E0004
+/// fn f(e: mediatek_optical::receiver::reference::Error<()>) -> u8 { match e { mediatek_optical::receiver::reference::Error::Analysis { .. } => 0, mediatek_optical::receiver::reference::Error::Binding { .. } => 1, } }
+/// ```
 #[derive(Debug)]
+#[non_exhaustive]
 pub enum Error<E> {
     /// The firmware reference did not contain a recognized application receiver.
     Analysis(super::Error<&'static str>),
