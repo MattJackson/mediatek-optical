@@ -161,11 +161,17 @@ fn recovery_boot_without_application_metadata_validates_image_and_stale_receiver
 
 #[cfg(all(feature = "image", feature = "enc"))]
 #[test]
-fn recovery_does_not_probe_pioneer_memory() {
+fn recovery_protocol_evidence_is_independent_of_inquiry_brand() {
     let mut dev = Device::new(Mode::Boot);
+    dev.image = crate::fixtures::image(&crate::fixtures::JB8, 1);
+    dev.stamp(0x36c4, PLAIN_DIRECT);
     dev.inquiry[8..16].copy_from_slice(b"PIONEER ");
+    let receiver = crate::recovery::Receiver::identify(&mut dev)
+        .unwrap()
+        .unwrap();
+    assert_eq!(receiver.mode(), Mode::Boot);
+    dev.image[0x3000..0x3020].fill(0);
     assert!(crate::recovery::Receiver::identify(&mut dev)
         .unwrap()
         .is_none());
-    assert_eq!(dev.reads, 1);
 }

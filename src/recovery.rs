@@ -64,16 +64,14 @@ impl Receiver {
             Err(receiver::Error::InvalidIdentity) => return Ok(None),
             Err(e) => return Err(Error::Receiver(e)),
         };
-        if [&b"PIONEER "[..], &b"RENESAS "[..]].contains(&&mode.inquiry()[8..16]) {
-            return Ok(None);
-        }
         let mut banner = [0; layout::BANNER.len];
-        if drive::read_memory(t, layout::BANNER.start as u32, &mut banner).is_err() {
-            return Ok(None);
-        }
-        let Some(chip) = Chip::from_banner(&banner) else {
+        drive::read_memory(t, layout::BANNER.start as u32, &mut banner).map_err(Error::Read)?;
+        let Some(evidence) = crate::protocol::Evidence::parse(mode.inquiry(), &banner)
+            .map_err(|_| Error::Changed)?
+        else {
             return Ok(None);
         };
+        let chip = evidence.identity().chip().ok_or(Error::Changed)?;
         let receiver = receiver::detect(t, &mode).map_err(Error::Receiver)?;
         Ok(Some(Self {
             receiver,
