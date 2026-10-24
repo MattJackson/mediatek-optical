@@ -6,6 +6,9 @@ All notable changes to `mediatek-optical` are documented here. The format follow
 
 ## [1.1.0] - Unreleased
 
+- Recognize real MT1939/MT1959 boot windows containing instructions after the
+  terminated boot label. Retain complete-read, optical-device and chip-signature
+  checks; recognition still does not authorize an update.
 - Expose protocol-neutral operation phases, component labels, measured byte progress
   and waiting states, matching the sister optical package's host contract.
 - Report writing, restart and firmware verification through the shared progress
