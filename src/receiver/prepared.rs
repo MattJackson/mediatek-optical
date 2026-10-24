@@ -281,6 +281,9 @@ impl TransferPlan {
                 drive: profile.chip,
             });
         }
+        if class.verification_ranges(image).is_empty() {
+            return Err(update::PrepareError::Integrity);
+        }
         let mut prepare = profile.prepare;
         let (transfer, encoding, preserve_boot) = encode_transfer(receiver, image)?;
         if preserve_boot {
@@ -404,6 +407,37 @@ mod tests {
         fixtures::{self, BU3},
         layout, Identity, INQUIRY_LEN,
     };
+
+    #[test]
+    fn an_image_with_no_verifiable_ranges_is_refused_before_any_write() {
+        let mut image = fixtures::image(&BU3, 7);
+        let at = crate::image::cmac::TABLE_OFFSET;
+        image[at + 4..at + 8].copy_from_slice(&0u32.to_le_bytes());
+        image[at + 8..at + 12].copy_from_slice(&0xFFFu32.to_le_bytes());
+        let image = crate::image::cmac::resign(&image).unwrap();
+        let class = crate::DriveClass::of(crate::Chip::Mt1959);
+        assert!(class.verification_ranges(&image).is_empty());
+        let receiver = Receiver {
+            identity: super::super::DetectedMode {
+                mode: super::super::Mode::Firmware,
+                inquiry: [0; INQUIRY_LEN],
+            },
+            encoding: Encoding::Plaintext,
+            site: super::super::Evidence::new(0x98000, &[1, 2]),
+            transform: None,
+            reference: None,
+            profile: Some(super::super::profile::Profile::testing()),
+        };
+        assert!(matches!(
+            TransferPlan::new(
+                &receiver,
+                &image,
+                class,
+                update::flash::ExecutionMode::Flash
+            ),
+            Err(update::PrepareError::Integrity)
+        ));
+    }
 
     #[test]
     fn input_envelope_never_selects_the_running_receivers_wire_encoding() {
