@@ -154,6 +154,12 @@ fn session_rejects_oversize_chunks_and_reports_sense() {
             Err(Error::Oversize(0x1_0000))
         ));
     }
+    // The refusal happened before any WRITE BUFFER was issued.
+    assert!(t.written.is_empty());
+    assert_eq!(
+        t.cdbs,
+        [cdb::probe(), cdb::test_unit_ready(), cdb::enter_update()]
+    );
     assert_eq!(request_sense(&mut t).unwrap(), Some((0x02, 0x3A, 0x00)));
     test_unit_ready(&mut t).unwrap();
 }
