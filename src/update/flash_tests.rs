@@ -271,7 +271,12 @@ fn flash_sends_the_oem_session_then_verifies() {
     let mut clock = Clock::default();
     let verified = run(&drive, &update, &mut clock).unwrap();
     use crate::operation::Phase;
-    for phase in [Phase::Writing, Phase::Restarting, Phase::Verifying] {
+    for phase in [
+        Phase::Preparing,
+        Phase::Writing,
+        Phase::Restarting,
+        Phase::Verifying,
+    ] {
         assert!(clock.operation_progress.iter().any(|p| p.phase == phase));
     }
     let waiting = clock

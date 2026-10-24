@@ -277,6 +277,10 @@ impl Payload<'_> {
     {
         let transfer = self.transfer;
         runtime.starting(transfer.len());
+        runtime.operation_progress(crate::operation::Progress::waiting(
+            crate::operation::Phase::Preparing,
+            crate::operation::Component::Firmware,
+        ));
         let mut session = match mode {
             ExecutionMode::Recovery => {
                 drive::enter_recovery_reporting(io.writes, prepare, |error| {
