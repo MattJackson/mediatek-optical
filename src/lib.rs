@@ -54,6 +54,7 @@ pub mod image;
 pub mod layout;
 #[cfg(feature = "oem")]
 pub mod oem;
+pub mod protocol;
 #[cfg(feature = "drive")]
 pub mod receiver;
 #[cfg(all(feature = "drive", feature = "image", feature = "enc"))]
