@@ -178,9 +178,13 @@ struct Clock {
     now: Duration,
     events: Vec<String>,
     progress: Vec<usize>,
+    operation_progress: Vec<crate::operation::Progress>,
 }
 
 impl FlashRuntime<&'static str> for Clock {
+    fn operation_progress(&mut self, progress: crate::operation::Progress) {
+        self.operation_progress.push(progress);
+    }
     fn elapsed(&self) -> Duration {
         self.now
     }
@@ -266,6 +270,27 @@ fn flash_sends_the_oem_session_then_verifies() {
     let (drive, update, target) = setup();
     let mut clock = Clock::default();
     let verified = run(&drive, &update, &mut clock).unwrap();
+    use crate::operation::Phase;
+    for phase in [
+        Phase::Preparing,
+        Phase::Writing,
+        Phase::Restarting,
+        Phase::Verifying,
+    ] {
+        assert!(clock.operation_progress.iter().any(|p| p.phase == phase));
+    }
+    let waiting = clock
+        .operation_progress
+        .iter()
+        .find(|p| p.phase == Phase::Restarting)
+        .unwrap();
+    assert_eq!((waiting.done, waiting.total), (None, None));
+    let last = clock.operation_progress.last().unwrap();
+    assert_eq!(last.phase, Phase::Verifying);
+    assert_eq!(
+        (last.done, last.total),
+        (Some(layout::IMAGE_SIZE), Some(layout::IMAGE_SIZE))
+    );
     assert_eq!(
         verified,
         Verified {

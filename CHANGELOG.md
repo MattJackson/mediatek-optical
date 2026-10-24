@@ -4,6 +4,15 @@ All notable changes to `mediatek-optical` are documented here. The format follow
 [Keep a Changelog](https://keepachangelog.com/) and the project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [1.1.0] - Unreleased
+
+- Expose protocol-neutral operation phases, component labels, measured byte progress
+  and waiting states, matching the sister optical package's host contract.
+- Report writing, restart and firmware verification through the shared progress
+  callback without changing update command ordering or byte comparisons.
+- Add structured error categories alongside stable diagnostic codes. Recovery and
+  reference wrappers preserve the underlying cause's category for localized hosts.
+
 ## [1.0.1] - 2026-10-23
 
 - Add `protocol::Evidence::parse` for complete live boot signatures, independent
