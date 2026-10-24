@@ -16,6 +16,15 @@ All notable changes to `mediatek-optical` are documented here. The format follow
   receiver layout cause instead of the unit `ReceiverContract`.
 - `protocol::Incomplete` now implements `Display`, `std::error::Error` and `CodedError`
   (`mediatek.protocol.incomplete`).
+- Refuse before any write an image whose integrity table leaves no protected
+  region to read back, and never report a zero-range readback as complete.
+- `cmac::resign` orders entries that overlap any part of the integrity table, so a
+  re-signed image verifies.
+- Receiver-code recognizers reject register reuse that breaks the proven
+  data flow (entry literal loads, flag read-modify-write, mode-6 CDB reload,
+  plain-signature length register).
+- Corpus tests that need external firmware are reported as ignored when it is not
+  configured, instead of passing without running.
 
 ## [1.0.1] - 2026-10-23
 
