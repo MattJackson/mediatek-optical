@@ -1,11 +1,19 @@
 //! Stable identifiers for host diagnostics and translation keys.
 
+#[path = "issue_kind.rs"]
+mod issue_kind;
+use issue_kind::kind_for_code;
+
 /// A typed error with a stable, namespaced identifier.
 ///
 /// Codes contain no runtime values. Match the error variant for parameters;
 /// `Display` is diagnostic prose and may change. Wrapper errors retain their
 /// own stage code; their typed causes describe the underlying failure.
 pub trait CodedError {
+    /// Protocol-neutral host guidance category; never derives from diagnostic prose.
+    fn kind(&self) -> crate::operation::IssueKind {
+        kind_for_code(self.code())
+    }
     /// Stable identifier, such as `mediatek.receiver.changed`.
     fn code(&self) -> &'static str;
 }
@@ -149,6 +157,12 @@ impl<E> CodedError for crate::receiver::ExecuteError<E> {
 
 #[cfg(all(feature = "drive", feature = "image", feature = "enc"))]
 impl<E> CodedError for crate::receiver::reference::Error<E> {
+    fn kind(&self) -> crate::operation::IssueKind {
+        match self {
+            Self::Analysis(error) => error.kind(),
+            Self::Binding(error) => error.kind(),
+        }
+    }
     fn code(&self) -> &'static str {
         match self {
             Self::Analysis(_) => "mediatek.reference.analysis",
@@ -173,6 +187,18 @@ impl CodedError for crate::receiver::layout::Error {
 
 #[cfg(all(feature = "drive", feature = "image", feature = "enc"))]
 impl<E> CodedError for crate::recovery::Error<E> {
+    fn kind(&self) -> crate::operation::IssueKind {
+        use crate::operation::IssueKind;
+        match self {
+            Self::Receiver(error) => error.kind(),
+            Self::Reference(error) => error.kind(),
+            Self::Read(error) => error.kind(),
+            Self::Image(error) => error.kind(),
+            Self::Flash(error) => error.kind(),
+            Self::Changed => IssueKind::ReceiverMismatch,
+            Self::Startup => IssueKind::Verification,
+        }
+    }
     fn code(&self) -> &'static str {
         match self {
             Self::Receiver(_) => "mediatek.recovery.receiver",
