@@ -807,3 +807,43 @@ fn completion_never_probes_startup_after_partial_write_or_corrupt_readback() {
         assert!(!drive.borrow().log.iter().any(|(_, cdb, _)| cdb[0] == 0x12));
     }
 }
+
+fn zero_range_image(board: &fixtures::Board) -> Vec<u8> {
+    let mut img = fixtures::image(board, 1);
+    let at = cmac::TABLE_OFFSET;
+    img[at + 4..at + 8].copy_from_slice(&0u32.to_le_bytes());
+    img[at + 8..at + 12].copy_from_slice(&0xFFFu32.to_le_bytes());
+    let img = cmac::resign(&img).unwrap();
+    assert!(cmac::verify(&img));
+    img
+}
+
+#[test]
+fn zero_range_readback_is_never_complete() {
+    let img = zero_range_image(&JB7);
+    let class = crate::DriveClass::of(crate::Chip::Mt1939);
+    assert!(class.verification_ranges(&img).is_empty());
+    let drive = Drive::running(&img);
+    let (mut reads, mut writes) = (
+        Handle(drive.clone(), Via::Reads),
+        Handle(drive.clone(), Via::Writes),
+    );
+    let result = crate::update::flash::Payload {
+        class,
+        image: &img,
+        transfer: &img,
+    }
+    .flash(
+        FlashTransport {
+            reads: &mut reads,
+            writes: &mut writes,
+        },
+        &mut Clock::default(),
+        crate::update::flash::ExecutionMode::Flash,
+        cdb::Prepare::ModeOne,
+    );
+    assert!(matches!(
+        result,
+        Err(FlashError::Incomplete { checked: 0, .. })
+    ));
+}

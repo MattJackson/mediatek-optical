@@ -66,9 +66,10 @@ impl CmacEntry {
         self.enabled == ENABLED
     }
 
-    /// Whether this entry's covered range includes the integrity table itself.
+    /// Whether this entry's covered range overlaps the integrity table itself.
     pub fn covers_table(&self) -> bool {
-        (self.start as usize) <= TABLE_OFFSET && (self.end as usize) >= TABLE_OFFSET
+        let table_end = TABLE_OFFSET + ENTRY_COUNT * ENTRY_SIZE;
+        (self.start as usize) < table_end && (self.end as usize) >= TABLE_OFFSET
     }
 }
 

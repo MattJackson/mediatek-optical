@@ -15,7 +15,14 @@ pub struct Receiver {
     banner: [u8; layout::BANNER.len],
 }
 /// Recovery identification, preparation or execution failed.
+///
+/// Hosts must keep a wildcard arm; the set of variants may grow.
+///
+/// ```compile_fail,E0004
+/// fn f(e: mediatek_optical::recovery::Error<()>) -> u8 { match e { mediatek_optical::recovery::Error::Receiver { .. } => 0, mediatek_optical::recovery::Error::Reference { .. } => 1, mediatek_optical::recovery::Error::Read { .. } => 2, mediatek_optical::recovery::Error::Image { .. } => 3, mediatek_optical::recovery::Error::Flash { .. } => 4, mediatek_optical::recovery::Error::Changed { .. } => 5, mediatek_optical::recovery::Error::Startup { .. } => 6, } }
+/// ```
 #[derive(Debug)]
+#[non_exhaustive]
 pub enum Error<E> {
     /// Receiver identification or revalidation failed.
     Receiver(receiver::Error<E>),
@@ -30,7 +37,7 @@ pub enum Error<E> {
     /// The live chip/banner changed after identification.
     Changed,
     /// The receiver did not start the selected firmware.
-    Startup,
+    Startup(crate::update::StartupError<E>),
 }
 impl<E: core::fmt::Debug> core::fmt::Display for Error<E> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
@@ -38,7 +45,7 @@ impl<E: core::fmt::Debug> core::fmt::Display for Error<E> {
             Self::Receiver(e)=>write!(f,"{e}"), Self::Reference(e)=>write!(f,"{e}"), Self::Read(e)=>write!(f,"{e}"),
             Self::Image(e)=>write!(f,"{e}"), Self::Flash(e)=>write!(f,"{e}"),
             Self::Changed=>f.write_str("MediaTek boot banner changed; re-plan recovery"),
-            Self::Startup=>f.write_str("recovery did not confirm startup of the selected firmware; drive may still be in BOOT"),
+            Self::Startup(e)=>write!(f,"recovery did not confirm startup of the selected firmware; drive may still be in BOOT: {e}"),
         }
     }
 }
@@ -50,7 +57,8 @@ impl<E: core::fmt::Debug + 'static> std::error::Error for Error<E> {
             Self::Read(source) => Some(source),
             Self::Image(source) => Some(source),
             Self::Flash(source) => Some(source),
-            _ => None,
+            Self::Startup(source) => Some(source),
+            Self::Changed => None,
         }
     }
 }
@@ -212,9 +220,29 @@ impl PreparedRecovery {
         }
         self.plan
             .execute_completed(io, runtime)
-            .map_err(|e| match e {
-                receiver::ExecuteError::Receiver(e) => Error::Receiver(e),
-                receiver::ExecuteError::Flash(e) => Error::Flash(e),
-            })
+            .map_err(from_execute)
+    }
+}
+
+fn from_execute<E>(e: receiver::ExecuteError<E>) -> Error<E> {
+    match e {
+        receiver::ExecuteError::Receiver(e) => Error::Receiver(e),
+        receiver::ExecuteError::Flash(FlashError::Startup(e)) => Error::Startup(e),
+        receiver::ExecuteError::Flash(e) => Error::Flash(e),
+    }
+}
+
+#[cfg(test)]
+mod from_execute_tests {
+    use super::*;
+    use crate::update::StartupError;
+
+    #[test]
+    fn unconfirmed_startup_maps_to_startup_error() {
+        let e = from_execute::<&'static str>(receiver::ExecuteError::Flash(FlashError::Startup(
+            StartupError::TargetMismatch,
+        )));
+        assert!(matches!(e, Error::Startup(StartupError::TargetMismatch)));
+        assert_eq!(crate::CodedError::code(&e), "mediatek.recovery.startup");
     }
 }

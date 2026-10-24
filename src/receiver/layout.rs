@@ -22,7 +22,14 @@ pub enum Operation {
 }
 
 /// Contradictory or unsupported receiver operations cannot supply a wire plan.
+///
+/// Hosts must keep a wildcard arm; the set of variants may grow.
+///
+/// ```compile_fail,E0004
+/// fn f(e: mediatek_optical::receiver::layout::Error) -> u8 { match e { mediatek_optical::receiver::layout::Error::Alignment { .. } => 0, mediatek_optical::receiver::layout::Error::Range { .. } => 1, mediatek_optical::receiver::layout::Error::Conflict { .. } => 2, mediatek_optical::receiver::layout::Error::MultipleDecryptions { .. } => 3, mediatek_optical::receiver::layout::Error::NoProgram { .. } => 4, mediatek_optical::receiver::layout::Error::ImageSize { .. } => 5, } }
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum Error {
     /// Canonical images and AES transforms require complete blocks.
     Alignment,

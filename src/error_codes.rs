@@ -18,6 +18,12 @@ pub trait CodedError {
     fn code(&self) -> &'static str;
 }
 
+impl CodedError for crate::protocol::Incomplete {
+    fn code(&self) -> &'static str {
+        "mediatek.protocol.incomplete"
+    }
+}
+
 impl CodedError for crate::UnknownChip {
     fn code(&self) -> &'static str {
         "mediatek.chip.unknown_label"
@@ -67,6 +73,8 @@ impl CodedError for crate::update::PrepareError {
         match self {
             Self::ReceiverEntry => "mediatek.prepare.receiver_entry",
             Self::ReceiverContract => "mediatek.prepare.receiver_contract",
+            #[cfg(all(feature = "drive", feature = "enc"))]
+            Self::Layout(_) => "mediatek.prepare.layout",
             Self::Size(_) => "mediatek.prepare.size",
             Self::Integrity => "mediatek.prepare.integrity",
             Self::DriveRead => "mediatek.prepare.drive_read",
@@ -196,7 +204,7 @@ impl<E> CodedError for crate::recovery::Error<E> {
             Self::Image(error) => error.kind(),
             Self::Flash(error) => error.kind(),
             Self::Changed => IssueKind::ReceiverMismatch,
-            Self::Startup => IssueKind::Verification,
+            Self::Startup(error) => error.kind(),
         }
     }
     fn code(&self) -> &'static str {
@@ -207,7 +215,7 @@ impl<E> CodedError for crate::recovery::Error<E> {
             Self::Image(_) => "mediatek.recovery.image",
             Self::Flash(_) => "mediatek.recovery.flash",
             Self::Changed => "mediatek.recovery.changed",
-            Self::Startup => "mediatek.recovery.startup",
+            Self::Startup(_) => "mediatek.recovery.startup",
         }
     }
 }

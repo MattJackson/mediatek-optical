@@ -46,13 +46,15 @@ fn integrity_table_requires_all_sixteen_complete_records() {
 
 #[test]
 fn table_coverage_is_an_inclusive_interval() {
-    // OEM entries include [0x10400,0x1045f]; adjacent disjoint ranges do not cover it.
+    // OEM entries include [0x10400,0x1045f]; only ranges overlapping the table cover it.
     for (start, end, covers) in [
         (0x10400, 0x1045f, true),
         (0, 0x10400, true),
         (0x10400, 0x10400, true),
         (0, 0x103ff, false),
-        (0x10401, 0x1045f, false),
+        (0x10401, 0x1045f, true),
+        (0x1041c, 0x2ffff, true),
+        (0x105c0, 0x2ffff, false),
     ] {
         let entry = cmac::CmacEntry {
             index: 0,
