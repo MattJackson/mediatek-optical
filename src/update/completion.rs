@@ -62,7 +62,14 @@ impl Completion {
 }
 
 /// Why exact selected-target startup could not be established.
+///
+/// Hosts must keep a wildcard arm; the set of variants may grow.
+///
+/// ```compile_fail,E0004
+/// fn f(e: mediatek_optical::update::StartupError<()>) -> u8 { match e { mediatek_optical::update::StartupError::Identity { .. } => 0, mediatek_optical::update::StartupError::Read { .. } => 1, mediatek_optical::update::StartupError::TargetMismatch { .. } => 2, } }
+/// ```
 #[derive(Debug)]
+#[non_exhaustive]
 pub enum StartupError<E> {
     /// Live operating mode/INQUIRY could not be established.
     Identity(receiver::Error<E>),

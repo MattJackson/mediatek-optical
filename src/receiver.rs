@@ -76,7 +76,14 @@ impl DetectedMode {
 }
 
 /// Detection failed; no implicit encoding is selected.
+///
+/// Hosts must keep a wildcard arm; the set of variants may grow.
+///
+/// ```compile_fail,E0004
+/// fn f(e: mediatek_optical::receiver::Error<()>) -> u8 { match e { mediatek_optical::receiver::Error::Read { .. } => 0, mediatek_optical::receiver::Error::InvalidIdentity { .. } => 1, mediatek_optical::receiver::Error::Unknown { .. } => 2, mediatek_optical::receiver::Error::Conflict { .. } => 3, mediatek_optical::receiver::Error::Changed { .. } => 4, mediatek_optical::receiver::Error::UnknownEntry { .. } => 5, } }
+/// ```
 #[derive(Debug)]
+#[non_exhaustive]
 pub enum Error<E> {
     /// A required read failed or was short.
     Read(drive::Error<E>),
@@ -116,7 +123,11 @@ impl<E: core::fmt::Debug + 'static> std::error::Error for Error<E> {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
             Self::Read(source) => Some(source),
-            _ => None,
+            Self::InvalidIdentity
+            | Self::Unknown
+            | Self::Conflict
+            | Self::Changed
+            | Self::UnknownEntry => None,
         }
     }
 }

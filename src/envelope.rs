@@ -17,7 +17,14 @@ pub enum InputEncoding {
 }
 
 /// Why an input could not be loaded as a unique validated image.
+///
+/// Hosts must keep a wildcard arm; the set of variants may grow.
+///
+/// ```compile_fail,E0004
+/// fn f(e: mediatek_optical::envelope::Error) -> u8 { match e { mediatek_optical::envelope::Error::Image { .. } => 0, mediatek_optical::envelope::Error::UnknownFraming { .. } => 1, mediatek_optical::envelope::Error::Ambiguous { .. } => 2, } }
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum Error {
     /// Size, integrity, chip or stored-image checks failed.
     Image(PrepareError),
@@ -39,7 +46,7 @@ impl std::error::Error for Error {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
             Self::Image(source) => Some(source),
-            _ => None,
+            Self::UnknownFraming | Self::Ambiguous => None,
         }
     }
 }

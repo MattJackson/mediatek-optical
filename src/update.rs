@@ -45,6 +45,9 @@ pub enum PrepareError {
     ReceiverEntry,
     /// Decoder evidence does not yet establish an executable transfer contract.
     ReceiverContract,
+    /// The receiver's transfer layout is contradictory; no firmware was sent.
+    #[cfg(all(feature = "drive", feature = "enc"))]
+    Layout(crate::receiver::layout::Error),
     /// The image is not [`layout::IMAGE_SIZE`] bytes.
     Size(usize),
     /// The image fails its AES-CMAC integrity table.
@@ -88,6 +91,8 @@ impl core::fmt::Display for PrepareError {
             Self::ReceiverContract => {
                 f.write_str("receiver transfer contract is incomplete; no firmware was sent")
             }
+            #[cfg(all(feature = "drive", feature = "enc"))]
+            Self::Layout(e) => write!(f, "receiver transfer layout is unsupported: {e}"),
             Self::Size(n) => write!(
                 f,
                 "image is {n} bytes; an update image is exactly {} bytes",
@@ -127,7 +132,15 @@ impl core::fmt::Display for PrepareError {
     }
 }
 
-impl std::error::Error for PrepareError {}
+impl std::error::Error for PrepareError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            #[cfg(all(feature = "drive", feature = "enc"))]
+            Self::Layout(source) => Some(source),
+            _ => None,
+        }
+    }
+}
 
 /// Data phase of one [`Step`].
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

@@ -33,7 +33,14 @@ pub struct TransferPlan {
 }
 
 /// Receiver revalidation or execution failed.
+///
+/// Hosts must keep a wildcard arm; the set of variants may grow.
+///
+/// ```compile_fail,E0004
+/// fn f(e: mediatek_optical::receiver::ExecuteError<()>) -> u8 { match e { mediatek_optical::receiver::ExecuteError::Receiver { .. } => 0, mediatek_optical::receiver::ExecuteError::Flash { .. } => 1, } }
+/// ```
 #[derive(Debug)]
+#[non_exhaustive]
 pub enum ExecuteError<E> {
     /// No write was attempted because the receiver could not be revalidated.
     Receiver(super::Error<E>),
@@ -141,6 +148,15 @@ impl PreparedUpdate {
     }
 }
 
+fn wire(
+    image: &[u8],
+    operations: &[super::layout::Operation],
+) -> Result<Vec<u8>, update::PrepareError> {
+    let layout =
+        super::layout::analyze(image.len(), operations).map_err(update::PrepareError::Layout)?;
+    layout.encode(image).map_err(update::PrepareError::Layout)
+}
+
 // Both Flash and Recovery use this decision. A recognized scratch decoder must
 // never fall back to whole-image encryption merely because it calls AES.
 fn encode_transfer(
@@ -182,11 +198,7 @@ fn encode_transfer(
             for range in contract.programmed_ranges() {
                 operations.push(Operation::Program(range.clone()));
             }
-            let layout = super::layout::analyze(image.len(), &operations)
-                .map_err(|_| update::PrepareError::ReceiverContract)?;
-            let wire = layout
-                .encode(image)
-                .map_err(|_| update::PrepareError::ReceiverContract)?;
+            let wire = wire(image, &operations)?;
             return Ok((
                 Some(wire),
                 TransferEncoding {
@@ -400,6 +412,21 @@ impl TransferPlan {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn contradictory_layout_keeps_its_cause() {
+        use super::super::layout::{Error, Operation};
+        let image = vec![0; layout::IMAGE_SIZE];
+        let operations = [
+            Operation::CheckDecrypted(0x3000..0x3010),
+            Operation::CheckPlaintext(0x3000..0x3010),
+            Operation::Program(0..layout::IMAGE_SIZE),
+        ];
+        assert!(matches!(
+            wire(&image, &operations),
+            Err(update::PrepareError::Layout(Error::Conflict { .. }))
+        ));
+    }
     use crate::{
         fixtures::{self, BU3},
         layout, Identity, INQUIRY_LEN,
