@@ -159,8 +159,16 @@ pub fn hardware(image: &[u8]) -> Option<Hardware> {
     let chip = Chip::from_banner(banner)?;
     let loader = loader(banner)?;
 
-    let mut records =
-        (CODE.start..=CODE.end - RECORD_USED_LEN).filter(|&at| is_record(&image[at..]));
+    let mut at = CODE.start;
+    let mut records = core::iter::from_fn(|| {
+        while let Some(found) = next_marker(image, at) {
+            at = found + 1;
+            if is_record(&image[found..]) {
+                return Some(found);
+            }
+        }
+        None
+    });
     let record = records.next()?;
     if records.next().is_some() {
         return None;
@@ -228,6 +236,37 @@ fn loader(banner: &[u8]) -> Option<String> {
         return None;
     }
     String::from_utf8(token[..len].to_vec()).ok()
+}
+
+/// The first offset at or after `from` within the record scan bounds
+/// (`CODE.start..=CODE.end - RECORD_USED_LEN`) whose byte is the marker's first
+/// byte. A record can only start there, so [`is_record`] need not run elsewhere.
+/// Eight bytes are tested at a time (SWAR, safe code).
+fn next_marker(image: &[u8], from: usize) -> Option<usize> {
+    const LO: u64 = 0x0101_0101_0101_0101;
+    const HI: u64 = 0x8080_8080_8080_8080;
+    let last = CODE.end - RECORD_USED_LEN;
+    if from > last {
+        return None;
+    }
+    let window = &image[from..=last];
+    let mut chunks = window.chunks_exact(8);
+    let mut base = 0;
+    for chunk in &mut chunks {
+        let word = u64::from_le_bytes(chunk.try_into().expect("chunk is eight bytes"))
+            ^ (LO * u64::from(MARKER[0]));
+        if word.wrapping_sub(LO) & !word & HI != 0 {
+            if let Some(i) = chunk.iter().position(|&b| b == MARKER[0]) {
+                return Some(from + base + i);
+            }
+        }
+        base += 8;
+    }
+    chunks
+        .remainder()
+        .iter()
+        .position(|&b| b == MARKER[0])
+        .map(|i| from + base + i)
 }
 
 /// Whether `bytes` starts with a hardware record.

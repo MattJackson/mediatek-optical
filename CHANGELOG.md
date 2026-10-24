@@ -6,6 +6,8 @@ All notable changes to `mediatek-optical` are documented here. The format follow
 
 ## [1.1.0] - Unreleased
 
+- Faster envelope loading, AES transport encoding, family detection and lower peak
+  memory; results unchanged.
 - Recognize real MT1939/MT1959 boot windows containing instructions after the
   terminated boot label. Retain complete-read, optical-device and chip-signature
   checks; recognition still does not authorize an update.
