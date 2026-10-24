@@ -1,19 +1,70 @@
 name: CI
 on:
   push:
-    branches: [main, dev, qa]
+    branches: [dev, qa]
   pull_request:
   workflow_call:
 permissions:
   contents: read
+  actions: read
 jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      build: ${{ steps.mode.outputs.build }}
+      branch: ${{ steps.mode.outputs.branch }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: mode
+        env:
+          EVENT: ${{ github.event_name }}
+          REF: ${{ github.ref_name }}
+          HEAD: ${{ github.head_ref }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          REPO: ${{ github.repository }}
+        run: |
+          if [ "$REF" = qa ]; then build=false; branch=dev
+          elif [ "$EVENT" = pull_request ] && [ "$HEAD_REPO" = "$REPO" ] && { [ "$HEAD" = dev ] || [ "$HEAD" = qa ]; }; then build=false; branch="$HEAD"
+          else build=true; branch=dev; fi
+          if [ "$EVENT" = push ] && [ "$REF" = dev ]; then
+            base=$(python3 -c 'import json,os;print(json.load(open(os.environ["GITHUB_EVENT_PATH"])).get("before", ""))')
+            if git rev-parse --verify "$base^{commit}" >/dev/null 2>&1; then
+              changes=$(git diff --name-only "$base" HEAD)
+              if ! printf '%s\n' "$changes" | grep -v '^.github/' | grep -q .; then build=false; branch=dev; fi
+            fi
+          fi
+          echo "build=$build" >> "$GITHUB_OUTPUT"
+          echo "branch=$branch" >> "$GITHUB_OUTPUT"
+  source-proof:
+    needs: plan
+    if: needs.plan.outputs.build == 'false'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Check source-proof regression tests
+        run: python3 .github/scripts/test-verify-source.py
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_BRANCH: ${{ needs.plan.outputs.branch }}
+        run: python3 .github/scripts/verify-source.py --branch "$SOURCE_BRANCH"
   quality:
+    needs: plan
+    if: needs.plan.outputs.build == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: optical-${{ github.job }}
+          cache-on-failure: true
+          cache-workspace-crates: true
       - run: cargo fmt --all --check
       - run: cargo clippy --locked --all-targets --all-features -- -D warnings
       - run: cargo test --locked --all-targets --all-features
@@ -23,24 +74,45 @@ jobs:
           RUSTDOCFLAGS: -D warnings
       - run: cargo package --locked --all-features
   features:
+    needs: plan
+    if: needs.plan.outputs.build == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: optical-${{ github.job }}
+          cache-on-failure: true
+          cache-workspace-crates: true
       - run: python3 .github/scripts/check-features.py test
       - run: python3 .github/scripts/check-features.py doc
   msrv:
+    needs: plan
+    if: needs.plan.outputs.build == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@1.75.0
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: optical-${{ github.job }}
+          cache-on-failure: true
+          cache-workspace-crates: true
       - run: python3 .github/scripts/check-features.py check --toolchain 1.75.0
   no-std:
+    needs: plan
+    if: needs.plan.outputs.build == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: thumbv7em-none-eabi
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: optical-${{ github.job }}
+          cache-on-failure: true
+          cache-workspace-crates: true
       - run: cargo check --locked --lib --target thumbv7em-none-eabi --no-default-features
       - run: cargo check --locked --lib --target thumbv7em-none-eabi --no-default-features --features drive
