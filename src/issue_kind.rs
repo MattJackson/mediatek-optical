@@ -11,6 +11,7 @@ pub(super) fn kind_for_code(code: &str) -> crate::operation::IssueKind {
         | "mediatek.cmac.bad_range"
         | "mediatek.prepare.receiver_entry"
         | "mediatek.prepare.receiver_contract"
+        | "mediatek.prepare.layout"
         | "mediatek.prepare.size"
         | "mediatek.prepare.integrity"
         | "mediatek.prepare.drive_read"
@@ -28,6 +29,7 @@ pub(super) fn kind_for_code(code: &str) -> crate::operation::IssueKind {
         | "mediatek.layout.no_program"
         | "mediatek.layout.image_size" => IssueKind::InvalidFirmware,
         "mediatek.drive.transport"
+        | "mediatek.protocol.incomplete"
         | "mediatek.drive.short"
         | "mediatek.receiver.read"
         | "mediatek.receiver.invalid_identity"

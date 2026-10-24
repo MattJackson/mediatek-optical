@@ -204,7 +204,7 @@ impl<E> CodedError for crate::recovery::Error<E> {
             Self::Image(error) => error.kind(),
             Self::Flash(error) => error.kind(),
             Self::Changed => IssueKind::ReceiverMismatch,
-            Self::Startup => IssueKind::Verification,
+            Self::Startup(error) => error.kind(),
         }
     }
     fn code(&self) -> &'static str {
