@@ -4,6 +4,14 @@ All notable changes to `mediatek-optical` are documented here. The format follow
 [Keep a Changelog](https://keepachangelog.com/) and the project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [1.0.1] - 2026-10-23
+
+- Add `protocol::Evidence::parse` for complete live boot signatures, independent
+  of INQUIRY branding, matching the Pioneer protocol-evidence API pattern.
+- Recovery uses the same structured signature rather than vendor-name exclusions;
+  transport errors remain errors instead of becoming non-matches.
+- Preserve existing Identity and receiver APIs; recognition alone grants no writer.
+
 ## [1.0.0] - 2026-10-21
 
 - Expose `DriveClass::can_read()` so hosts request a Current firmware file for
