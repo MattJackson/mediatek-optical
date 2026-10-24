@@ -116,6 +116,10 @@ pub fn inspect_plain_signature(
     // last literal load; bind the use here to that exact register.
     let last_load = word(bytes, base, selection.end.checked_sub(4)?)?;
     let length_register = (last_load >> 8) & 7;
+    // Indices 0-12 clobber r0, r1, r2 and r4 before index 13 reads the pointer.
+    if matches!(length_register, 0 | 1 | 2 | 4) {
+        return None;
+    }
     if op(13)? != 0x6801 | length_register << 3 {
         return None;
     }
@@ -499,6 +503,94 @@ mod tests {
         assert_eq!(evidence.length_cell, 0x02000c6c);
         assert_eq!(evidence.total_pointer_register, 4);
         assert_eq!(evidence.end, 0x9d54c);
+    }
+
+    // Legacy selection fixture followed by the plain signature body. The
+    // selection's length cell is loaded into `length_register`, and the
+    // signature's `LDR r1,[rL]` at index 13 uses `signature_pointer`.
+    fn plain_fixture(length_register: u16, signature_pointer: u16) -> Vec<u8> {
+        const BASE: u32 = 0x9d522;
+        let mut bytes = fixture();
+        bytes.resize(0x300, 0);
+        let mut put = |at: u32, op: u16| {
+            let i = (at - BASE) as usize;
+            bytes[i..i + 2].copy_from_slice(&op.to_le_bytes());
+        };
+        put(BASE + 19 * 2, 0x4aa1 & !0x0700 | length_register << 8);
+        put(BASE + 20 * 2, 0x6000 | length_register << 3);
+        let start = BASE + 42;
+        let target = start + 36 * 2;
+        let mut pool = Vec::new();
+        for (index, op) in [
+            (0u32, 0x2201u16),
+            (1, 0x0692),
+            (2, 0x6810),
+            (3, 0x2110),
+            (4, 0x4388),
+            (5, 0x6010),
+            (7, 0x6820),
+            (8, 0x2283),
+            (9, 0x0252),
+            (10, 0x4290),
+            (12, 0x6820),
+            (13, 0x6801 | signature_pointer << 3),
+            (14, 0x1840),
+            (16, 0x4288),
+            (19, 0x2100),
+            (20, 0x6800),
+            (21, 0x0213),
+            (23, 0x0a1b),
+            (24, 0x181b),
+            (25, 0x781b),
+            (26, 0x5c6d),
+            (27, 0x42ab),
+            (29, 0x1c49),
+            (30, 0x0609),
+            (31, 0x0e09),
+            (32, 0x1c52),
+            (33, 0x2908),
+            (34, 0xd3f1),
+        ] {
+            put(start + index * 2, op);
+        }
+        for (index, high) in [(11u32, 0xd800u16), (17, 0xd900), (28, 0xd100)] {
+            let at = start + index * 2;
+            put(at, high | ((target - at - 4) / 2) as u16);
+        }
+        for (index, reg, value) in [
+            (6u32, 4u16, 0x02000c60u32),
+            (15, 1, 0x10700),
+            (18, 0, 0x02000c70),
+            (22, 5, 0x10600),
+        ] {
+            let at = start + index * 2;
+            let slot = 0x9d624 + 4 * pool.len() as u32;
+            pool.push((slot, value));
+            put(
+                at,
+                0x4800 | reg << 8 | ((slot - ((at + 4) & !3)) / 4) as u16,
+            );
+        }
+        put(target, 0);
+        for (slot, value) in pool {
+            let i = (slot - BASE) as usize;
+            bytes[i..i + 4].copy_from_slice(&value.to_le_bytes());
+        }
+        bytes
+    }
+
+    #[test]
+    fn plain_signature_pointer_must_survive_the_signature_prefix() {
+        let base = 0x9d522;
+        // Control: the fixture's own length register (r6) is accepted.
+        let bytes = plain_fixture(6, 6);
+        let selection = inspect_legacy_selection(&bytes, base, base).unwrap();
+        assert!(inspect_plain_signature(&bytes, base, &selection).is_some());
+        // Indices 0-12 overwrite r0, r1, r2 and r4 before index 13 reads it.
+        let bytes = plain_fixture(2, 2);
+        let selection = inspect_legacy_selection(&bytes, base, base).unwrap();
+        assert_eq!(selection.length_cell, 0x02000c6c);
+        assert!(inspect_plain_signature(&bytes, base, &selection).is_none());
     }
 
     #[test]

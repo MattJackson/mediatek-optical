@@ -57,6 +57,10 @@ pub fn inspect_mode_six(
         if value != prelude.cdb_address {
             return None;
         }
+        // The reload must not clobber a constant the flag body relies on.
+        if prelude.constants[reg as usize].is_some() {
+            return None;
+        }
         cdb = 1 << reg;
         at = at.checked_add(2)?;
     }
