@@ -75,6 +75,13 @@ pub struct ChipInfo {
     pub descriptor_present: bool,
 }
 
+impl ChipInfo {
+    /// Structured descriptor identity, preserving an OEM product suffix separately.
+    pub fn product_identity(&self) -> crate::ProductIdentity<'_> {
+        crate::ProductIdentity::from_fields(&self.vendor, &self.model, &self.rev)
+    }
+}
+
 /// Trim NUL padding and surrounding whitespace from a lossily-decoded ASCII
 /// field.
 fn ascii_trim(bytes: &[u8]) -> String {

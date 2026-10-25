@@ -181,3 +181,12 @@ analysis do not certify physical programming or power-loss recovery.
 ## License
 
 MIT. See [LICENSE-MIT](LICENSE-MIT).
+
+### Structured product identity
+
+`Identity::product_identity()` preserves the raw vendor, product and revision while
+exposing the drive model and trailing product context separately. For example,
+`PIONEER BDR-206PA PP-100` has drive model `BDR-206PA` and product suffix `PP-100`.
+This is an allocation-free view available without `std`; it does not alter
+receiver binding or infer an OEM company from a product suffix. Both optical
+crates expose the same `ProductIdentity` type and methods.
