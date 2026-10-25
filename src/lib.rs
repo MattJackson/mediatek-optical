@@ -44,6 +44,9 @@ mod error_codes;
 pub mod operation;
 pub use error_codes::CodedError;
 
+mod product_identity;
+pub use product_identity::ProductIdentity;
+
 pub mod cdb;
 #[cfg(feature = "drive")]
 pub mod drive;
@@ -270,6 +273,10 @@ impl Identity {
     /// Product identification, e.g. `BD-RE BU40N`.
     pub fn product(&self) -> &str {
         field(&self.inquiry[16..32])
+    }
+    /// Structured vendor, drive model, product context and revision.
+    pub fn product_identity(&self) -> ProductIdentity<'_> {
+        ProductIdentity::from_fields(self.vendor(), self.product(), self.revision())
     }
     /// Firmware revision, e.g. `1.00`.
     pub fn revision(&self) -> &str {
