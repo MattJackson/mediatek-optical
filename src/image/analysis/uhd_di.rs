@@ -122,23 +122,11 @@ impl ClassicDi {
         if !(0x01ff0000..0x02010000).contains(&format_flag) {
             return Err(Error::InvalidContract);
         }
-        let call = decode_at(image, format + 6).ok_or(Error::Truncated)?;
-        if call.mnemonic != "blx" {
+        let targets = super::switch::targets(image, format + 6)?.ok_or(Error::InvalidContract)?;
+        if targets.len() != 7 {
             return Err(Error::InvalidContract);
         }
-        let helper = call.branch_target().ok_or(Error::InvalidContract)? as usize;
-        // Source-reviewed ARM byte-table switch, R3 selector and Thumb LR table.
-        let switch = [
-            0x01, 0xc0, 0x5e, 0xe5, 0x0c, 0x00, 0x53, 0xe1, 0x03, 0x30, 0xde, 0x37, 0x0c, 0x30,
-            0xde, 0x27, 0x83, 0xc0, 0x8e, 0xe0, 0x1c, 0xff, 0x2f, 0xe1,
-        ];
-        if image.get(helper..helper + switch.len()) != Some(switch.as_slice())
-            || image.get(format + 10) != Some(&6)
-        {
-            return Err(Error::InvalidContract);
-        }
-        let displacement = *image.get(format + 16).ok_or(Error::Truncated)? as usize;
-        let five = (((format + 10) | 1) + displacement * 2) & !1;
+        let five = targets[5];
         if !matches(
             image,
             five,

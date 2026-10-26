@@ -41,6 +41,166 @@
         "file": "43c484dc-di_identifier_recognition.bin",
         "offset": 1090588,
         "sha256": "d4f9ac8430ffd57cd9c9edc2aa0f086f778a3da030cbfb6fe0977b3ed9d7b916"
+      },
+      {
+        "file": "43c484dc-caller-ControlBit.bin",
+        "offset": 222002,
+        "sha256": "3a55f38a415adf4a3836e5505656f3b931658d170f03d6af29dd915fa0d22e77"
+      },
+      {
+        "file": "43c484dc-caller-ControlField.bin",
+        "offset": 204866,
+        "sha256": "38370f1684b14cf99e049f2ae2deb33955e2bced58fa34892ea818b8fa0fc1ed"
+      },
+      {
+        "file": "43c484dc-caller-ForwardCalculation.bin",
+        "offset": 1037206,
+        "sha256": "67c1f3828c6632284c98f5b592f50fcc420d8ac1b9beeeffbe3cceb88fd6986a"
+      },
+      {
+        "file": "43c484dc-caller-ParameterNibble.bin",
+        "offset": 1038246,
+        "sha256": "bb6ecf8982a7acfc5d82d4dedd8566ff6d5d0b624b19c9cfe9ef17ba7299e131"
+      },
+      {
+        "file": "43c484dc-caller-DiscInformation.bin",
+        "offset": 1090590,
+        "sha256": "566971ebb9e1b6de38d2df6fd99a879acc4b80d1d69415075ae31c5f19a97d14"
+      },
+      {
+        "file": "43c484dc-callee-4ade8.bin",
+        "offset": 306664,
+        "sha256": "42d76bb652bb479e949db130c319ac4d9a5a32bd5b3f058485ddf7c7d3de3bb9"
+      },
+      {
+        "file": "43c484dc-callee-4adec.bin",
+        "offset": 306668,
+        "sha256": "e915e2af4d16c1485994a73f05c55be58a75369415a276021cfb21b244affd9a"
+      },
+      {
+        "file": "43c484dc-callee-4c642.bin",
+        "offset": 312898,
+        "sha256": "74d25e9d278ef7c00256feb1c3cdf8cee66400212c4a8cc103615c013682e43f"
+      },
+      {
+        "file": "43c484dc-callee-4c8ba.bin",
+        "offset": 313530,
+        "sha256": "c8400ae5a1c16a2cd3ec0d76e6d4470a7f27f3259cfa3c4f22e5f2ffad838eac"
+      },
+      {
+        "file": "43c484dc-callee-4c9cc.bin",
+        "offset": 313804,
+        "sha256": "829dacb60036ecd8def1c4be8cc737adf6fee7f0644ddc2b8da132d921fa59e9"
+      },
+      {
+        "file": "43c484dc-callee-4d3a4.bin",
+        "offset": 316324,
+        "sha256": "68680afdddf6ecdad8851a24924761a75e5cb72b0359dc43c5aabc338ae85c5c"
+      },
+      {
+        "file": "43c484dc-callee-5bef4.bin",
+        "offset": 376564,
+        "sha256": "1d5d0642ac7ba4212e190e1f413a63bcd64dd4c3b8c9e550a8a0bb0eaf6ad55f"
+      },
+      {
+        "file": "43c484dc-callee-5c412.bin",
+        "offset": 377874,
+        "sha256": "9138286ca1a97b7f4f38ce9ed3b4a52ac95a5c32a8e4a57425c0a2fc575b18f8"
+      },
+      {
+        "file": "43c484dc-callee-682a2.bin",
+        "offset": 426658,
+        "sha256": "6eb55871230ebc3adf0aec9b4a69c3eef52368992e0c20f9f7eeed58190ff2ad"
+      },
+      {
+        "file": "43c484dc-callee-93584.bin",
+        "offset": 603524,
+        "sha256": "747bb20aa4e6263504a1dfe217ee43d20e438c14386e3a94c48179a0a8760cfa"
+      },
+      {
+        "file": "43c484dc-callee-abb52.bin",
+        "offset": 703314,
+        "sha256": "64d79d266240ec3d2d524b736921e80c46ac8c2d64f441423abc2686bdec8558"
+      },
+      {
+        "file": "43c484dc-callee-b9ff2.bin",
+        "offset": 761842,
+        "sha256": "63d207427a18baa981b48c6c2289a7b6f2b9dd1f713a727ac7af9f2426e32580"
+      },
+      {
+        "file": "43c484dc-callee-f5ce0.bin",
+        "offset": 1006816,
+        "sha256": "8a69d1cbd5d53149428ada3f4b2bdc58d5851469cc5170d874dde316a3a48e6b"
+      },
+      {
+        "file": "43c484dc-callee-f6b3c.bin",
+        "offset": 1010492,
+        "sha256": "ea9ba23ddf2637263c13b2c22118436eb6909c72d632f81ae77e6446fee02325"
+      },
+      {
+        "file": "43c484dc-callee-fd0e0.bin",
+        "offset": 1036512,
+        "sha256": "e20bf0a06383e0c62185d89745206674705292cc529892b471f978c3e78adc7c"
+      },
+      {
+        "file": "43c484dc-callee-fd774.bin",
+        "offset": 1038196,
+        "sha256": "36ccdc1e8ee6db657805c816967765f0537c79e7037471fe229671b4edbf1270"
+      },
+      {
+        "file": "43c484dc-callee-131eb4.bin",
+        "offset": 1253044,
+        "sha256": "2e9f8992bc676303465232b0e67d978ca5f3b1620f14ca974e31afc5669f45df"
+      },
+      {
+        "file": "43c484dc-callee-192ce8.bin",
+        "offset": 1649896,
+        "sha256": "0c5dc176978dab2405038d99d3ecca79fba4ae057fe0f296be21ff50309efc0c"
+      },
+      {
+        "file": "43c484dc-callee-1952d0.bin",
+        "offset": 1659600,
+        "sha256": "ace043b7d6dc51ac7652eacb2a5a0f76e24fc521414352e6915480dd2ce99523"
+      },
+      {
+        "file": "43c484dc-callee-1a01cc.bin",
+        "offset": 1704396,
+        "sha256": "e0009ea2eeb3658d2fc2c0b81e0395114d42cb64ddb5331855cb7dc7b5b26a6c"
+      },
+      {
+        "file": "43c484dc-callee-1a0ca8.bin",
+        "offset": 1707176,
+        "sha256": "163bf4a9078b1222c1c525956c476757ae539696693793fa5b1969428a610767"
+      },
+      {
+        "file": "43c484dc-callee-1a0d3c.bin",
+        "offset": 1707324,
+        "sha256": "238404cb2c33c9c8dc8860ba9fcea0244c22b27fd9dd17fceb263e3e4e758ef9"
+      },
+      {
+        "file": "43c484dc-callee-1a15dc.bin",
+        "offset": 1709532,
+        "sha256": "c641c820b836a51e56335544d0421225774a376ab7ff2bc6310bfe7d0cd492d9"
+      },
+      {
+        "file": "43c484dc-callee-1a1724.bin",
+        "offset": 1709860,
+        "sha256": "b45d0088590a434ac23aa3d686c76bc45417016224ed1ec285eac4b828bc4342"
+      },
+      {
+        "file": "43c484dc-callee-1a1ac8.bin",
+        "offset": 1710792,
+        "sha256": "4afd7d5f46be70fc9548385b906273eed347fff77518e1db72c59c6b2aba311f"
+      },
+      {
+        "file": "43c484dc-callee-1a1ad0.bin",
+        "offset": 1710800,
+        "sha256": "59c3c4a404dc04b61486d70fcef54da84fb1a8b3c85b181b9a10420153122b60"
+      },
+      {
+        "file": "43c484dc-callee-1a1b48.bin",
+        "offset": 1710920,
+        "sha256": "08a749eab87f36acd11297742e255be4e3edabb837ef34c33c6a00205dbefcaf"
       }
     ],
     "areas": [
@@ -80,7 +240,70 @@
         "variant": "classic"
       }
     ],
-    "state": 33529299
+    "state": 33529299,
+    "callers": [
+      {
+        "entry": 222002,
+        "site": 222332,
+        "depths": [
+          12
+        ],
+        "returns": [
+          222394
+        ]
+      },
+      {
+        "entry": 204866,
+        "site": 205128,
+        "depths": [
+          20
+        ],
+        "returns": [
+          205480,
+          205554,
+          205592,
+          205608,
+          205648,
+          205710,
+          205784,
+          205830,
+          205846,
+          205902
+        ]
+      },
+      {
+        "entry": 1037206,
+        "site": 1037376,
+        "depths": [
+          32
+        ],
+        "returns": [
+          1038148,
+          1038152,
+          1038194
+        ]
+      },
+      {
+        "entry": 1038246,
+        "site": 1038280,
+        "depths": [
+          32
+        ],
+        "returns": [
+          1038636
+        ]
+      },
+      {
+        "entry": 1090590,
+        "site": 1091702,
+        "depths": [
+          40
+        ],
+        "returns": [
+          1090726
+        ]
+      }
+    ]
   },
   {
     "source_sha256": "40eb760e23f100d55e86e9c061c73428d4087ef712294e4dbfcefa3093837a1a",
@@ -124,6 +347,166 @@
         "file": "40eb760e-di_identifier_recognition.bin",
         "offset": 1089664,
         "sha256": "5e2503a346c32ebead5a94d79ece9b1d0feeccce2ebd179f0915b20ec5867670"
+      },
+      {
+        "file": "40eb760e-caller-ControlBit.bin",
+        "offset": 222002,
+        "sha256": "3a55f38a415adf4a3836e5505656f3b931658d170f03d6af29dd915fa0d22e77"
+      },
+      {
+        "file": "40eb760e-caller-ControlField.bin",
+        "offset": 204866,
+        "sha256": "38370f1684b14cf99e049f2ae2deb33955e2bced58fa34892ea818b8fa0fc1ed"
+      },
+      {
+        "file": "40eb760e-caller-ForwardCalculation.bin",
+        "offset": 1036474,
+        "sha256": "1fa4c5428a33bf020c251102ad3276df448b1f226d351f9c604bcca2447caf32"
+      },
+      {
+        "file": "40eb760e-caller-ParameterNibble.bin",
+        "offset": 1037514,
+        "sha256": "043df0f4d20065b844b4753f57f54bc91ef37e70b290e7b4e320a3cd73c282a1"
+      },
+      {
+        "file": "40eb760e-caller-DiscInformation.bin",
+        "offset": 1089666,
+        "sha256": "a07c6d70bb5dbf280056705b6e2f3128aa5ebabf639a6954040f54229482f1bf"
+      },
+      {
+        "file": "40eb760e-callee-4ade8.bin",
+        "offset": 306664,
+        "sha256": "42d76bb652bb479e949db130c319ac4d9a5a32bd5b3f058485ddf7c7d3de3bb9"
+      },
+      {
+        "file": "40eb760e-callee-4adec.bin",
+        "offset": 306668,
+        "sha256": "e915e2af4d16c1485994a73f05c55be58a75369415a276021cfb21b244affd9a"
+      },
+      {
+        "file": "40eb760e-callee-4c642.bin",
+        "offset": 312898,
+        "sha256": "74d25e9d278ef7c00256feb1c3cdf8cee66400212c4a8cc103615c013682e43f"
+      },
+      {
+        "file": "40eb760e-callee-4c8ba.bin",
+        "offset": 313530,
+        "sha256": "c8400ae5a1c16a2cd3ec0d76e6d4470a7f27f3259cfa3c4f22e5f2ffad838eac"
+      },
+      {
+        "file": "40eb760e-callee-4c9cc.bin",
+        "offset": 313804,
+        "sha256": "829dacb60036ecd8def1c4be8cc737adf6fee7f0644ddc2b8da132d921fa59e9"
+      },
+      {
+        "file": "40eb760e-callee-4d3a4.bin",
+        "offset": 316324,
+        "sha256": "68680afdddf6ecdad8851a24924761a75e5cb72b0359dc43c5aabc338ae85c5c"
+      },
+      {
+        "file": "40eb760e-callee-5bef4.bin",
+        "offset": 376564,
+        "sha256": "1d5d0642ac7ba4212e190e1f413a63bcd64dd4c3b8c9e550a8a0bb0eaf6ad55f"
+      },
+      {
+        "file": "40eb760e-callee-5c412.bin",
+        "offset": 377874,
+        "sha256": "9138286ca1a97b7f4f38ce9ed3b4a52ac95a5c32a8e4a57425c0a2fc575b18f8"
+      },
+      {
+        "file": "40eb760e-callee-6843e.bin",
+        "offset": 427070,
+        "sha256": "6eb55871230ebc3adf0aec9b4a69c3eef52368992e0c20f9f7eeed58190ff2ad"
+      },
+      {
+        "file": "40eb760e-callee-936f0.bin",
+        "offset": 603888,
+        "sha256": "747bb20aa4e6263504a1dfe217ee43d20e438c14386e3a94c48179a0a8760cfa"
+      },
+      {
+        "file": "40eb760e-callee-abcda.bin",
+        "offset": 703706,
+        "sha256": "64d79d266240ec3d2d524b736921e80c46ac8c2d64f441423abc2686bdec8558"
+      },
+      {
+        "file": "40eb760e-callee-ba17a.bin",
+        "offset": 762234,
+        "sha256": "63d207427a18baa981b48c6c2289a7b6f2b9dd1f713a727ac7af9f2426e32580"
+      },
+      {
+        "file": "40eb760e-callee-f5a38.bin",
+        "offset": 1006136,
+        "sha256": "8a69d1cbd5d53149428ada3f4b2bdc58d5851469cc5170d874dde316a3a48e6b"
+      },
+      {
+        "file": "40eb760e-callee-f6894.bin",
+        "offset": 1009812,
+        "sha256": "9c4d43857995f4e3354b8325570fa7520ce167a594f4295636253ce9dae7ae3a"
+      },
+      {
+        "file": "40eb760e-callee-fce04.bin",
+        "offset": 1035780,
+        "sha256": "e20bf0a06383e0c62185d89745206674705292cc529892b471f978c3e78adc7c"
+      },
+      {
+        "file": "40eb760e-callee-fd498.bin",
+        "offset": 1037464,
+        "sha256": "f846eb5b6978d86a97f1636fb206c676b346d87ada5149773fd850653ce228b0"
+      },
+      {
+        "file": "40eb760e-callee-131b18.bin",
+        "offset": 1252120,
+        "sha256": "2e9f8992bc676303465232b0e67d978ca5f3b1620f14ca974e31afc5669f45df"
+      },
+      {
+        "file": "40eb760e-callee-1920b4.bin",
+        "offset": 1646772,
+        "sha256": "0c5dc176978dab2405038d99d3ecca79fba4ae057fe0f296be21ff50309efc0c"
+      },
+      {
+        "file": "40eb760e-callee-19469c.bin",
+        "offset": 1656476,
+        "sha256": "ace043b7d6dc51ac7652eacb2a5a0f76e24fc521414352e6915480dd2ce99523"
+      },
+      {
+        "file": "40eb760e-callee-19f598.bin",
+        "offset": 1701272,
+        "sha256": "e0009ea2eeb3658d2fc2c0b81e0395114d42cb64ddb5331855cb7dc7b5b26a6c"
+      },
+      {
+        "file": "40eb760e-callee-1a0074.bin",
+        "offset": 1704052,
+        "sha256": "163bf4a9078b1222c1c525956c476757ae539696693793fa5b1969428a610767"
+      },
+      {
+        "file": "40eb760e-callee-1a0108.bin",
+        "offset": 1704200,
+        "sha256": "238404cb2c33c9c8dc8860ba9fcea0244c22b27fd9dd17fceb263e3e4e758ef9"
+      },
+      {
+        "file": "40eb760e-callee-1a09a8.bin",
+        "offset": 1706408,
+        "sha256": "c641c820b836a51e56335544d0421225774a376ab7ff2bc6310bfe7d0cd492d9"
+      },
+      {
+        "file": "40eb760e-callee-1a0af0.bin",
+        "offset": 1706736,
+        "sha256": "b45d0088590a434ac23aa3d686c76bc45417016224ed1ec285eac4b828bc4342"
+      },
+      {
+        "file": "40eb760e-callee-1a0e94.bin",
+        "offset": 1707668,
+        "sha256": "4afd7d5f46be70fc9548385b906273eed347fff77518e1db72c59c6b2aba311f"
+      },
+      {
+        "file": "40eb760e-callee-1a0e9c.bin",
+        "offset": 1707676,
+        "sha256": "59c3c4a404dc04b61486d70fcef54da84fb1a8b3c85b181b9a10420153122b60"
+      },
+      {
+        "file": "40eb760e-callee-1a0f14.bin",
+        "offset": 1707796,
+        "sha256": "08a749eab87f36acd11297742e255be4e3edabb837ef34c33c6a00205dbefcaf"
       }
     ],
     "areas": [
@@ -163,7 +546,70 @@
         "variant": "classic"
       }
     ],
-    "state": 33529299
+    "state": 33529299,
+    "callers": [
+      {
+        "entry": 222002,
+        "site": 222332,
+        "depths": [
+          12
+        ],
+        "returns": [
+          222394
+        ]
+      },
+      {
+        "entry": 204866,
+        "site": 205128,
+        "depths": [
+          20
+        ],
+        "returns": [
+          205480,
+          205554,
+          205592,
+          205608,
+          205648,
+          205710,
+          205784,
+          205830,
+          205846,
+          205902
+        ]
+      },
+      {
+        "entry": 1036474,
+        "site": 1036644,
+        "depths": [
+          32
+        ],
+        "returns": [
+          1037416,
+          1037420,
+          1037462
+        ]
+      },
+      {
+        "entry": 1037514,
+        "site": 1037548,
+        "depths": [
+          32
+        ],
+        "returns": [
+          1037904
+        ]
+      },
+      {
+        "entry": 1089666,
+        "site": 1090778,
+        "depths": [
+          40
+        ],
+        "returns": [
+          1089802
+        ]
+      }
+    ]
   },
   {
     "source_sha256": "b093a73656e58ee2a4367b5d92324fd7da3889f632a22b2f1be8802607cd3de4",
@@ -207,6 +653,151 @@
         "file": "b093a736-di_identifier_recognition.bin",
         "offset": 1090304,
         "sha256": "b95ca8989eae7a11d005b4cf3887c403a332d6a376a0bc799704fe39c671e398"
+      },
+      {
+        "file": "b093a736-caller-ControlBit.bin",
+        "offset": 222002,
+        "sha256": "14e1fce5dcab5abae771eb4d776c1c8cb957f2ab9fdb4157ee9951fdc5c3573c"
+      },
+      {
+        "file": "b093a736-caller-ControlField.bin",
+        "offset": 204866,
+        "sha256": "5be036d57cb2d0a4ef44ae438b1e857fbf61dfa97ca449bab566a8e47d4966e2"
+      },
+      {
+        "file": "b093a736-caller-ForwardCalculation.bin",
+        "offset": 1037910,
+        "sha256": "8602e9c308ef7951ffeb6ed58861fb5e119e403e09e833dbabc3aa4cc5ac4d33"
+      },
+      {
+        "file": "b093a736-caller-ParameterNibble.bin",
+        "offset": 1038950,
+        "sha256": "beddce2185581198a65e9a93500a1d9ce8648499d04cf6b05a42831fd4762db4"
+      },
+      {
+        "file": "b093a736-caller-DiscInformation.bin",
+        "offset": 1090306,
+        "sha256": "5892fe3c6118e8c5fea27e7d9bdde6dfb7000f681ed859b1456ccfb0e05ecf5b"
+      },
+      {
+        "file": "b093a736-callee-4ade8.bin",
+        "offset": 306664,
+        "sha256": "42d76bb652bb479e949db130c319ac4d9a5a32bd5b3f058485ddf7c7d3de3bb9"
+      },
+      {
+        "file": "b093a736-callee-4adec.bin",
+        "offset": 306668,
+        "sha256": "e915e2af4d16c1485994a73f05c55be58a75369415a276021cfb21b244affd9a"
+      },
+      {
+        "file": "b093a736-callee-4d3a4.bin",
+        "offset": 316324,
+        "sha256": "7479ea96ce051d0dfae6eb5d2cce4ea7ec24e9d9fb46919bd72422b7436209c3"
+      },
+      {
+        "file": "b093a736-callee-68316.bin",
+        "offset": 426774,
+        "sha256": "6eb55871230ebc3adf0aec9b4a69c3eef52368992e0c20f9f7eeed58190ff2ad"
+      },
+      {
+        "file": "b093a736-callee-7467a.bin",
+        "offset": 476794,
+        "sha256": "5a14e88febda14635c8092a80ab8fce4828f19c24cebda85f2a14c66269de41a"
+      },
+      {
+        "file": "b093a736-callee-93ca0.bin",
+        "offset": 605344,
+        "sha256": "747bb20aa4e6263504a1dfe217ee43d20e438c14386e3a94c48179a0a8760cfa"
+      },
+      {
+        "file": "b093a736-callee-9b028.bin",
+        "offset": 634920,
+        "sha256": "5582318fd29383ff734353a8f0196e35c96bee07f35a6725df83de9da7141f67"
+      },
+      {
+        "file": "b093a736-callee-ac246.bin",
+        "offset": 705094,
+        "sha256": "64d79d266240ec3d2d524b736921e80c46ac8c2d64f441423abc2686bdec8558"
+      },
+      {
+        "file": "b093a736-callee-ba6de.bin",
+        "offset": 763614,
+        "sha256": "63d207427a18baa981b48c6c2289a7b6f2b9dd1f713a727ac7af9f2426e32580"
+      },
+      {
+        "file": "b093a736-callee-f5fa0.bin",
+        "offset": 1007520,
+        "sha256": "8a69d1cbd5d53149428ada3f4b2bdc58d5851469cc5170d874dde316a3a48e6b"
+      },
+      {
+        "file": "b093a736-callee-f6dfc.bin",
+        "offset": 1011196,
+        "sha256": "ea9ba23ddf2637263c13b2c22118436eb6909c72d632f81ae77e6446fee02325"
+      },
+      {
+        "file": "b093a736-callee-fd3a0.bin",
+        "offset": 1037216,
+        "sha256": "e20bf0a06383e0c62185d89745206674705292cc529892b471f978c3e78adc7c"
+      },
+      {
+        "file": "b093a736-callee-fda34.bin",
+        "offset": 1038900,
+        "sha256": "36ccdc1e8ee6db657805c816967765f0537c79e7037471fe229671b4edbf1270"
+      },
+      {
+        "file": "b093a736-callee-131bd8.bin",
+        "offset": 1252312,
+        "sha256": "2e9f8992bc676303465232b0e67d978ca5f3b1620f14ca974e31afc5669f45df"
+      },
+      {
+        "file": "b093a736-callee-1923c0.bin",
+        "offset": 1647552,
+        "sha256": "0c5dc176978dab2405038d99d3ecca79fba4ae057fe0f296be21ff50309efc0c"
+      },
+      {
+        "file": "b093a736-callee-1949a8.bin",
+        "offset": 1657256,
+        "sha256": "ace043b7d6dc51ac7652eacb2a5a0f76e24fc521414352e6915480dd2ce99523"
+      },
+      {
+        "file": "b093a736-callee-19f95c.bin",
+        "offset": 1702236,
+        "sha256": "e0009ea2eeb3658d2fc2c0b81e0395114d42cb64ddb5331855cb7dc7b5b26a6c"
+      },
+      {
+        "file": "b093a736-callee-1a0438.bin",
+        "offset": 1705016,
+        "sha256": "163bf4a9078b1222c1c525956c476757ae539696693793fa5b1969428a610767"
+      },
+      {
+        "file": "b093a736-callee-1a04cc.bin",
+        "offset": 1705164,
+        "sha256": "238404cb2c33c9c8dc8860ba9fcea0244c22b27fd9dd17fceb263e3e4e758ef9"
+      },
+      {
+        "file": "b093a736-callee-1a0d6c.bin",
+        "offset": 1707372,
+        "sha256": "c641c820b836a51e56335544d0421225774a376ab7ff2bc6310bfe7d0cd492d9"
+      },
+      {
+        "file": "b093a736-callee-1a0eb4.bin",
+        "offset": 1707700,
+        "sha256": "b45d0088590a434ac23aa3d686c76bc45417016224ed1ec285eac4b828bc4342"
+      },
+      {
+        "file": "b093a736-callee-1a1258.bin",
+        "offset": 1708632,
+        "sha256": "4afd7d5f46be70fc9548385b906273eed347fff77518e1db72c59c6b2aba311f"
+      },
+      {
+        "file": "b093a736-callee-1a1260.bin",
+        "offset": 1708640,
+        "sha256": "59c3c4a404dc04b61486d70fcef54da84fb1a8b3c85b181b9a10420153122b60"
+      },
+      {
+        "file": "b093a736-callee-1a12d8.bin",
+        "offset": 1708760,
+        "sha256": "08a749eab87f36acd11297742e255be4e3edabb837ef34c33c6a00205dbefcaf"
       }
     ],
     "areas": [
@@ -246,7 +837,70 @@
         "variant": "classic_register_variant"
       }
     ],
-    "state": 33529300
+    "state": 33529300,
+    "callers": [
+      {
+        "entry": 222002,
+        "site": 222332,
+        "depths": [
+          12
+        ],
+        "returns": [
+          222394
+        ]
+      },
+      {
+        "entry": 204866,
+        "site": 205128,
+        "depths": [
+          20
+        ],
+        "returns": [
+          205480,
+          205554,
+          205592,
+          205608,
+          205648,
+          205710,
+          205784,
+          205830,
+          205846,
+          205902
+        ]
+      },
+      {
+        "entry": 1037910,
+        "site": 1038080,
+        "depths": [
+          32
+        ],
+        "returns": [
+          1038852,
+          1038856,
+          1038898
+        ]
+      },
+      {
+        "entry": 1038950,
+        "site": 1038984,
+        "depths": [
+          32
+        ],
+        "returns": [
+          1039340
+        ]
+      },
+      {
+        "entry": 1090306,
+        "site": 1090764,
+        "depths": [
+          40
+        ],
+        "returns": [
+          1090442
+        ]
+      }
+    ]
   },
   {
     "source_sha256": "0b2cdb82ff520589d4c750fae726571798901bf41e433de0a7164f7d74927d5f",
@@ -290,6 +944,161 @@
         "file": "0b2cdb82-di_identifier_recognition.bin",
         "offset": 1084048,
         "sha256": "efa75fe5db560ad475f66a9d6ed69d726bf3d276e6307a4f4cbfceca243470a2"
+      },
+      {
+        "file": "0b2cdb82-caller-ControlBit.bin",
+        "offset": 221766,
+        "sha256": "82f6bfcde018f90082c0f5d7c1d863545bca326e7c721f2d4f9627f55d4b522b"
+      },
+      {
+        "file": "0b2cdb82-caller-ControlField.bin",
+        "offset": 204634,
+        "sha256": "6cd5992f2bb50c88751f6911a8f5b775ad97ba7239612d3034a1b2ffd894643b"
+      },
+      {
+        "file": "0b2cdb82-caller-ForwardCalculation.bin",
+        "offset": 1031014,
+        "sha256": "1dd18b194d8be60601326a7a5e044713105d0f4d262df4065593bbcfe4e8b498"
+      },
+      {
+        "file": "0b2cdb82-caller-ParameterNibble.bin",
+        "offset": 1032054,
+        "sha256": "1055b1066fe31f15c3f38d5343473927b44ac1e7af32fe6e4c340935434a1929"
+      },
+      {
+        "file": "0b2cdb82-caller-DiscInformation.bin",
+        "offset": 1084050,
+        "sha256": "7f9d78a8e850c5b2a043eae47b856561519f45bb5c5ff0e8d18d22f72fdcbda2"
+      },
+      {
+        "file": "0b2cdb82-callee-4ad14.bin",
+        "offset": 306452,
+        "sha256": "42d76bb652bb479e949db130c319ac4d9a5a32bd5b3f058485ddf7c7d3de3bb9"
+      },
+      {
+        "file": "0b2cdb82-callee-4ad18.bin",
+        "offset": 306456,
+        "sha256": "e915e2af4d16c1485994a73f05c55be58a75369415a276021cfb21b244affd9a"
+      },
+      {
+        "file": "0b2cdb82-callee-4c56e.bin",
+        "offset": 312686,
+        "sha256": "74d25e9d278ef7c00256feb1c3cdf8cee66400212c4a8cc103615c013682e43f"
+      },
+      {
+        "file": "0b2cdb82-callee-4c7e6.bin",
+        "offset": 313318,
+        "sha256": "c8400ae5a1c16a2cd3ec0d76e6d4470a7f27f3259cfa3c4f22e5f2ffad838eac"
+      },
+      {
+        "file": "0b2cdb82-callee-4c8f8.bin",
+        "offset": 313592,
+        "sha256": "829dacb60036ecd8def1c4be8cc737adf6fee7f0644ddc2b8da132d921fa59e9"
+      },
+      {
+        "file": "0b2cdb82-callee-5bdc0.bin",
+        "offset": 376256,
+        "sha256": "3ed3246401a5130145036a0b663d23deada0fd39ae796a10b2803f51c169d033"
+      },
+      {
+        "file": "0b2cdb82-callee-5c2de.bin",
+        "offset": 377566,
+        "sha256": "9138286ca1a97b7f4f38ce9ed3b4a52ac95a5c32a8e4a57425c0a2fc575b18f8"
+      },
+      {
+        "file": "0b2cdb82-callee-682ee.bin",
+        "offset": 426734,
+        "sha256": "6eb55871230ebc3adf0aec9b4a69c3eef52368992e0c20f9f7eeed58190ff2ad"
+      },
+      {
+        "file": "0b2cdb82-callee-932e0.bin",
+        "offset": 602848,
+        "sha256": "747bb20aa4e6263504a1dfe217ee43d20e438c14386e3a94c48179a0a8760cfa"
+      },
+      {
+        "file": "0b2cdb82-callee-ab306.bin",
+        "offset": 701190,
+        "sha256": "64d79d266240ec3d2d524b736921e80c46ac8c2d64f441423abc2686bdec8558"
+      },
+      {
+        "file": "0b2cdb82-callee-b9b0a.bin",
+        "offset": 760586,
+        "sha256": "63d207427a18baa981b48c6c2289a7b6f2b9dd1f713a727ac7af9f2426e32580"
+      },
+      {
+        "file": "0b2cdb82-callee-f44e4.bin",
+        "offset": 1000676,
+        "sha256": "8a69d1cbd5d53149428ada3f4b2bdc58d5851469cc5170d874dde316a3a48e6b"
+      },
+      {
+        "file": "0b2cdb82-callee-f5340.bin",
+        "offset": 1004352,
+        "sha256": "9c4d43857995f4e3354b8325570fa7520ce167a594f4295636253ce9dae7ae3a"
+      },
+      {
+        "file": "0b2cdb82-callee-fb8b0.bin",
+        "offset": 1030320,
+        "sha256": "e20bf0a06383e0c62185d89745206674705292cc529892b471f978c3e78adc7c"
+      },
+      {
+        "file": "0b2cdb82-callee-fbf44.bin",
+        "offset": 1032004,
+        "sha256": "f846eb5b6978d86a97f1636fb206c676b346d87ada5149773fd850653ce228b0"
+      },
+      {
+        "file": "0b2cdb82-callee-1303ec.bin",
+        "offset": 1246188,
+        "sha256": "2e9f8992bc676303465232b0e67d978ca5f3b1620f14ca974e31afc5669f45df"
+      },
+      {
+        "file": "0b2cdb82-callee-1901c0.bin",
+        "offset": 1638848,
+        "sha256": "0c5dc176978dab2405038d99d3ecca79fba4ae057fe0f296be21ff50309efc0c"
+      },
+      {
+        "file": "0b2cdb82-callee-1927a8.bin",
+        "offset": 1648552,
+        "sha256": "ace043b7d6dc51ac7652eacb2a5a0f76e24fc521414352e6915480dd2ce99523"
+      },
+      {
+        "file": "0b2cdb82-callee-19d5bc.bin",
+        "offset": 1693116,
+        "sha256": "e0009ea2eeb3658d2fc2c0b81e0395114d42cb64ddb5331855cb7dc7b5b26a6c"
+      },
+      {
+        "file": "0b2cdb82-callee-19e098.bin",
+        "offset": 1695896,
+        "sha256": "163bf4a9078b1222c1c525956c476757ae539696693793fa5b1969428a610767"
+      },
+      {
+        "file": "0b2cdb82-callee-19e12c.bin",
+        "offset": 1696044,
+        "sha256": "238404cb2c33c9c8dc8860ba9fcea0244c22b27fd9dd17fceb263e3e4e758ef9"
+      },
+      {
+        "file": "0b2cdb82-callee-19e9cc.bin",
+        "offset": 1698252,
+        "sha256": "c641c820b836a51e56335544d0421225774a376ab7ff2bc6310bfe7d0cd492d9"
+      },
+      {
+        "file": "0b2cdb82-callee-19eb14.bin",
+        "offset": 1698580,
+        "sha256": "b45d0088590a434ac23aa3d686c76bc45417016224ed1ec285eac4b828bc4342"
+      },
+      {
+        "file": "0b2cdb82-callee-19eeb8.bin",
+        "offset": 1699512,
+        "sha256": "4afd7d5f46be70fc9548385b906273eed347fff77518e1db72c59c6b2aba311f"
+      },
+      {
+        "file": "0b2cdb82-callee-19eec0.bin",
+        "offset": 1699520,
+        "sha256": "59c3c4a404dc04b61486d70fcef54da84fb1a8b3c85b181b9a10420153122b60"
+      },
+      {
+        "file": "0b2cdb82-callee-19ef38.bin",
+        "offset": 1699640,
+        "sha256": "08a749eab87f36acd11297742e255be4e3edabb837ef34c33c6a00205dbefcaf"
       }
     ],
     "areas": [
@@ -329,7 +1138,70 @@
         "variant": "classic"
       }
     ],
-    "state": 33529299
+    "state": 33529299,
+    "callers": [
+      {
+        "entry": 221766,
+        "site": 222096,
+        "depths": [
+          12
+        ],
+        "returns": [
+          222158
+        ]
+      },
+      {
+        "entry": 204634,
+        "site": 204896,
+        "depths": [
+          20
+        ],
+        "returns": [
+          205248,
+          205322,
+          205360,
+          205376,
+          205416,
+          205478,
+          205552,
+          205598,
+          205614,
+          205670
+        ]
+      },
+      {
+        "entry": 1031014,
+        "site": 1031184,
+        "depths": [
+          32
+        ],
+        "returns": [
+          1031956,
+          1031960,
+          1032002
+        ]
+      },
+      {
+        "entry": 1032054,
+        "site": 1032088,
+        "depths": [
+          32
+        ],
+        "returns": [
+          1032444
+        ]
+      },
+      {
+        "entry": 1084050,
+        "site": 1085150,
+        "depths": [
+          40
+        ],
+        "returns": [
+          1084184
+        ]
+      }
+    ]
   },
   {
     "source_sha256": "648a16d024eea31ef4901f3ac2180cbfffeda1161d70f9096335d8a6097445bc",

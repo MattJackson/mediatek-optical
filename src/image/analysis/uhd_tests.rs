@@ -172,3 +172,33 @@ fn classic_di_binds_native_frame_format_and_layer_continuations() {
     }
     assert_eq!(count, 4);
 }
+
+#[test]
+fn routing_callers_save_lr_and_restore_native_frames() {
+    let (root, cases) = fixtures();
+    let mut count = 0;
+    for case in cases {
+        let Some(callers) = case["callers"].as_array() else {
+            continue;
+        };
+        let bytes = image(&root, &case);
+        for expected in callers {
+            let site = expected["site"].as_u64().unwrap() as usize;
+            let bound = super::SavedLink::detect(&bytes, site).unwrap();
+            assert_eq!(bound.entry, expected["entry"].as_u64().unwrap() as usize);
+            assert_eq!(
+                bound.stack_bytes,
+                expected["depths"][0].as_u64().unwrap() as usize
+            );
+            assert_eq!(serde_json::json!(bound.returns), expected["returns"]);
+            let mut bad = bytes.clone();
+            bad[bound.entry + 1] &= !1; // No native LR save.
+            assert!(super::SavedLink::bind(&bad, bound.entry, site).is_err());
+            let mut bad = bytes.clone();
+            bad[site + 4..site + 6].copy_from_slice(&0x4670u16.to_le_bytes()); // MOV r0,LR observes the detour link.
+            assert!(super::SavedLink::bind(&bad, bound.entry, site).is_err());
+            count += 1;
+        }
+    }
+    assert_eq!(count, 20);
+}
