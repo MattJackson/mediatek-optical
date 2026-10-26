@@ -6,6 +6,9 @@
   Associate bulk decoder argument evidence with its exact range selection and
   reuse the checked programming-tail grammar. These are read-only components;
   intervening control flow and called-helper semantics remain separate checks.
+- Derive programming-tail pointer registers and saved-state slots from operands;
+  follow the common post-call continuation across literal pools. Reject pointer
+  clobbers and mismatched skip/completion joins instead of assuming one frame.
 - Recognize the shared compact and wide programming loops with role-checked relocated RAM
   cells. Evidence exposes source/destination, staging and remaining-length cells
   plus selected spans; it does not authorize a transfer or change receiver

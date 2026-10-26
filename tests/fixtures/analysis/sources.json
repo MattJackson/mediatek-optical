@@ -110,5 +110,29 @@
     "leading_padding": 0,
     "fixture_bytes": 10648,
     "fixture_sha256": "010daf5a7294b821b141a0b6d770bec79d0e237f0fe6a2aa4ff6ad655470cbae"
+  },
+  {
+    "name": "wp50-application",
+    "sha256": "263994abefb0b5a757d7b7b677b4e24dffb537ff124a81ad54426948a83265f1",
+    "source_offset": "0x9a2e0",
+    "leading_padding": 0,
+    "fixture_bytes": 11392,
+    "fixture_sha256": "27122c7d72d1410947ed8d859b879e3b235c93eb090e7a79ca6d801e2c4ebc30"
+  },
+  {
+    "name": "bu40-a103-application",
+    "sha256": "7d7f2465feafbcc05b74fbaff1dced8a55b19ddb1c03297a8027e261045d2e9e",
+    "source_offset": "0x9b520",
+    "leading_padding": 0,
+    "fixture_bytes": 11548,
+    "fixture_sha256": "60a44c0b0fb5f22c29bbb28e4c84f46373b01be9b15033cc7806a05676c855c6"
+  },
+  {
+    "name": "be16-application",
+    "sha256": "7dcc99d276008cf2cfc6214eb0f4b88ec5eb3937f21bb1853b53f2b8d42ea6c8",
+    "source_offset": "0x9b1d0",
+    "leading_padding": 0,
+    "fixture_bytes": 11392,
+    "fixture_sha256": "d6bb11e71c3c608ff4dcbeac71138302706ea7e6a6bec7595717c6fe77fce856"
   }
 ]

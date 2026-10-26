@@ -26,6 +26,10 @@ pub struct AcceptanceTail {
     pub error: u32,
     /// Helpers called after validation, before examining failure state.
     pub before_program: [u32; 2],
+    /// Shared continuation after programming, also used when failure state is one.
+    pub continuation: u32,
+    /// Stack byte offset of the saved state loaded by that continuation.
+    pub saved_state_offset: u16,
 }
 
 /// Match both validation branches and every instruction of the success path.
@@ -82,21 +86,29 @@ pub(crate) fn inspect_acceptance_with_staging(
         (60, 0x2126),
         (68, 0x2107),
         (70, 0x2000),
-        (76, 0x7838),
         (78, 0x2801),
-        (80, 0xd007),
-        (84, 0x6832),
-        (86, 0x6821),
         (90, 0x6800),
         (92, 0x2303),
-        (98, 0x980d),
     ] {
         if word(bytes, base, at(offset)?)? != expected {
             return None;
         }
     }
-    if literal(bytes, base, at(16)?, 1)? != staging_cell
-        || literal(bytes, base, at(82)?, 6)? != selection.length_cell
+    let failure_load = word(bytes, base, at(76)?)?;
+    let length_load = word(bytes, base, at(82)?)?;
+    let source_load = word(bytes, base, at(86)?)?;
+    let failure_register = (failure_load >> 3) & 7;
+    let length_register = (length_load >> 8) & 7;
+    let source_register = (source_load >> 3) & 7;
+    if failure_load & 0xffc7 != 0x7800
+        || source_load & 0xffc7 != 0x6801
+        || failure_register < 4
+        || source_register < 4
+        || length_register < 4
+        || length_register == source_register
+        || word(bytes, base, at(84)?)? != 0x6802 | length_register << 3
+        || literal(bytes, base, at(16)?, 1)? != staging_cell
+        || literal(bytes, base, at(82)?, length_register)? != selection.length_cell
         || literal(bytes, base, at(88)?, 0)? != selection.start_cell
     {
         return None;
@@ -123,6 +135,26 @@ pub(crate) fn inspect_acceptance_with_staging(
         let delta = (i32::from(op & 0x7ff) << 21) >> 20;
         u32::try_from(i64::from(address) + 4 + i64::from(delta)).ok()
     };
+    let skip_at = at(80)?;
+    let skip = word(bytes, base, skip_at)?;
+    if skip & 0xff00 != 0xd000 {
+        return None;
+    }
+    let continuation =
+        u32::try_from(i64::from(skip_at) + 4 + i64::from(skip as u8 as i8) * 2).ok()?;
+    if continuation < at(98)? {
+        return None;
+    }
+    // The compiler can place a pool after the call. Both the skip path and
+    // normal completion must reach the same saved-state load, without treating
+    // the intervening data as executable fallthrough.
+    if continuation != at(98)? && branch(98)? != continuation {
+        return None;
+    }
+    let saved_state = word(bytes, base, continuation)?;
+    if saved_state & 0xff00 != 0x9800 {
+        return None;
+    }
     let error = branch(42)?;
     if error != branch(62)? || (start..at(100)?).contains(&error) {
         return None;
@@ -134,8 +166,10 @@ pub(crate) fn inspect_acceptance_with_staging(
         descriptor_byte,
         program_call: at(94)?,
         program_target: branch_link(bytes, base, at(94)?)?,
-        source_pointer_register: 4,
-        failure_pointer_register: 7,
+        source_pointer_register: source_register as u8,
+        failure_pointer_register: failure_register as u8,
+        continuation,
+        saved_state_offset: (saved_state & 255) * 4,
         error,
         before_program: [
             branch_link(bytes, base, at(64)?)?,

@@ -46,6 +46,55 @@ mod bulk_acceptance_tests {
         let changed = ApplicationAnalysis::inspect(&changed, BASE).unwrap();
         assert_ne!(changed.ranges()[0].acceptance, Some(tail));
     }
+
+    #[test]
+    fn tail_binds_register_allocation_and_cleanup_across_literal_islands() {
+        for (bytes, base, target, failure_register, continuation, saved_offset) in [
+            (
+                include_bytes!("../../tests/fixtures/analysis/wp50-application.bin").as_slice(),
+                0x9a2e0,
+                0x13b522,
+                7,
+                0x9c9c0,
+                60,
+            ),
+            (
+                include_bytes!("../../tests/fixtures/analysis/bu40-a103-application.bin")
+                    .as_slice(),
+                0x9b520,
+                0x13e9d2,
+                6,
+                0x9dc9c,
+                60,
+            ),
+            (
+                include_bytes!("../../tests/fixtures/analysis/be16-application.bin").as_slice(),
+                0x9b1d0,
+                0x140dd6,
+                7,
+                0x9d93c,
+                52,
+            ),
+        ] {
+            let analysis = ApplicationAnalysis::inspect(bytes, base).unwrap();
+            assert_eq!(analysis.bulk_decoders().len(), 1);
+            let tail = analysis.ranges()[0].acceptance.unwrap();
+            assert_eq!(tail.program_target, target);
+            assert_eq!(tail.source_pointer_register, 4);
+            assert_eq!(tail.failure_pointer_register, failure_register);
+            assert_eq!(tail.continuation, continuation);
+            assert_eq!(tail.saved_state_offset, saved_offset);
+            for relative in [77, 81, 84, 86] {
+                let mut changed = bytes.to_vec();
+                changed[(tail.address + relative - base) as usize] ^= 1;
+                let analysis = ApplicationAnalysis::inspect(&changed, base).unwrap();
+                assert!(
+                    analysis.ranges()[0].acceptance.is_none(),
+                    "{base:#x}+{relative}"
+                );
+            }
+        }
+    }
 }
 
 /// A scratch header call and in-place body call sharing the same pointer cell
