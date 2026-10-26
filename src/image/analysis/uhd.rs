@@ -56,11 +56,11 @@ struct SelectionDefinition {
 /// Original selector operation and its two native continuations, bound before emission.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct C7Selection {
-    site: usize,
-    replay: Vec<u16>,
-    span: usize,
-    accept: usize,
-    reject: usize,
+    pub(super) site: usize,
+    pub(super) replay: Vec<u16>,
+    pub(super) span: usize,
+    pub(super) accept: usize,
+    pub(super) reject: usize,
 }
 impl C7Selection {
     /// First operation replaced by the candidate detour.

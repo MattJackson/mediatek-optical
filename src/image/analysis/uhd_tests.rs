@@ -167,8 +167,46 @@ fn uhd_contracts_corpus_matches_inventory_without_chip_or_model_selection() {
             .starts_with("classic")
         {
             super::ClassicDi::detect(&bytes).unwrap_or_else(|e| panic!("{}: {e}", row["sha256"]));
+            super::ClassicConsumer::inspect(&bytes, contracts.state_address().unwrap())
+                .unwrap_or_else(|e| panic!("{} consumers: {e}", row["sha256"]));
         }
     }
+}
+
+#[test]
+fn classic_auxiliary_gates_bind_shared_state_native_edges_and_saved_callers() {
+    let (root, cases) = fixtures();
+    let mut count = 0;
+    for case in cases {
+        let Some(expected) = case["auxiliary_consumers"].as_array() else {
+            continue;
+        };
+        let bytes = image(&root, &case);
+        let state = case["state"].as_u64().unwrap() as u32;
+        let contracts = super::ClassicConsumer::inspect(&bytes, state)
+            .unwrap_or_else(|e| panic!("{} consumers: {e}", case["source_sha256"]));
+        assert_eq!(contracts.len(), 6);
+        for (contract, expected) in contracts.iter().zip(expected) {
+            assert_eq!(
+                contract.region,
+                expected["start"].as_u64().unwrap() as usize
+            );
+            assert_eq!(
+                contract.selection.site(),
+                expected["site"].as_u64().unwrap() as usize
+            );
+            assert_eq!(
+                contract.caller.entry,
+                expected["caller"]["entry"].as_u64().unwrap() as usize
+            );
+            let mut bad = bytes.clone();
+            bad[contract.selection.site() + 2] ^= 1;
+            assert!(super::ClassicConsumer::inspect(&bad, state).is_err());
+            count += 1;
+        }
+        assert!(super::ClassicConsumer::inspect(&bytes, state + 1).is_err());
+    }
+    assert_eq!(count, 24);
 }
 
 #[test]

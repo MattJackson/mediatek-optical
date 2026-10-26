@@ -156,7 +156,7 @@ impl SavedLink {
     /// Select the nearest preceding LR-saving entry whose complete local graph
     /// proves the detour's stack and link-register lifetime.
     pub fn detect(image: &[u8], site: usize) -> Result<Self, Error> {
-        for entry in (site.saturating_sub(0x800)..site).step_by(2).rev() {
+        for entry in (site.saturating_sub(0x1200)..site).step_by(2).rev() {
             if half(image, entry).is_some_and(|op| op & 0xff00 == 0xb500) {
                 if let Ok(bound) = Self::bind(image, entry, site) {
                     return Ok(bound);
