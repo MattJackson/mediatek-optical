@@ -278,6 +278,26 @@ fn bind(image: &[u8], def: &Definition, site: usize) -> Result<UhdAreaContract, 
                 if reject != site + offset {
                     return Err(Error::InvalidContract);
                 }
+            } else if def.area == UhdArea::ReverseCalculation {
+                // The reverse rejection reuses the forward gate's BNE with
+                // the current BICS flags. Bind that actual gate and its own
+                // restoring epilogue rather than treating it as a new policy.
+                let forward_site = reject.checked_sub(12).ok_or(Error::InvalidContract)?;
+                let forward_def = layouts::DEFINITIONS
+                    .iter()
+                    .find(|d| d.area == UhdArea::ForwardCalculation && d.name == "classic")
+                    .ok_or(Error::InvalidContract)?;
+                if !matches(image, forward_site, forward_def.pattern) {
+                    return Err(Error::InvalidContract);
+                }
+                let forward = bind(image, forward_def, forward_site)?;
+                let gate = forward.selection().ok_or(Error::InvalidContract)?;
+                if gate.site() + gate.replay().len() * 2 != reject
+                    || forward.literals.first().map(|l| l.value)
+                        != literals.first().map(|l| l.value)
+                {
+                    return Err(Error::InvalidContract);
+                }
             } else {
                 // The older calculation gate exists in both generations, with
                 // different pool placement. Bind its rejection to the native

@@ -100,6 +100,39 @@ fn uhd_contracts_reject_a_selector_redirected_to_an_unrelated_native_block() {
 }
 
 #[test]
+fn classic_reverse_selector_binds_the_shared_forward_rejection_gate() {
+    let (root, cases) = fixtures();
+    let mut count = 0;
+    for case in cases {
+        let bytes = image(&root, &case);
+        let areas = UhdAreas::inspect(&bytes);
+        let reverse = areas.area(UhdArea::ReverseCalculation).unwrap();
+        let Some(gate) = reverse.selection() else {
+            continue;
+        };
+        let forward = areas.area(UhdArea::ForwardCalculation).unwrap();
+        let forward_gate = forward.selection().unwrap();
+        assert_eq!(gate.reject(), forward_gate.site() + 2);
+        assert_eq!(gate.replay(), [0x4382]);
+        if case["callers"].is_array() {
+            super::SavedLink::detect(&bytes, gate.site()).unwrap();
+        }
+        let mut bad = bytes.clone();
+        bad[gate.site() + 2] ^= 1;
+        assert!(UhdAreas::inspect(&bad)
+            .area(UhdArea::ReverseCalculation)
+            .is_err());
+        let mut bad = bytes.clone();
+        bad[forward_gate.site() + 2] ^= 1;
+        assert!(UhdAreas::inspect(&bad)
+            .area(UhdArea::ReverseCalculation)
+            .is_err());
+        count += 1;
+    }
+    assert_eq!(count, 6);
+}
+
+#[test]
 fn uhd_contracts_corpus_matches_inventory_without_chip_or_model_selection() {
     let Ok(path) = std::env::var("MTK_UHD_AREA_CORPUS") else {
         return;
@@ -200,5 +233,5 @@ fn routing_callers_save_lr_and_restore_native_frames() {
             count += 1;
         }
     }
-    assert_eq!(count, 20);
+    assert_eq!(count, 24);
 }

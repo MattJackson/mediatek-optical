@@ -648,7 +648,12 @@ pub(super) const DEFINITIONS: &[Definition] = &[
             (0xd100, 0xff00),
         ],
         handling: UhdHandling::Legacy,
-        selection: None,
+        selection: Some(SelectionDefinition {
+            offset: 10,
+            replay: &[0x4382],
+            span: 4,
+            reject_offset: None,
+        }),
     },
     // source 648a16d024eea31ef4901f3ac2180cbfffeda1161d70f9096335d8a6097445bc, 0xd8ede..0xd8f06
     Definition {

@@ -58,6 +58,11 @@
         "sha256": "67c1f3828c6632284c98f5b592f50fcc420d8ac1b9beeeffbe3cceb88fd6986a"
       },
       {
+        "file": "43c484dc-caller-ReverseCalculation.bin",
+        "offset": 1037206,
+        "sha256": "67c1f3828c6632284c98f5b592f50fcc420d8ac1b9beeeffbe3cceb88fd6986a"
+      },
+      {
         "file": "43c484dc-caller-ParameterNibble.bin",
         "offset": 1038246,
         "sha256": "bb6ecf8982a7acfc5d82d4dedd8566ff6d5d0b624b19c9cfe9ef17ba7299e131"
@@ -284,6 +289,18 @@
         ]
       },
       {
+        "entry": 1037206,
+        "site": 1037496,
+        "depths": [
+          32
+        ],
+        "returns": [
+          1038148,
+          1038152,
+          1038194
+        ]
+      },
+      {
         "entry": 1038246,
         "site": 1038280,
         "depths": [
@@ -360,6 +377,11 @@
       },
       {
         "file": "40eb760e-caller-ForwardCalculation.bin",
+        "offset": 1036474,
+        "sha256": "1fa4c5428a33bf020c251102ad3276df448b1f226d351f9c604bcca2447caf32"
+      },
+      {
+        "file": "40eb760e-caller-ReverseCalculation.bin",
         "offset": 1036474,
         "sha256": "1fa4c5428a33bf020c251102ad3276df448b1f226d351f9c604bcca2447caf32"
       },
@@ -590,6 +612,18 @@
         ]
       },
       {
+        "entry": 1036474,
+        "site": 1036764,
+        "depths": [
+          32
+        ],
+        "returns": [
+          1037416,
+          1037420,
+          1037462
+        ]
+      },
+      {
         "entry": 1037514,
         "site": 1037548,
         "depths": [
@@ -666,6 +700,11 @@
       },
       {
         "file": "b093a736-caller-ForwardCalculation.bin",
+        "offset": 1037910,
+        "sha256": "8602e9c308ef7951ffeb6ed58861fb5e119e403e09e833dbabc3aa4cc5ac4d33"
+      },
+      {
+        "file": "b093a736-caller-ReverseCalculation.bin",
         "offset": 1037910,
         "sha256": "8602e9c308ef7951ffeb6ed58861fb5e119e403e09e833dbabc3aa4cc5ac4d33"
       },
@@ -881,6 +920,18 @@
         ]
       },
       {
+        "entry": 1037910,
+        "site": 1038200,
+        "depths": [
+          32
+        ],
+        "returns": [
+          1038852,
+          1038856,
+          1038898
+        ]
+      },
+      {
         "entry": 1038950,
         "site": 1038984,
         "depths": [
@@ -957,6 +1008,11 @@
       },
       {
         "file": "0b2cdb82-caller-ForwardCalculation.bin",
+        "offset": 1031014,
+        "sha256": "1dd18b194d8be60601326a7a5e044713105d0f4d262df4065593bbcfe4e8b498"
+      },
+      {
+        "file": "0b2cdb82-caller-ReverseCalculation.bin",
         "offset": 1031014,
         "sha256": "1dd18b194d8be60601326a7a5e044713105d0f4d262df4065593bbcfe4e8b498"
       },
@@ -1172,6 +1228,18 @@
       {
         "entry": 1031014,
         "site": 1031184,
+        "depths": [
+          32
+        ],
+        "returns": [
+          1031956,
+          1031960,
+          1032002
+        ]
+      },
+      {
+        "entry": 1031014,
+        "site": 1031304,
         "depths": [
           32
         ],
