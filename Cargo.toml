@@ -75,3 +75,8 @@ required-features = ["drive"]
 [[example]]
 name = "flash"
 required-features = ["drive", "image", "enc"]
+
+# The analysis feature scans large firmware images in exhaustive tests.
+# Optimize this crate's test code while retaining test-profile assertions/checks.
+[profile.test.package.mediatek-optical]
+opt-level = 2
