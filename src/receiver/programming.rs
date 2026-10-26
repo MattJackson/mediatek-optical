@@ -76,7 +76,27 @@ pub fn inspect_integrity_walker(
     if Some(crypto) == diagnostic {
         return None;
     }
-    for (index, &expected) in super::mixed::COMPACT_CMAC_RANGE.iter().enumerate() {
+    let helper = |address: u32, expected: &[u16]| -> Option<()> {
+        for (index, &expected) in expected.iter().enumerate() {
+            let at = address.checked_add(u32::try_from(index * 2).ok()?)?;
+            let actual = word(bytes, base, at)?;
+            if expected & 0xf800 == 0x4800 {
+                if actual & 0xff00 != expected & 0xff00
+                    || literal(bytes, base, at, (expected >> 8) & 7)? != 0x04063000
+                {
+                    return None;
+                }
+            } else if actual != expected {
+                return None;
+            }
+        }
+        Some(())
+    };
+    let code = super::mixed::COMPACT_CMAC_RANGE;
+    let helpers = super::mixed::CMAC_RANGE_HELPERS;
+    let mut index = 0;
+    while index < code.len() {
+        let expected = code[index];
         let at = crypto.checked_add(u32::try_from(index * 2).ok()?)?;
         let actual = word(bytes, base, at)?;
         if expected & 0xf800 == 0x4800 {
@@ -85,9 +105,19 @@ pub fn inspect_integrity_walker(
             {
                 return None;
             }
+        } else if expected & 0xf800 == 0xf000 && code.get(index + 1)? & 0xf800 == 0xf800 {
+            let role = match index * 2 {
+                0x3e => helpers.get(..56)?,
+                0xa4 => helpers.get(56..67)?,
+                0xd8 => helpers.get(67..)?,
+                _ => return None,
+            };
+            helper(branch_link(bytes, base, at)?, role)?;
+            index += 1;
         } else if actual != expected {
             return None;
         }
+        index += 1;
     }
     Some(crypto)
 }
@@ -448,9 +478,32 @@ mod integrity_join_tests {
     fn complete_walker_binds_staging_and_retains_native_crypto() {
         let checks = include_bytes!("../../tests/fixtures/analysis/uh12-native-checks.bin");
         let crypto = include_bytes!("../../tests/fixtures/analysis/uh12-cmac-range.bin");
+        let helpers = include_bytes!("../../tests/fixtures/analysis/uh12-cmac-helpers.bin");
         let mut bytes = vec![0; 0x200000];
         bytes[0x17c27a..0x17c27a + checks.len()].copy_from_slice(checks);
         bytes[0x17c0e0..0x17c0e0 + crypto.len()].copy_from_slice(crypto);
+        bytes[0x17f9c..0x17f9c + helpers.len()].copy_from_slice(helpers);
+        let mut relocated = bytes.clone();
+        relocated[0x1afc8..0x1afc8 + helpers.len()].copy_from_slice(helpers);
+        let install_call = |image: &mut [u8], at: usize, target: usize| {
+            let delta = (target as i32 - at as i32 - 4) as u32;
+            image[at..at + 2]
+                .copy_from_slice(&(0xf000 | ((delta >> 12) & 2047) as u16).to_le_bytes());
+            image[at + 2..at + 4]
+                .copy_from_slice(&(0xf800 | ((delta >> 1) & 2047) as u16).to_le_bytes());
+        };
+        for (offset, target) in [(0x3e, 0x1afc8), (0xa4, 0x1b038), (0xd8, 0x1b04e)] {
+            install_call(&mut relocated, 0x17c0e0 + offset, target);
+        }
+        assert_eq!(
+            inspect_integrity_walker(&relocated, 0, 0x17c298, 0x02000c2c),
+            Some(0x17c0e0)
+        );
+        let mut wrong_role = relocated.clone();
+        install_call(&mut wrong_role, 0x17c0e0 + 0x3e, 0x1b038);
+        assert!(inspect_integrity_walker(&wrong_role, 0, 0x17c298, 0x02000c2c).is_none());
+        relocated[0x1afc8 + 0x0c] ^= 1;
+        assert!(inspect_integrity_walker(&relocated, 0, 0x17c298, 0x02000c2c).is_none());
         let bytes = bytes.as_slice();
         let base = 0;
         let start = 0x17c298;

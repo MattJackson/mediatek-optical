@@ -2,6 +2,9 @@
 
 ## 1.2.0 — Unreleased
 
+- Validate all three native CMAC helper bodies and hardware operands at their
+  decoded call targets, allowing proven call relocations across the same
+  implementation while rejecting a wrong helper role or changed helper body.
 - Bind the shared mode-three wrapper's source/destination/length stores to its
   exact native programming loop and page-helper status structure. Check the
   complete native integrity-walker grammar and shared staging pointer so hosts
