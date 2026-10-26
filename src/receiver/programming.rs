@@ -16,6 +16,10 @@ pub use loop_evidence::{
     inspect_compact_program_loop, inspect_program_loop, ProgramLoopEvidence, ProgramLoopVariant,
 };
 
+mod state_slot;
+pub(super) use state_slot::inspect_state_slot;
+pub use state_slot::StateSlotEvidence;
+
 /// Both branches of the legacy application's update-bit-zero range selection.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Selection {

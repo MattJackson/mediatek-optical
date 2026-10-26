@@ -2,6 +2,10 @@
 
 ## 1.2.0 — Unreleased
 
+- Pair receiver state saves/restores with the checked command frame and actual
+  stack-restoring epilogue, following bounded unconditional return chains.
+  This is component evidence; intervening overwrites and control flow remain
+  separate obligations before authorizing a transfer or changing allocation.
 - Follow explicit forward joins when binding boot/application integrity results.
   Associate bulk decoder argument evidence with its exact range selection and
   reuse the checked programming-tail grammar. These are read-only components;

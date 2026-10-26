@@ -18,6 +18,8 @@ pub struct SelectedRange {
     /// Unique checked acceptance tail using these selection cells. Reachability
     /// from the signature loop and helper semantics are separate obligations.
     pub acceptance: Option<programming::AcceptanceTail>,
+    /// Save/restore slot paired with this tail and the command frame, when bound.
+    pub state_slot: Option<programming::StateSlotEvidence>,
 }
 
 #[cfg(test)]
@@ -35,6 +37,31 @@ mod bulk_acceptance_tests {
         let tail = analysis.ranges()[0].acceptance.unwrap();
         assert_eq!(tail.program_target, 0x17c44e);
         assert_eq!(tail.program_call, 0xa7942);
+        let frame = analysis.ranges()[0].state_slot.as_ref().unwrap();
+        assert_eq!(frame.stack_bytes, 60);
+        assert_eq!(frame.slot, 52);
+        assert_eq!(frame.save_call, 0xa7736);
+        assert_eq!(frame.restore_call, 0xa7948);
+        assert_eq!(frame.return_path, [0xa794c, 0xa7280]);
+        let mut looping = HELD.to_vec();
+        let branch = (frame.return_path[0] - BASE) as usize;
+        looping[branch..branch + 2].copy_from_slice(&0xe7feu16.to_le_bytes());
+        assert!(ApplicationAnalysis::inspect(&looping, BASE)
+            .unwrap()
+            .ranges()[0]
+            .state_slot
+            .is_none());
+        for address in [
+            frame.save_call,
+            frame.store,
+            frame.restore_call,
+            frame.epilogue,
+        ] {
+            let mut changed = HELD.to_vec();
+            changed[(address - BASE) as usize] ^= 1;
+            let analysis = ApplicationAnalysis::inspect(&changed, BASE).unwrap();
+            assert!(analysis.ranges()[0].state_slot.is_none(), "{address:#x}");
+        }
         for address in [0xa77ea, 0xa78ca, 0xa78f4, 0xa7938, 0xa7940] {
             let mut changed = HELD.to_vec();
             changed[(address - BASE) as usize] ^= 1;
@@ -84,6 +111,9 @@ mod bulk_acceptance_tests {
             assert_eq!(tail.failure_pointer_register, failure_register);
             assert_eq!(tail.continuation, continuation);
             assert_eq!(tail.saved_state_offset, saved_offset);
+            let frame = analysis.ranges()[0].state_slot.as_ref().unwrap();
+            assert_eq!(frame.slot, saved_offset);
+            assert_eq!(frame.stack_bytes, saved_offset + 8);
             for relative in [77, 81, 84, 86] {
                 let mut changed = bytes.to_vec();
                 changed[(tail.address + relative - base) as usize] ^= 1;
@@ -139,6 +169,7 @@ impl ApplicationAnalysis {
                     selection,
                     signature,
                     acceptance: None,
+                    state_slot: None,
                 });
             }
             if let Some(proof) = programming::inspect_legacy_integrity(bytes, base, address) {
@@ -348,6 +379,11 @@ impl ApplicationAnalysis {
             } else {
                 range.acceptance = first;
             }
+        }
+        for range in &mut ranges {
+            range.state_slot = range.acceptance.as_ref().and_then(|tail| {
+                programming::inspect_state_slot(bytes, base, &range.selection, tail)
+            });
         }
         Some(Self {
             ranges,

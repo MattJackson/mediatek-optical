@@ -1,5 +1,5 @@
 //! The checked continuation from integrity success to the programming call.
-//! Called helper semantics and the incoming r4/r7 bindings remain obligations.
+//! Called helper semantics and the incoming pointer bindings remain obligations.
 use super::{literal, word, IntegritySelection, PlainSignature, Selection};
 use crate::receiver::decoding::branch_link;
 
