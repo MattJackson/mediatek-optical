@@ -486,6 +486,101 @@
         "file": "43c484dc-calibration-1047ec.bin",
         "offset": 1066988,
         "sha256": "34921dc0d4881866aa6ba63dd4713600c51259e95ef9eb59c079d02fa710e002"
+      },
+      {
+        "file": "43c484dc-read-position-103944.bin",
+        "offset": 1063236,
+        "sha256": "84f2b4661fee8b8858bccf366042987a357e90b8722f078d8ce8ce030aecbd1d"
+      },
+      {
+        "file": "43c484dc-read-position-103d38.bin",
+        "offset": 1064248,
+        "sha256": "52654c183c6d1bc4d9abf1f5789200c3f7b29efba0ce194c59503ac64f573487"
+      },
+      {
+        "file": "43c484dc-read-position-103d3c.bin",
+        "offset": 1064252,
+        "sha256": "66a7dca1c430a0b3783d7f8994057225f9a8956d1c494f02452134e29f3dc5ca"
+      },
+      {
+        "file": "43c484dc-read-position-103d40.bin",
+        "offset": 1064256,
+        "sha256": "371844d6b042c5b5d0d7e52c3577c46f38544df78ac23871b870c405571c7a4d"
+      },
+      {
+        "file": "43c484dc-read-position-103d44.bin",
+        "offset": 1064260,
+        "sha256": "c61815b9f15c46297633a2dca9f4ba6348e4c05252954bdc07707f522d745dba"
+      },
+      {
+        "file": "43c484dc-read-position-103d48.bin",
+        "offset": 1064264,
+        "sha256": "876c6bb40f0ba4f284c8452aa11ad60ebdc9990d69f0b8d022f84824b8cb7f7f"
+      },
+      {
+        "file": "43c484dc-read-position-103d4c.bin",
+        "offset": 1064268,
+        "sha256": "f432991d53e591a11b77112608ed0534698f929a84b40f641e85de2da49fbc7f"
+      },
+      {
+        "file": "43c484dc-read-position-103d50.bin",
+        "offset": 1064272,
+        "sha256": "4be69930f0f5981698cf52f8eb0e8b376d894222d8a77273eedaf644f5c460e0"
+      },
+      {
+        "file": "43c484dc-read-position-103d54.bin",
+        "offset": 1064276,
+        "sha256": "40a0cbc97179c56e3b3e3a0e59d6b6d5887388024fea4dc350801119c54809b5"
+      },
+      {
+        "file": "43c484dc-read-position-103d58.bin",
+        "offset": 1064280,
+        "sha256": "a3329bbac6378d69dd4d73f7db68604726b6b90fdaa35ec7a1eed809ee22192c"
+      },
+      {
+        "file": "43c484dc-read-position-103d5c.bin",
+        "offset": 1064284,
+        "sha256": "f0719ff82cddcf65532f157a47f8c9850dce7c81e6b58698b24adfc2866157db"
+      },
+      {
+        "file": "43c484dc-read-position-103d60.bin",
+        "offset": 1064288,
+        "sha256": "cfc5d5cf9f40e29cd3865464f21b28d5c9a0f4502e1b37053e2a4216e3bfca6c"
+      },
+      {
+        "file": "43c484dc-read-position-103d64.bin",
+        "offset": 1064292,
+        "sha256": "32d6dc0ae9fedd2a011e2fcd2facb87a2c9c455f93029ff3f6eea0397427a91a"
+      },
+      {
+        "file": "43c484dc-read-position-103d68.bin",
+        "offset": 1064296,
+        "sha256": "6fc6f4524161c3ae0d316812d7088e3fcd372023edaea2d7821093be40ae1060"
+      },
+      {
+        "file": "43c484dc-read-position-103d6c.bin",
+        "offset": 1064300,
+        "sha256": "de8950355572a6487ee85264284851f92dd40a6fd8f2289cfffe3dfe32e2388a"
+      },
+      {
+        "file": "43c484dc-read-position-103d70.bin",
+        "offset": 1064304,
+        "sha256": "86655e280c82d9309d269f1019f312f5b785a157d567c7af6ab2d8b510d790d1"
+      },
+      {
+        "file": "43c484dc-read-position-103d74.bin",
+        "offset": 1064308,
+        "sha256": "f060d5712596683f6c99ccd99f266aa90677baba1e063c389511ad6ce1675c44"
+      },
+      {
+        "file": "43c484dc-read-position-103d78.bin",
+        "offset": 1064312,
+        "sha256": "a1fcd7a0b400bdccc88188fa6d4eb57d5b91e022d0bab70fae446b1417fcd8a6"
+      },
+      {
+        "file": "43c484dc-read-position-103d7c.bin",
+        "offset": 1064316,
+        "sha256": "86cd7cc6b14affe383c5bf454c5f8567556644f929efd21785564841be513290"
       }
     ],
     "areas": [
@@ -760,7 +855,8 @@
       "oem_coefficients": 1735498
     },
     "position_entry": 1035312,
-    "calibration_entry": 1066392
+    "calibration_entry": 1066392,
+    "read_position_entry": 1063236
   },
   {
     "source_sha256": "40eb760e23f100d55e86e9c061c73428d4087ef712294e4dbfcefa3093837a1a",
@@ -1249,6 +1345,101 @@
         "file": "40eb760e-calibration-104510.bin",
         "offset": 1066256,
         "sha256": "34921dc0d4881866aa6ba63dd4713600c51259e95ef9eb59c079d02fa710e002"
+      },
+      {
+        "file": "40eb760e-read-position-103668.bin",
+        "offset": 1062504,
+        "sha256": "959bd253d8bf5d44da8c9294ccc189e0356b4098b5c647ceaa48aec92141b989"
+      },
+      {
+        "file": "40eb760e-read-position-103a5c.bin",
+        "offset": 1063516,
+        "sha256": "52654c183c6d1bc4d9abf1f5789200c3f7b29efba0ce194c59503ac64f573487"
+      },
+      {
+        "file": "40eb760e-read-position-103a60.bin",
+        "offset": 1063520,
+        "sha256": "66a7dca1c430a0b3783d7f8994057225f9a8956d1c494f02452134e29f3dc5ca"
+      },
+      {
+        "file": "40eb760e-read-position-103a64.bin",
+        "offset": 1063524,
+        "sha256": "371844d6b042c5b5d0d7e52c3577c46f38544df78ac23871b870c405571c7a4d"
+      },
+      {
+        "file": "40eb760e-read-position-103a68.bin",
+        "offset": 1063528,
+        "sha256": "c61815b9f15c46297633a2dca9f4ba6348e4c05252954bdc07707f522d745dba"
+      },
+      {
+        "file": "40eb760e-read-position-103a6c.bin",
+        "offset": 1063532,
+        "sha256": "876c6bb40f0ba4f284c8452aa11ad60ebdc9990d69f0b8d022f84824b8cb7f7f"
+      },
+      {
+        "file": "40eb760e-read-position-103a70.bin",
+        "offset": 1063536,
+        "sha256": "f432991d53e591a11b77112608ed0534698f929a84b40f641e85de2da49fbc7f"
+      },
+      {
+        "file": "40eb760e-read-position-103a74.bin",
+        "offset": 1063540,
+        "sha256": "4be69930f0f5981698cf52f8eb0e8b376d894222d8a77273eedaf644f5c460e0"
+      },
+      {
+        "file": "40eb760e-read-position-103a78.bin",
+        "offset": 1063544,
+        "sha256": "40a0cbc97179c56e3b3e3a0e59d6b6d5887388024fea4dc350801119c54809b5"
+      },
+      {
+        "file": "40eb760e-read-position-103a7c.bin",
+        "offset": 1063548,
+        "sha256": "f84ed2a9b8f9c7f464d6bbf0dc923ba9d6ce05e38406783997a753ffa1ae4750"
+      },
+      {
+        "file": "40eb760e-read-position-103a80.bin",
+        "offset": 1063552,
+        "sha256": "f0719ff82cddcf65532f157a47f8c9850dce7c81e6b58698b24adfc2866157db"
+      },
+      {
+        "file": "40eb760e-read-position-103a84.bin",
+        "offset": 1063556,
+        "sha256": "c8e5bcfe212b4ae398fde0c5436e822749f45b754a18b915b06513a837a93f09"
+      },
+      {
+        "file": "40eb760e-read-position-103a88.bin",
+        "offset": 1063560,
+        "sha256": "36a4fe72c27464ff0c1929a2bbd91e953b7688527d7c4a8dd1183b36b6db2353"
+      },
+      {
+        "file": "40eb760e-read-position-103a8c.bin",
+        "offset": 1063564,
+        "sha256": "6fc6f4524161c3ae0d316812d7088e3fcd372023edaea2d7821093be40ae1060"
+      },
+      {
+        "file": "40eb760e-read-position-103a90.bin",
+        "offset": 1063568,
+        "sha256": "6117ada0bfe05627f8c560b966d62017a6102685c57309dc1f660b08943f1bc4"
+      },
+      {
+        "file": "40eb760e-read-position-103a94.bin",
+        "offset": 1063572,
+        "sha256": "d7d4e804eb65efd271f5b2b8495be8832c83c16826c3828de9b1152ae8fdde19"
+      },
+      {
+        "file": "40eb760e-read-position-103a98.bin",
+        "offset": 1063576,
+        "sha256": "f060d5712596683f6c99ccd99f266aa90677baba1e063c389511ad6ce1675c44"
+      },
+      {
+        "file": "40eb760e-read-position-103a9c.bin",
+        "offset": 1063580,
+        "sha256": "ce34cda6f63a106362683bcc3b0c720d13c4382b19fed78a887399f4ab49e74b"
+      },
+      {
+        "file": "40eb760e-read-position-103aa0.bin",
+        "offset": 1063584,
+        "sha256": "c976a8d7d4c70a75885862c2eb22fc96c0a9921b81f990e1df34dc6399939a0f"
       }
     ],
     "areas": [
@@ -1523,7 +1714,8 @@
       "oem_coefficients": 1732374
     },
     "position_entry": 1034580,
-    "calibration_entry": 1065660
+    "calibration_entry": 1065660,
+    "read_position_entry": 1062504
   },
   {
     "source_sha256": "b093a73656e58ee2a4367b5d92324fd7da3889f632a22b2f1be8802607cd3de4",
@@ -1997,6 +2189,101 @@
         "file": "b093a736-calibration-1046c8.bin",
         "offset": 1066696,
         "sha256": "34921dc0d4881866aa6ba63dd4713600c51259e95ef9eb59c079d02fa710e002"
+      },
+      {
+        "file": "b093a736-read-position-103820.bin",
+        "offset": 1062944,
+        "sha256": "9d0c4211b45676ecd16942c9e8411fc18b6a464913ed1774d1f85f120a2f5300"
+      },
+      {
+        "file": "b093a736-read-position-103c14.bin",
+        "offset": 1063956,
+        "sha256": "52654c183c6d1bc4d9abf1f5789200c3f7b29efba0ce194c59503ac64f573487"
+      },
+      {
+        "file": "b093a736-read-position-103c18.bin",
+        "offset": 1063960,
+        "sha256": "66a7dca1c430a0b3783d7f8994057225f9a8956d1c494f02452134e29f3dc5ca"
+      },
+      {
+        "file": "b093a736-read-position-103c1c.bin",
+        "offset": 1063964,
+        "sha256": "371844d6b042c5b5d0d7e52c3577c46f38544df78ac23871b870c405571c7a4d"
+      },
+      {
+        "file": "b093a736-read-position-103c20.bin",
+        "offset": 1063968,
+        "sha256": "d7a5f50950b81dbd59b3e1e692f021dfc5086965ef995b5cbf1e484fe3dde0e2"
+      },
+      {
+        "file": "b093a736-read-position-103c24.bin",
+        "offset": 1063972,
+        "sha256": "0f479cc09875be1ba9835dfceb235233cf8edec23e07194f2921a092a3c16061"
+      },
+      {
+        "file": "b093a736-read-position-103c28.bin",
+        "offset": 1063976,
+        "sha256": "610d36bcfe50e0142ba5d50611089b02b9c85681c12540f0455ea7d7ae6b802e"
+      },
+      {
+        "file": "b093a736-read-position-103c2c.bin",
+        "offset": 1063980,
+        "sha256": "4be69930f0f5981698cf52f8eb0e8b376d894222d8a77273eedaf644f5c460e0"
+      },
+      {
+        "file": "b093a736-read-position-103c30.bin",
+        "offset": 1063984,
+        "sha256": "40a0cbc97179c56e3b3e3a0e59d6b6d5887388024fea4dc350801119c54809b5"
+      },
+      {
+        "file": "b093a736-read-position-103c34.bin",
+        "offset": 1063988,
+        "sha256": "30e40d277f3e3735de196d9405d16bedb208dc76465865c6f01e618460028f4c"
+      },
+      {
+        "file": "b093a736-read-position-103c38.bin",
+        "offset": 1063992,
+        "sha256": "f0719ff82cddcf65532f157a47f8c9850dce7c81e6b58698b24adfc2866157db"
+      },
+      {
+        "file": "b093a736-read-position-103c3c.bin",
+        "offset": 1063996,
+        "sha256": "0a02b7817854a5f01a3e121c6b40828f9f4db5bab2a64c286fb84ca10a410a8b"
+      },
+      {
+        "file": "b093a736-read-position-103c40.bin",
+        "offset": 1064000,
+        "sha256": "e08863acb678bf32aaccffa59c112f74a6c44b0673abde82209c9ef81e6e212a"
+      },
+      {
+        "file": "b093a736-read-position-103c44.bin",
+        "offset": 1064004,
+        "sha256": "6fc6f4524161c3ae0d316812d7088e3fcd372023edaea2d7821093be40ae1060"
+      },
+      {
+        "file": "b093a736-read-position-103c48.bin",
+        "offset": 1064008,
+        "sha256": "221d6a999d675186e1f3f5682cc8ba80424b9eaec99275be5e9ca286ad538cff"
+      },
+      {
+        "file": "b093a736-read-position-103c4c.bin",
+        "offset": 1064012,
+        "sha256": "bcff7d2e84eb63e2f216199a02fb65b5586818f402632ce7e937869fa4c70d8c"
+      },
+      {
+        "file": "b093a736-read-position-103c50.bin",
+        "offset": 1064016,
+        "sha256": "f060d5712596683f6c99ccd99f266aa90677baba1e063c389511ad6ce1675c44"
+      },
+      {
+        "file": "b093a736-read-position-103c54.bin",
+        "offset": 1064020,
+        "sha256": "f822e7a9a7b79a0c1e02653522b9b99bbb49bfb847e96393dfb526f268934042"
+      },
+      {
+        "file": "b093a736-read-position-103c58.bin",
+        "offset": 1064024,
+        "sha256": "e9791f8a8c534a26f17e76c5744f1779df6656b28ac7b85e788f03bba77f9fae"
       }
     ],
     "areas": [
@@ -2271,7 +2558,8 @@
       "oem_coefficients": 1733338
     },
     "position_entry": 1036016,
-    "calibration_entry": 1066100
+    "calibration_entry": 1066100,
+    "read_position_entry": 1062944
   },
   {
     "source_sha256": "0b2cdb82ff520589d4c750fae726571798901bf41e433de0a7164f7d74927d5f",
@@ -2735,6 +3023,101 @@
         "file": "0b2cdb82-calibration-102f80.bin",
         "offset": 1060736,
         "sha256": "34921dc0d4881866aa6ba63dd4713600c51259e95ef9eb59c079d02fa710e002"
+      },
+      {
+        "file": "0b2cdb82-read-position-1020d8.bin",
+        "offset": 1056984,
+        "sha256": "3462fe3e26d98bac3b536dddd43501b112cdf3dcbeec6b150949e189b67f0f6d"
+      },
+      {
+        "file": "0b2cdb82-read-position-1024cc.bin",
+        "offset": 1057996,
+        "sha256": "52654c183c6d1bc4d9abf1f5789200c3f7b29efba0ce194c59503ac64f573487"
+      },
+      {
+        "file": "0b2cdb82-read-position-1024d0.bin",
+        "offset": 1058000,
+        "sha256": "66a7dca1c430a0b3783d7f8994057225f9a8956d1c494f02452134e29f3dc5ca"
+      },
+      {
+        "file": "0b2cdb82-read-position-1024d4.bin",
+        "offset": 1058004,
+        "sha256": "371844d6b042c5b5d0d7e52c3577c46f38544df78ac23871b870c405571c7a4d"
+      },
+      {
+        "file": "0b2cdb82-read-position-1024d8.bin",
+        "offset": 1058008,
+        "sha256": "c61815b9f15c46297633a2dca9f4ba6348e4c05252954bdc07707f522d745dba"
+      },
+      {
+        "file": "0b2cdb82-read-position-1024dc.bin",
+        "offset": 1058012,
+        "sha256": "876c6bb40f0ba4f284c8452aa11ad60ebdc9990d69f0b8d022f84824b8cb7f7f"
+      },
+      {
+        "file": "0b2cdb82-read-position-1024e0.bin",
+        "offset": 1058016,
+        "sha256": "f432991d53e591a11b77112608ed0534698f929a84b40f641e85de2da49fbc7f"
+      },
+      {
+        "file": "0b2cdb82-read-position-1024e4.bin",
+        "offset": 1058020,
+        "sha256": "4be69930f0f5981698cf52f8eb0e8b376d894222d8a77273eedaf644f5c460e0"
+      },
+      {
+        "file": "0b2cdb82-read-position-1024e8.bin",
+        "offset": 1058024,
+        "sha256": "40a0cbc97179c56e3b3e3a0e59d6b6d5887388024fea4dc350801119c54809b5"
+      },
+      {
+        "file": "0b2cdb82-read-position-1024ec.bin",
+        "offset": 1058028,
+        "sha256": "e1c21fd8791574cacd1686aeaf819f0d54569de73ac588df8eb1313d1171376f"
+      },
+      {
+        "file": "0b2cdb82-read-position-1024f0.bin",
+        "offset": 1058032,
+        "sha256": "f0719ff82cddcf65532f157a47f8c9850dce7c81e6b58698b24adfc2866157db"
+      },
+      {
+        "file": "0b2cdb82-read-position-1024f4.bin",
+        "offset": 1058036,
+        "sha256": "ef2331e3902a29d616023090301db18eb6c25063d5af43f013dd6add98783c3a"
+      },
+      {
+        "file": "0b2cdb82-read-position-1024f8.bin",
+        "offset": 1058040,
+        "sha256": "dfc07215dd8c983515aa7d8d9265dc07f208ea666849059fec6ee133e0ff1dd5"
+      },
+      {
+        "file": "0b2cdb82-read-position-1024fc.bin",
+        "offset": 1058044,
+        "sha256": "6fc6f4524161c3ae0d316812d7088e3fcd372023edaea2d7821093be40ae1060"
+      },
+      {
+        "file": "0b2cdb82-read-position-102500.bin",
+        "offset": 1058048,
+        "sha256": "181d33e4b7ae3660269b7f4c2bdedbb440e964b741e063429c0aada511e38474"
+      },
+      {
+        "file": "0b2cdb82-read-position-102504.bin",
+        "offset": 1058052,
+        "sha256": "a3df5e48ff6f2632d601eb0ae4bbe11acaaeb63952a58714a87a7bf876343ad3"
+      },
+      {
+        "file": "0b2cdb82-read-position-102508.bin",
+        "offset": 1058056,
+        "sha256": "f060d5712596683f6c99ccd99f266aa90677baba1e063c389511ad6ce1675c44"
+      },
+      {
+        "file": "0b2cdb82-read-position-10250c.bin",
+        "offset": 1058060,
+        "sha256": "34f91e02865167836eb9211c6b11b15999b67ccc0fa9deb400eaeca0fc853676"
+      },
+      {
+        "file": "0b2cdb82-read-position-102510.bin",
+        "offset": 1058064,
+        "sha256": "c2151a242fc0ca4d982476c7d857f45e11e2a2363aa2c6a5cdba051b968d2a3f"
       }
     ],
     "areas": [
@@ -3009,7 +3392,8 @@
       "oem_coefficients": 1724346
     },
     "position_entry": 1029120,
-    "calibration_entry": 1060140
+    "calibration_entry": 1060140,
+    "read_position_entry": 1056984
   },
   {
     "source_sha256": "648a16d024eea31ef4901f3ac2180cbfffeda1161d70f9096335d8a6097445bc",

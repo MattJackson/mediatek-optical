@@ -103,3 +103,6 @@ pub use uhd_position::ClassicPosition;
 
 mod uhd_calibration;
 pub use uhd_calibration::ClassicCalibration;
+
+mod uhd_read_position;
+pub use uhd_read_position::ClassicReadPosition;

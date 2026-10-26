@@ -12,6 +12,8 @@
   media-selected or state-independent, preserving their own calibration tables.
   Bind the complete paired position-scaling routine and startup calibration
   lookup to native speed indices and the independently matched parameter getter.
+  Bind the complete native read-position decoder, first-layer reflection mask
+  and both range selectors to shared state cells and saved native frames.
 
 - Expose the validated native authentication refusal separately from an alternate
   implementation continuation, preserving the classic nibble-4 path contract.

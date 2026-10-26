@@ -177,6 +177,8 @@ fn uhd_contracts_corpus_matches_inventory_without_chip_or_model_selection() {
             super::ClassicDi::detect(&bytes).unwrap_or_else(|e| panic!("{}: {e}", row["sha256"]));
             super::ClassicConsumer::inspect(&bytes, contracts.state_address().unwrap())
                 .unwrap_or_else(|e| panic!("{} consumers: {e}", row["sha256"]));
+            super::ClassicReadPosition::detect(&bytes, contracts.state_address().unwrap())
+                .unwrap_or_else(|e| panic!("{} read-position: {e}", row["sha256"]));
             super::ClassicCalibration::detect(&bytes, contracts.state_address().unwrap())
                 .unwrap_or_else(|e| panic!("{} calibration: {e}", row["sha256"]));
             super::ClassicPosition::detect(&bytes, contracts.state_address().unwrap())
@@ -404,6 +406,29 @@ fn classic_calibration_binds_startup_speed_indices_to_the_native_getter() {
         let mut bad = bytes.clone();
         bad[entry as usize + 0x5e] ^= 1;
         assert!(super::ClassicCalibration::detect(&bad, state).is_err());
+        count += 1;
+    }
+    assert_eq!(count, 4);
+}
+
+#[test]
+fn classic_read_position_binds_decoder_masks_ranges_and_saved_frames() {
+    let (root, cases) = fixtures();
+    let mut count = 0;
+    for case in cases {
+        let Some(entry) = case["read_position_entry"].as_u64() else {
+            continue;
+        };
+        let bytes = image(&root, &case);
+        let state = case["state"].as_u64().unwrap() as u32;
+        let contract = super::ClassicReadPosition::detect(&bytes, state).unwrap();
+        assert_eq!(contract.entry, entry as usize);
+        for selection in [&contract.decode, &contract.ranges[0], &contract.ranges[1]] {
+            let mut bad = bytes.clone();
+            bad[selection.site() + 2] ^= 1;
+            assert!(super::ClassicReadPosition::detect(&bad, state).is_err());
+        }
+        assert!(super::ClassicReadPosition::detect(&bytes, state + 1).is_err());
         count += 1;
     }
     assert_eq!(count, 4);
