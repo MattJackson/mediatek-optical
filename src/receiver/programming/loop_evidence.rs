@@ -27,6 +27,8 @@ pub struct ProgramLoopEvidence {
     pub staging_cell: u32,
     /// Temporary page-copy pointer cell.
     pub copy_pointer_cell: u32,
+    /// Flash-status structure referenced by the native page helper.
+    pub flash_status_cell: u32,
     /// Spans selected when the caller starts at 0x10000 with a full 2 MiB image.
     /// These do not establish that the caller actually chooses those arguments.
     pub preserving_boot_spans: [Range<usize>; 2],
@@ -123,6 +125,7 @@ fn inspect(
         remaining_cell: ram[2],
         copy_pointer_cell: ram[3],
         staging_cell: ram[4],
+        flash_status_cell: status[2],
         preserving_boot_spans: [0x10000..first_end, 0x1ec000..0x1f0000],
     })
 }

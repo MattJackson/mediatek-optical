@@ -134,5 +134,19 @@
     "leading_padding": 0,
     "fixture_bytes": 11392,
     "fixture_sha256": "d6bb11e71c3c608ff4dcbeac71138302706ea7e6a6bec7595717c6fe77fce856"
+  },
+  {
+    "name": "uh12-wrapper",
+    "sha256": "eeb1c948f1ed98245b7d21d03fe5e333a3349d28453690e2a60b4a8dc01765ba",
+    "source_offset": "0x17c44e",
+    "fixture_bytes": 816,
+    "fixture_sha256": "89cebf9d4d6e032c88c44a30a67643656e9752c3ac62eac6b768434322384649"
+  },
+  {
+    "name": "uh12-native-checks",
+    "sha256": "eeb1c948f1ed98245b7d21d03fe5e333a3349d28453690e2a60b4a8dc01765ba",
+    "source_offset": "0x17c27a",
+    "fixture_bytes": 258,
+    "fixture_sha256": "5ce143a99173d0fb8d6a2c35d25fb652a950b05b3712a813451de841f8f0fe6b"
   }
 ]

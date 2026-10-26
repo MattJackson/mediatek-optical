@@ -20,6 +20,62 @@ mod state_slot;
 pub(super) use state_slot::inspect_state_slot;
 pub use state_slot::StateSlotEvidence;
 
+mod mode_three;
+pub use mode_three::{inspect_mode_three_wrapper, ModeThreeWrapper};
+
+/// Check the native 16-entry integrity walker against its complete instruction
+/// grammar. Both staging loads must bind to the caller's decoded staging cell;
+/// all diagnostic calls share one target. The crypto routine is retained OEM
+/// code, not replaced or inferred from a firmware/model name.
+pub fn inspect_integrity_walker(
+    bytes: &[u8],
+    base: u32,
+    start: u32,
+    staging_cell: u32,
+) -> Option<u32> {
+    use super::decoding::branch_link;
+    if !ram(staging_cell) {
+        return None;
+    }
+    let expected = super::mixed::COMPACT_INTEGRITY.get(15..96)?;
+    let mut index = 0;
+    let mut diagnostic = None;
+    let mut crypto = None;
+    while index < expected.len() {
+        let delta = u32::try_from(index * 2).ok()?;
+        let at = start.checked_add(delta)?;
+        let original = expected[index];
+        let actual = word(bytes, base, at)?;
+        if original & 0xf800 == 0x4800 {
+            if actual & 0xff00 != original & 0xff00 {
+                return None;
+            }
+            let value = literal(bytes, base, at, (original >> 8) & 7)?;
+            if matches!(delta, 2 | 0x62) && value != staging_cell {
+                return None;
+            }
+        } else if original & 0xf800 == 0xf000 && expected.get(index + 1)? & 0xf800 == 0xf800 {
+            let target = branch_link(bytes, base, at)?;
+            match delta {
+                0x0e => {}
+                0x70 => crypto = Some(target),
+                _ => {
+                    if diagnostic.is_some_and(|previous| previous != target) {
+                        return None;
+                    }
+                    diagnostic = Some(target);
+                }
+            }
+            index += 1;
+        } else if actual != original {
+            return None;
+        }
+        index += 1;
+    }
+    let crypto = crypto?;
+    (Some(crypto) != diagnostic).then_some(crypto)
+}
+
 /// Both branches of the legacy application's update-bit-zero range selection.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Selection {
@@ -372,6 +428,30 @@ pub fn inspect_legacy_integrity(bytes: &[u8], base: u32, start: u32) -> Option<I
 #[cfg(test)]
 mod integrity_join_tests {
     use super::*;
+    #[test]
+    fn complete_walker_binds_staging_and_retains_native_crypto() {
+        let bytes = include_bytes!("../../tests/fixtures/analysis/uh12-native-checks.bin");
+        let base = 0x17c27a;
+        let start = 0x17c298;
+        assert_eq!(
+            inspect_integrity_walker(bytes, base, start, 0x02000c2c),
+            Some(0x17c0e0)
+        );
+        assert_eq!(
+            inspect_integrity_walker(bytes, base, start, 0x02000c34),
+            None
+        );
+        for offset in [
+            0, 4, 8, 12, 0x2a, 0x4e, 0x52, 0x56, 0x58, 0x66, 0x6c, 0x98, 0x9c,
+        ] {
+            let mut changed = bytes.to_vec();
+            changed[(start - base) as usize + offset] ^= 1;
+            assert!(
+                inspect_integrity_walker(&changed, base, start, 0x02000c2c).is_none(),
+                "{offset:#x}"
+            );
+        }
+    }
     const BASE: u32 = 0xa78bc;
     const HELD: &[u8] =
         include_bytes!("../../tests/fixtures/analysis/uh12-integrity-selection.bin");

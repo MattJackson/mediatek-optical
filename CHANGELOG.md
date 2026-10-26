@@ -2,6 +2,10 @@
 
 ## 1.2.0 — Unreleased
 
+- Bind the shared mode-three wrapper's source/destination/length stores to its
+  exact native programming loop and page-helper status structure. Check the
+  complete native integrity-walker grammar and shared staging pointer so hosts
+  can evaluate a bounded allocation-coverage change without model/hash rules.
 - Pair receiver state saves/restores with the checked command frame and actual
   stack-restoring epilogue, following bounded unconditional return chains.
   This is component evidence; intervening overwrites and control flow remain

@@ -27,7 +27,7 @@ pub struct StateSlotEvidence {
 
 // Legacy Thumb BLX immediate, with the ARM destination aligned to a word.
 // This deliberately does not broaden the BL-only argument tracer.
-fn blx(bytes: &[u8], base: u32, address: u32) -> Option<u32> {
+pub(super) fn blx(bytes: &[u8], base: u32, address: u32) -> Option<u32> {
     let first = word(bytes, base, address)?;
     let second = word(bytes, base, address.checked_add(2)?)?;
     if first & 0xf800 != 0xf000 || second & 0xf801 != 0xe800 {
