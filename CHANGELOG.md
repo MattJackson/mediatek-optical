@@ -5,8 +5,11 @@
 - Add independent DI-recognition and C7-routing contracts with typed native
   handling, common state-cell validation, original replay instructions and bound
   continuations. Inventory hardware defaults separately; no UHD capability claim.
-  Bind six additional classic controller/read selectors and their saved native
+  Bind nine additional classic controller/read selectors and their saved native
   callers; recognize moved read-status blocks through their flag cell and joins.
+  Bind DI mode selection and read-boundary reflection; expose displaced literal
+  loads for relocation. Classify complete native parameter getters as
+  media-selected or state-independent, preserving their own calibration tables.
 
 - Expose the validated native authentication refusal separately from an alternate
   implementation continuation, preserving the classic nibble-4 path contract.

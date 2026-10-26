@@ -208,6 +208,16 @@
         "sha256": "08a749eab87f36acd11297742e255be4e3edabb837ef34c33c6a00205dbefcaf"
       },
       {
+        "file": "43c484dc-aux-read-boundary.bin",
+        "offset": 1389480,
+        "sha256": "3202837f6dc342ab2fae7f016eee27f9338a5213f126186af67d1cdee71b1345"
+      },
+      {
+        "file": "43c484dc-aux-di-mode.bin",
+        "offset": 1090590,
+        "sha256": "566971ebb9e1b6de38d2df6fd99a879acc4b80d1d69415075ae31c5f19a97d14"
+      },
+      {
         "file": "43c484dc-aux-control18.bin",
         "offset": 219482,
         "sha256": "81d358eab64b35225b4884da2ffabe40932dea0e83932e9dda9779426bc9639a"
@@ -238,6 +248,11 @@
         "sha256": "28276cb31cb62517e7fa343dedb02a9157ddc22e50c8d51a3d25caf13786194b"
       },
       {
+        "file": "43c484dc-aux-initialization-bypass.bin",
+        "offset": 494360,
+        "sha256": "9f54b25f0689754ebd763f2201226461d0bf7411feead1ad50ba390b51b00aad"
+      },
+      {
         "file": "43c484dc-aux-literal-32180.bin",
         "offset": 205184,
         "sha256": "f432991d53e591a11b77112608ed0534698f929a84b40f641e85de2da49fbc7f"
@@ -263,6 +278,26 @@
         "sha256": "04ce706254a429320610b0369b3b6dfc6f09146456167a07016ad38033a6e293"
       },
       {
+        "file": "43c484dc-aux-literal-78e34.bin",
+        "offset": 495156,
+        "sha256": "f432991d53e591a11b77112608ed0534698f929a84b40f641e85de2da49fbc7f"
+      },
+      {
+        "file": "43c484dc-aux-literal-10a67c.bin",
+        "offset": 1091196,
+        "sha256": "f432991d53e591a11b77112608ed0534698f929a84b40f641e85de2da49fbc7f"
+      },
+      {
+        "file": "43c484dc-aux-literal-10a6e0.bin",
+        "offset": 1091296,
+        "sha256": "648aa620cb2201dbaf8f269bfd31398b8c8bd5f450a2d897bd2d1862297bf045"
+      },
+      {
+        "file": "43c484dc-aux-literal-1536ac.bin",
+        "offset": 1390252,
+        "sha256": "f432991d53e591a11b77112608ed0534698f929a84b40f641e85de2da49fbc7f"
+      },
+      {
         "file": "43c484dc-aux-literal-197fc4.bin",
         "offset": 1671108,
         "sha256": "f432991d53e591a11b77112608ed0534698f929a84b40f641e85de2da49fbc7f"
@@ -281,6 +316,56 @@
         "file": "43c484dc-aux-callee-192ce8.bin",
         "offset": 1649896,
         "sha256": "0c5dc176978dab2405038d99d3ecca79fba4ae057fe0f296be21ff50309efc0c"
+      },
+      {
+        "file": "43c484dc-parameter-code.bin",
+        "offset": 1069276,
+        "sha256": "d89e7a1956d82f621f39f800d7ef3d2f4634576697e00d4356902486477c59ec"
+      },
+      {
+        "file": "43c484dc-parameter-literal-1051e8.bin",
+        "offset": 1069544,
+        "sha256": "f432991d53e591a11b77112608ed0534698f929a84b40f641e85de2da49fbc7f"
+      },
+      {
+        "file": "43c484dc-parameter-literal-1051ec.bin",
+        "offset": 1069548,
+        "sha256": "a91b9af482033ece64d4b16b0eccbbb28e2381a4e7483d82085a0606da6cea58"
+      },
+      {
+        "file": "43c484dc-parameter-literal-1051f0.bin",
+        "offset": 1069552,
+        "sha256": "0ddca6cc35f8071fd93bfa30488624d57d44498d987425b04a3a08869ccf5560"
+      },
+      {
+        "file": "43c484dc-parameter-literal-1051f4.bin",
+        "offset": 1069556,
+        "sha256": "9c6e6757f6e41a59e1871901991618e005229aaf46cc34d12e684ab08e725add"
+      },
+      {
+        "file": "43c484dc-parameter-literal-1051f8.bin",
+        "offset": 1069560,
+        "sha256": "fc1784a43e6f62dbb5421a3b9831a31f09eb3a217db10c2b7f818bd199100e34"
+      },
+      {
+        "file": "43c484dc-parameter-literal-1051fc.bin",
+        "offset": 1069564,
+        "sha256": "d7b192ea55a499c2bc81ed73ed399fcae58a4a315e0d730896ec36afa3b6ab77"
+      },
+      {
+        "file": "43c484dc-parameter-data-1a7ac8.bin",
+        "offset": 1735368,
+        "sha256": "cea505d2868901bdea8d567426829127ffd91ba70b9bbac88b091563be8642e4"
+      },
+      {
+        "file": "43c484dc-parameter-data-1a7b4a.bin",
+        "offset": 1735498,
+        "sha256": "7e9d5e2a213c0fe5e52f8b4000289afd5739384cd7b5a746b701a277a4bb12a9"
+      },
+      {
+        "file": "43c484dc-parameter-data-1a7c50.bin",
+        "offset": 1735760,
+        "sha256": "efa850f425ad8bd69eb8d66e4d1fdae2aa775ee5f5f44b63b3ef51c34c7cc43e"
       }
     ],
     "areas": [
@@ -398,6 +483,52 @@
     ],
     "auxiliary_consumers": [
       {
+        "start": 494420,
+        "site": 494426,
+        "caller": {
+          "entry": 494360,
+          "site": 494426,
+          "depths": [
+            24
+          ],
+          "returns": [
+            494562
+          ]
+        },
+        "kind": "initialization-bypass"
+      },
+      {
+        "start": 1389716,
+        "site": 1389726,
+        "caller": {
+          "entry": 1389480,
+          "site": 1389726,
+          "depths": [
+            32
+          ],
+          "returns": [
+            1390066,
+            1390084
+          ]
+        },
+        "kind": "read-boundary"
+      },
+      {
+        "start": 1090656,
+        "site": 1090662,
+        "caller": {
+          "entry": 1090590,
+          "site": 1090662,
+          "depths": [
+            40
+          ],
+          "returns": [
+            1090726
+          ]
+        },
+        "kind": "di-mode"
+      },
+      {
         "start": 219840,
         "site": 219846,
         "caller": {
@@ -489,7 +620,25 @@
         },
         "kind": "read-status"
       }
-    ]
+    ],
+    "parameter": {
+      "kind": "media-selected",
+      "entry": 1069276,
+      "site": 1069370,
+      "caller": {
+        "entry": 1069276,
+        "site": 1069370,
+        "depths": [
+          24
+        ],
+        "returns": [
+          1069388
+        ]
+      },
+      "rates": 1735368,
+      "coefficients": 1735760,
+      "oem_coefficients": 1735498
+    }
   },
   {
     "source_sha256": "40eb760e23f100d55e86e9c061c73428d4087ef712294e4dbfcefa3093837a1a",
@@ -700,6 +849,16 @@
         "sha256": "08a749eab87f36acd11297742e255be4e3edabb837ef34c33c6a00205dbefcaf"
       },
       {
+        "file": "40eb760e-aux-read-boundary.bin",
+        "offset": 1388556,
+        "sha256": "a85e79d87d5a926b22ab1beefb96e4cf34ff44e23e4b72d11be1fdd03b135576"
+      },
+      {
+        "file": "40eb760e-aux-di-mode.bin",
+        "offset": 1089666,
+        "sha256": "a07c6d70bb5dbf280056705b6e2f3128aa5ebabf639a6954040f54229482f1bf"
+      },
+      {
         "file": "40eb760e-aux-control18.bin",
         "offset": 219482,
         "sha256": "81d358eab64b35225b4884da2ffabe40932dea0e83932e9dda9779426bc9639a"
@@ -730,6 +889,11 @@
         "sha256": "8f83f2795bc89b30f2807ea849a5e092ceffe3343eb2b23b575979648bc58dd6"
       },
       {
+        "file": "40eb760e-aux-initialization-bypass.bin",
+        "offset": 494724,
+        "sha256": "ad9a7ea074eccfee173f2267517a24ef0ed30dd8c3438e5d945a5e34b87b561d"
+      },
+      {
         "file": "40eb760e-aux-literal-32180.bin",
         "offset": 205184,
         "sha256": "f432991d53e591a11b77112608ed0534698f929a84b40f641e85de2da49fbc7f"
@@ -755,6 +919,26 @@
         "sha256": "04ce706254a429320610b0369b3b6dfc6f09146456167a07016ad38033a6e293"
       },
       {
+        "file": "40eb760e-aux-literal-78fa0.bin",
+        "offset": 495520,
+        "sha256": "f432991d53e591a11b77112608ed0534698f929a84b40f641e85de2da49fbc7f"
+      },
+      {
+        "file": "40eb760e-aux-literal-10a2e0.bin",
+        "offset": 1090272,
+        "sha256": "f432991d53e591a11b77112608ed0534698f929a84b40f641e85de2da49fbc7f"
+      },
+      {
+        "file": "40eb760e-aux-literal-10a344.bin",
+        "offset": 1090372,
+        "sha256": "648aa620cb2201dbaf8f269bfd31398b8c8bd5f450a2d897bd2d1862297bf045"
+      },
+      {
+        "file": "40eb760e-aux-literal-153310.bin",
+        "offset": 1389328,
+        "sha256": "f432991d53e591a11b77112608ed0534698f929a84b40f641e85de2da49fbc7f"
+      },
+      {
         "file": "40eb760e-aux-literal-197390.bin",
         "offset": 1667984,
         "sha256": "f432991d53e591a11b77112608ed0534698f929a84b40f641e85de2da49fbc7f"
@@ -773,6 +957,56 @@
         "file": "40eb760e-aux-callee-1920b4.bin",
         "offset": 1646772,
         "sha256": "0c5dc176978dab2405038d99d3ecca79fba4ae057fe0f296be21ff50309efc0c"
+      },
+      {
+        "file": "40eb760e-parameter-code.bin",
+        "offset": 1068544,
+        "sha256": "9d75c8c10f8b098953eac759c687101496f53a1a3a67b065ccc58114157c8b1f"
+      },
+      {
+        "file": "40eb760e-parameter-literal-104f0c.bin",
+        "offset": 1068812,
+        "sha256": "f432991d53e591a11b77112608ed0534698f929a84b40f641e85de2da49fbc7f"
+      },
+      {
+        "file": "40eb760e-parameter-literal-104f10.bin",
+        "offset": 1068816,
+        "sha256": "d28ebafa2beb9802ce18d7cdb9a2927c7ca446158df80c9c1808e67f430552b9"
+      },
+      {
+        "file": "40eb760e-parameter-literal-104f14.bin",
+        "offset": 1068820,
+        "sha256": "7d611d2f4acc04b42a1bc139b64cfee4f2761ceac23b24d4655d48e37454c426"
+      },
+      {
+        "file": "40eb760e-parameter-literal-104f18.bin",
+        "offset": 1068824,
+        "sha256": "0899e144458a53d391ecaab678502a39f8449e457ac64504cceafb3ad250ce5b"
+      },
+      {
+        "file": "40eb760e-parameter-literal-104f1c.bin",
+        "offset": 1068828,
+        "sha256": "a30cc6f300db599ee257d8309a6a0e97fc2454e73fd502172fd19ae57b08040d"
+      },
+      {
+        "file": "40eb760e-parameter-literal-104f20.bin",
+        "offset": 1068832,
+        "sha256": "b70aa3c954c4a0126eacba1c7817bbc3dbd6d7fc93c61bc9180c8272b750bce9"
+      },
+      {
+        "file": "40eb760e-parameter-data-1a6e94.bin",
+        "offset": 1732244,
+        "sha256": "cea505d2868901bdea8d567426829127ffd91ba70b9bbac88b091563be8642e4"
+      },
+      {
+        "file": "40eb760e-parameter-data-1a6f16.bin",
+        "offset": 1732374,
+        "sha256": "7e9d5e2a213c0fe5e52f8b4000289afd5739384cd7b5a746b701a277a4bb12a9"
+      },
+      {
+        "file": "40eb760e-parameter-data-1a701c.bin",
+        "offset": 1732636,
+        "sha256": "efa850f425ad8bd69eb8d66e4d1fdae2aa775ee5f5f44b63b3ef51c34c7cc43e"
       }
     ],
     "areas": [
@@ -890,6 +1124,52 @@
     ],
     "auxiliary_consumers": [
       {
+        "start": 494784,
+        "site": 494790,
+        "caller": {
+          "entry": 494724,
+          "site": 494790,
+          "depths": [
+            24
+          ],
+          "returns": [
+            494926
+          ]
+        },
+        "kind": "initialization-bypass"
+      },
+      {
+        "start": 1388792,
+        "site": 1388802,
+        "caller": {
+          "entry": 1388556,
+          "site": 1388802,
+          "depths": [
+            32
+          ],
+          "returns": [
+            1389142,
+            1389160
+          ]
+        },
+        "kind": "read-boundary"
+      },
+      {
+        "start": 1089732,
+        "site": 1089738,
+        "caller": {
+          "entry": 1089666,
+          "site": 1089738,
+          "depths": [
+            40
+          ],
+          "returns": [
+            1089802
+          ]
+        },
+        "kind": "di-mode"
+      },
+      {
         "start": 219840,
         "site": 219846,
         "caller": {
@@ -981,7 +1261,25 @@
         },
         "kind": "read-status"
       }
-    ]
+    ],
+    "parameter": {
+      "kind": "media-selected",
+      "entry": 1068544,
+      "site": 1068638,
+      "caller": {
+        "entry": 1068544,
+        "site": 1068638,
+        "depths": [
+          24
+        ],
+        "returns": [
+          1068656
+        ]
+      },
+      "rates": 1732244,
+      "coefficients": 1732636,
+      "oem_coefficients": 1732374
+    }
   },
   {
     "source_sha256": "b093a73656e58ee2a4367b5d92324fd7da3889f632a22b2f1be8802607cd3de4",
@@ -1177,6 +1475,16 @@
         "sha256": "08a749eab87f36acd11297742e255be4e3edabb837ef34c33c6a00205dbefcaf"
       },
       {
+        "file": "b093a736-aux-read-boundary.bin",
+        "offset": 1389224,
+        "sha256": "f387a5a36c4d19fd39f19504e54aa9409e105aebee08252cb5324d7b4da046c1"
+      },
+      {
+        "file": "b093a736-aux-di-mode.bin",
+        "offset": 1090306,
+        "sha256": "5892fe3c6118e8c5fea27e7d9bdde6dfb7000f681ed859b1456ccfb0e05ecf5b"
+      },
+      {
         "file": "b093a736-aux-control18.bin",
         "offset": 219482,
         "sha256": "97384515fb6159ab76f7e6bd719f40e3d8221718c0bebd80924a52537615350b"
@@ -1207,6 +1515,11 @@
         "sha256": "a643095f2532591bb0d8f22706b9b2d1c6450538ea8686eaf4d4d9395120a8ac"
       },
       {
+        "file": "b093a736-aux-initialization-bypass.bin",
+        "offset": 495440,
+        "sha256": "4b74c34cdb79ab152540a0f64b465f326c7f86c220561c157f3479aac510f2b7"
+      },
+      {
         "file": "b093a736-aux-literal-32180.bin",
         "offset": 205184,
         "sha256": "610d36bcfe50e0142ba5d50611089b02b9c85681c12540f0455ea7d7ae6b802e"
@@ -1232,6 +1545,26 @@
         "sha256": "04ce706254a429320610b0369b3b6dfc6f09146456167a07016ad38033a6e293"
       },
       {
+        "file": "b093a736-aux-literal-7926c.bin",
+        "offset": 496236,
+        "sha256": "610d36bcfe50e0142ba5d50611089b02b9c85681c12540f0455ea7d7ae6b802e"
+      },
+      {
+        "file": "b093a736-aux-literal-10a530.bin",
+        "offset": 1090864,
+        "sha256": "610d36bcfe50e0142ba5d50611089b02b9c85681c12540f0455ea7d7ae6b802e"
+      },
+      {
+        "file": "b093a736-aux-literal-10a594.bin",
+        "offset": 1090964,
+        "sha256": "0a21a27ff9f4003e2a817f57b3a538e5902fe13a3688600359f1bef833e359ee"
+      },
+      {
+        "file": "b093a736-aux-literal-1535ac.bin",
+        "offset": 1389996,
+        "sha256": "610d36bcfe50e0142ba5d50611089b02b9c85681c12540f0455ea7d7ae6b802e"
+      },
+      {
         "file": "b093a736-aux-literal-19769c.bin",
         "offset": 1668764,
         "sha256": "610d36bcfe50e0142ba5d50611089b02b9c85681c12540f0455ea7d7ae6b802e"
@@ -1250,6 +1583,56 @@
         "file": "b093a736-aux-callee-1923c0.bin",
         "offset": 1647552,
         "sha256": "0c5dc176978dab2405038d99d3ecca79fba4ae057fe0f296be21ff50309efc0c"
+      },
+      {
+        "file": "b093a736-parameter-code.bin",
+        "offset": 1068984,
+        "sha256": "8dc5e64e405a82037f8ae2405bb36d144ebc2f3d7936d417e6cdf2ecdd121237"
+      },
+      {
+        "file": "b093a736-parameter-literal-1050c4.bin",
+        "offset": 1069252,
+        "sha256": "610d36bcfe50e0142ba5d50611089b02b9c85681c12540f0455ea7d7ae6b802e"
+      },
+      {
+        "file": "b093a736-parameter-literal-1050c8.bin",
+        "offset": 1069256,
+        "sha256": "12ffe603dabb065bd79f636e2f6f63c209eb5673c8b2b7ed553b27e33be1cb9a"
+      },
+      {
+        "file": "b093a736-parameter-literal-1050cc.bin",
+        "offset": 1069260,
+        "sha256": "5b9c4049793cfc1e153f514646d8f0573a0cea8e1f61fbfac3e9fdb4558e9d20"
+      },
+      {
+        "file": "b093a736-parameter-literal-1050d0.bin",
+        "offset": 1069264,
+        "sha256": "d918bb5cfd8ca746437445860c8720bff63d2a315394298b02c3f810d3c79c1e"
+      },
+      {
+        "file": "b093a736-parameter-literal-1050d4.bin",
+        "offset": 1069268,
+        "sha256": "c21fd6664adafecb39e07610cd667efba91464e0a3cb1d2f721bd999405a843c"
+      },
+      {
+        "file": "b093a736-parameter-literal-1050d8.bin",
+        "offset": 1069272,
+        "sha256": "be15b272e6a10be1666ad41c719532b8671172b6883b3c8bc379338db87e5b85"
+      },
+      {
+        "file": "b093a736-parameter-data-1a7258.bin",
+        "offset": 1733208,
+        "sha256": "cea505d2868901bdea8d567426829127ffd91ba70b9bbac88b091563be8642e4"
+      },
+      {
+        "file": "b093a736-parameter-data-1a72da.bin",
+        "offset": 1733338,
+        "sha256": "7e9d5e2a213c0fe5e52f8b4000289afd5739384cd7b5a746b701a277a4bb12a9"
+      },
+      {
+        "file": "b093a736-parameter-data-1a73e0.bin",
+        "offset": 1733600,
+        "sha256": "efa850f425ad8bd69eb8d66e4d1fdae2aa775ee5f5f44b63b3ef51c34c7cc43e"
       }
     ],
     "areas": [
@@ -1367,6 +1750,52 @@
     ],
     "auxiliary_consumers": [
       {
+        "start": 495500,
+        "site": 495506,
+        "caller": {
+          "entry": 495440,
+          "site": 495506,
+          "depths": [
+            24
+          ],
+          "returns": [
+            495642
+          ]
+        },
+        "kind": "initialization-bypass"
+      },
+      {
+        "start": 1389460,
+        "site": 1389470,
+        "caller": {
+          "entry": 1389224,
+          "site": 1389470,
+          "depths": [
+            32
+          ],
+          "returns": [
+            1389810,
+            1389828
+          ]
+        },
+        "kind": "read-boundary"
+      },
+      {
+        "start": 1090372,
+        "site": 1090378,
+        "caller": {
+          "entry": 1090306,
+          "site": 1090378,
+          "depths": [
+            40
+          ],
+          "returns": [
+            1090442
+          ]
+        },
+        "kind": "di-mode"
+      },
+      {
         "start": 219840,
         "site": 219846,
         "caller": {
@@ -1458,7 +1887,25 @@
         },
         "kind": "read-status"
       }
-    ]
+    ],
+    "parameter": {
+      "kind": "media-selected",
+      "entry": 1068984,
+      "site": 1069078,
+      "caller": {
+        "entry": 1068984,
+        "site": 1069078,
+        "depths": [
+          24
+        ],
+        "returns": [
+          1069096
+        ]
+      },
+      "rates": 1733208,
+      "coefficients": 1733600,
+      "oem_coefficients": 1733338
+    }
   },
   {
     "source_sha256": "0b2cdb82ff520589d4c750fae726571798901bf41e433de0a7164f7d74927d5f",
@@ -1664,6 +2111,16 @@
         "sha256": "08a749eab87f36acd11297742e255be4e3edabb837ef34c33c6a00205dbefcaf"
       },
       {
+        "file": "0b2cdb82-aux-read-boundary.bin",
+        "offset": 1380796,
+        "sha256": "931d4678159fe5937376c8b287065833d2c16862bc679d0d29548cf1ab3f9dba"
+      },
+      {
+        "file": "0b2cdb82-aux-di-mode.bin",
+        "offset": 1084050,
+        "sha256": "7f9d78a8e850c5b2a043eae47b856561519f45bb5c5ff0e8d18d22f72fdcbda2"
+      },
+      {
         "file": "0b2cdb82-aux-control18.bin",
         "offset": 219246,
         "sha256": "3c89df8e478efd63c8a729d39643e5b9291f96187578fe941a46006126448536"
@@ -1694,6 +2151,11 @@
         "sha256": "446bb2b0520021965e55a438a1eea7377ce8d83e3e15b6865e9b88e0c018b477"
       },
       {
+        "file": "0b2cdb82-aux-initialization-bypass.bin",
+        "offset": 493792,
+        "sha256": "583e9c0a453bb47d6b99f95667b46fd301280693b3d5ebc7fd39e26776b6ebef"
+      },
+      {
         "file": "0b2cdb82-aux-literal-32098.bin",
         "offset": 204952,
         "sha256": "f432991d53e591a11b77112608ed0534698f929a84b40f641e85de2da49fbc7f"
@@ -1719,6 +2181,26 @@
         "sha256": "04ce706254a429320610b0369b3b6dfc6f09146456167a07016ad38033a6e293"
       },
       {
+        "file": "0b2cdb82-aux-literal-78bfc.bin",
+        "offset": 494588,
+        "sha256": "f432991d53e591a11b77112608ed0534698f929a84b40f641e85de2da49fbc7f"
+      },
+      {
+        "file": "0b2cdb82-aux-literal-108dac.bin",
+        "offset": 1084844,
+        "sha256": "f432991d53e591a11b77112608ed0534698f929a84b40f641e85de2da49fbc7f"
+      },
+      {
+        "file": "0b2cdb82-aux-literal-108db0.bin",
+        "offset": 1084848,
+        "sha256": "53af24bb1a5ba26fe328126c6cb85f481e7a7d637346d581a823d3138aaa9b1f"
+      },
+      {
+        "file": "0b2cdb82-aux-literal-1514c0.bin",
+        "offset": 1381568,
+        "sha256": "f432991d53e591a11b77112608ed0534698f929a84b40f641e85de2da49fbc7f"
+      },
+      {
         "file": "0b2cdb82-aux-literal-1954f8.bin",
         "offset": 1660152,
         "sha256": "f432991d53e591a11b77112608ed0534698f929a84b40f641e85de2da49fbc7f"
@@ -1737,6 +2219,36 @@
         "file": "0b2cdb82-aux-callee-1901c0.bin",
         "offset": 1638848,
         "sha256": "0c5dc176978dab2405038d99d3ecca79fba4ae057fe0f296be21ff50309efc0c"
+      },
+      {
+        "file": "0b2cdb82-parameter-code.bin",
+        "offset": 1063024,
+        "sha256": "f8030ffc136552c5f1ea702ee763f59bd09d19bf6e0eccaee9dcd21faa3c780b"
+      },
+      {
+        "file": "0b2cdb82-parameter-literal-103938.bin",
+        "offset": 1063224,
+        "sha256": "08efea1c0957a5a1fe019e6edb21fdc9fbe5de2213487eab7a05e06eca1c9784"
+      },
+      {
+        "file": "0b2cdb82-parameter-literal-10393c.bin",
+        "offset": 1063228,
+        "sha256": "7460a763cc4bfdfbfd15291d3b190cc37e9644bc9a2994ba8fb01202dead9e1c"
+      },
+      {
+        "file": "0b2cdb82-parameter-literal-103940.bin",
+        "offset": 1063232,
+        "sha256": "f432991d53e591a11b77112608ed0534698f929a84b40f641e85de2da49fbc7f"
+      },
+      {
+        "file": "0b2cdb82-parameter-data-1a4f38.bin",
+        "offset": 1724216,
+        "sha256": "cea505d2868901bdea8d567426829127ffd91ba70b9bbac88b091563be8642e4"
+      },
+      {
+        "file": "0b2cdb82-parameter-data-1a4fba.bin",
+        "offset": 1724346,
+        "sha256": "7e9d5e2a213c0fe5e52f8b4000289afd5739384cd7b5a746b701a277a4bb12a9"
       }
     ],
     "areas": [
@@ -1854,6 +2366,52 @@
     ],
     "auxiliary_consumers": [
       {
+        "start": 493852,
+        "site": 493858,
+        "caller": {
+          "entry": 493792,
+          "site": 493858,
+          "depths": [
+            24
+          ],
+          "returns": [
+            493994
+          ]
+        },
+        "kind": "initialization-bypass"
+      },
+      {
+        "start": 1381032,
+        "site": 1381042,
+        "caller": {
+          "entry": 1380796,
+          "site": 1381042,
+          "depths": [
+            32
+          ],
+          "returns": [
+            1381382,
+            1381400
+          ]
+        },
+        "kind": "read-boundary"
+      },
+      {
+        "start": 1084114,
+        "site": 1084120,
+        "caller": {
+          "entry": 1084050,
+          "site": 1084120,
+          "depths": [
+            40
+          ],
+          "returns": [
+            1084184
+          ]
+        },
+        "kind": "di-mode"
+      },
+      {
         "start": 219604,
         "site": 219610,
         "caller": {
@@ -1945,7 +2503,25 @@
         },
         "kind": "read-status"
       }
-    ]
+    ],
+    "parameter": {
+      "kind": "state-independent",
+      "entry": 1063024,
+      "site": 1063060,
+      "caller": {
+        "entry": 1063024,
+        "site": 1063060,
+        "depths": [
+          12
+        ],
+        "returns": [
+          1063068
+        ]
+      },
+      "rates": 1724216,
+      "coefficients": 1724346,
+      "oem_coefficients": 1724346
+    }
   },
   {
     "source_sha256": "648a16d024eea31ef4901f3ac2180cbfffeda1161d70f9096335d8a6097445bc",

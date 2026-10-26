@@ -141,7 +141,15 @@ fn uhd_contracts_corpus_matches_inventory_without_chip_or_model_selection() {
     let inventory: serde_json::Value =
         serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
     for row in inventory["images"].as_array().unwrap() {
-        let bytes = std::fs::read(hoard.join(row["path"].as_str().unwrap())).unwrap();
+        // Category reviews can move an image between bucket roots. The hash
+        // below remains authoritative; the historical path is only a hint.
+        let hint = Path::new(row["path"].as_str().unwrap());
+        let tail: std::path::PathBuf = hint.iter().skip(1).collect();
+        let source = std::iter::once(hoard.join(hint))
+            .chain(["oem", "dump", "mk", "omni"].map(|b| hoard.join(b).join(&tail)))
+            .find(|p| p.is_file())
+            .expect("held corpus image");
+        let bytes = std::fs::read(source).unwrap();
         assert_eq!(
             format!("{:x}", Sha256::digest(&bytes)),
             row["sha256"].as_str().unwrap()
@@ -169,8 +177,55 @@ fn uhd_contracts_corpus_matches_inventory_without_chip_or_model_selection() {
             super::ClassicDi::detect(&bytes).unwrap_or_else(|e| panic!("{}: {e}", row["sha256"]));
             super::ClassicConsumer::inspect(&bytes, contracts.state_address().unwrap())
                 .unwrap_or_else(|e| panic!("{} consumers: {e}", row["sha256"]));
+            super::ClassicParameter::detect(&bytes, contracts.state_address().unwrap())
+                .unwrap_or_else(|e| panic!("{} parameters: {e}", row["sha256"]));
         }
     }
+}
+
+#[test]
+fn classic_parameter_profiles_preserve_state_independent_lookups_and_bind_media_tables() {
+    let (root, cases) = fixtures();
+    let mut media = 0;
+    let mut independent = 0;
+    for case in cases {
+        if !case["parameter"].is_object() {
+            continue;
+        }
+        let bytes = image(&root, &case);
+        let state = case["state"].as_u64().unwrap() as u32;
+        let contract = super::ClassicParameter::detect(&bytes, state).unwrap();
+        assert_eq!(
+            contract.entry,
+            case["parameter"]["entry"].as_u64().unwrap() as usize
+        );
+        assert_eq!(
+            contract.rates,
+            case["parameter"]["rates"].as_u64().unwrap() as usize
+        );
+        assert_eq!(
+            contract.coefficients,
+            case["parameter"]["coefficients"].as_u64().unwrap() as usize
+        );
+        let op = if contract.variant == super::ClassicParameterVariant::MediaSelected {
+            assert!(contract.selection.is_some());
+            assert_ne!(contract.coefficients, contract.oem_coefficients);
+            media += 1;
+            contract.entry + 0x62
+        } else {
+            assert!(contract.selection.is_none());
+            assert_eq!(contract.coefficients, contract.oem_coefficients);
+            independent += 1;
+            contract.entry + 0x24
+        };
+        let half = u16::from_le_bytes(bytes[op..op + 2].try_into().unwrap());
+        let pool = ((op + 4) & !3) + (half & 255) as usize * 4;
+        let mut bad = bytes.clone();
+        bad[pool..pool + 4].copy_from_slice(&0x02000000u32.to_le_bytes());
+        assert!(super::ClassicParameter::detect(&bad, state).is_err());
+        assert!(super::ClassicParameter::detect(&bytes, state + 1).is_err());
+    }
+    assert_eq!((media, independent), (3, 1));
 }
 
 #[test]
@@ -185,8 +240,12 @@ fn classic_auxiliary_gates_bind_shared_state_native_edges_and_saved_callers() {
         let state = case["state"].as_u64().unwrap() as u32;
         let contracts = super::ClassicConsumer::inspect(&bytes, state)
             .unwrap_or_else(|e| panic!("{} consumers: {e}", case["source_sha256"]));
-        assert_eq!(contracts.len(), 6);
-        for (contract, expected) in contracts.iter().zip(expected) {
+        assert_eq!(contracts.len(), 9);
+        for contract in &contracts {
+            let expected = expected
+                .iter()
+                .find(|row| row["site"].as_u64() == Some(contract.selection.site() as u64))
+                .expect("source-bound expected consumer");
             assert_eq!(
                 contract.region,
                 expected["start"].as_u64().unwrap() as usize
@@ -200,13 +259,26 @@ fn classic_auxiliary_gates_bind_shared_state_native_edges_and_saved_callers() {
                 expected["caller"]["entry"].as_u64().unwrap() as usize
             );
             let mut bad = bytes.clone();
-            bad[contract.selection.site() + 2] ^= 1;
+            let branch_offset = if contract.relocated_load.is_some() {
+                4
+            } else {
+                2
+            };
+            bad[contract.selection.site() + branch_offset] ^= 1;
             assert!(super::ClassicConsumer::inspect(&bad, state).is_err());
+            if contract.kind == super::ClassicConsumerKind::InitializationBypass {
+                let call = contract.selection.reject() + 2;
+                let target = thumb_asm::decode_bl(&bytes, call).unwrap();
+                let mut bad = bytes.clone();
+                bad[call..call + 4]
+                    .copy_from_slice(&thumb_asm::encode_bl(call, target + 2).unwrap());
+                assert!(super::ClassicConsumer::inspect(&bad, state).is_err());
+            }
             count += 1;
         }
         assert!(super::ClassicConsumer::inspect(&bytes, state + 1).is_err());
     }
-    assert_eq!(count, 24);
+    assert_eq!(count, 36);
 }
 
 #[test]

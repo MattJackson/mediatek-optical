@@ -9,6 +9,10 @@ use super::{conditional, half, matches, C7Selection, Error, SavedLink};
 pub enum ClassicConsumerKind {
     /// Controller word at the live base pointer plus 0x18.
     Control18,
+    /// DI initialization mode selection before the native programming call.
+    DiMode,
+    /// Native read-boundary position reflection.
+    ReadBoundary,
     /// Native mode-byte checks for values two and three.
     Mode23,
     /// Native parameter-programming branch.
@@ -19,6 +23,8 @@ pub enum ClassicConsumerKind {
     ReadValue,
     /// Native read-status update branch.
     ReadStatus,
+    /// Skip the native parameter-programming call during C7 initialization.
+    InitializationBypass,
 }
 /// A positively bound native gate; no output bytes or capability are implied.
 #[derive(Debug, Clone)]
@@ -31,6 +37,8 @@ pub struct ClassicConsumer {
     pub selection: C7Selection,
     /// Stack/LR contract of the parent containing the gate.
     pub caller: SavedLink,
+    /// PC-relative load displaced with the selector, re-emitted as a literal.
+    pub relocated_load: Option<(u8, u32)>,
 }
 struct Definition {
     kind: ClassicConsumerKind,
@@ -42,6 +50,71 @@ struct Definition {
 // Reference 40eb760e23f100d55e86e9c061c73428d4087ef712294e4dbfcefa3093837a1a.
 // Addresses document provenance only; inspection searches all instruction offsets.
 const DEFINITIONS: &[Definition] = &[
+    // 0x1530f8..0x153114; modern explicit C7 counterpart 0x143310.
+    Definition {
+        kind: ClassicConsumerKind::ReadBoundary,
+        gate: 10,
+        target: 80,
+        target_accepts: false,
+        pattern: &[
+            (0x4a00, 0xff00),
+            (0x3020, 0xffff),
+            (0x9001, 0xffff),
+            (0x7811, 0xffff),
+            (0x20c8, 0xffff),
+            (0x4388, 0xffff),
+            (0xd120, 0xffff),
+            (0x4a00, 0xff00),
+            (0x9901, 0xffff),
+            (0x6810, 0xffff),
+            (0x1c40, 0xffff),
+            (0x4281, 0xffff),
+            (0xd103, 0xffff),
+            (0x6810, 0xffff),
+        ],
+    },
+    // 0x10a0c4..0x10a0e4; modern explicit C7 counterpart 0xe079c.
+    Definition {
+        kind: ClassicConsumerKind::DiMode,
+        gate: 6,
+        target: 72,
+        target_accepts: false,
+        pattern: &[
+            (0x4c00, 0xff00),
+            (0x7820, 0xffff),
+            (0x21c8, 0xffff),
+            (0x4381, 0xffff),
+            (0x4800, 0xff00),
+            (0xd11d, 0xffff),
+            (0x7822, 0xffff),
+            (0x21cc, 0xffff),
+            (0x4391, 0xffff),
+            (0xd101, 0xffff),
+            (0x2115, 0xffff),
+            (0xe000, 0xffff),
+            (0x211c, 0xffff),
+            (0x7001, 0xffff),
+            (0xf000, 0xf800),
+            (0xd000, 0xd000),
+        ],
+    },
+    // 0x78cc0..0x78cd0; modern C7 counterpart 0x7eb7e..0x7eb92.
+    Definition {
+        kind: ClassicConsumerKind::InitializationBypass,
+        gate: 6,
+        target: 16,
+        target_accepts: true,
+        pattern: &[
+            (0x4800, 0xff00),
+            (0x7801, 0xffff),
+            (0x20c8, 0xffff),
+            (0x4388, 0xffff),
+            (0xd000, 0xff00),
+            (0x2000, 0xffff),
+            (0xf000, 0xf800),
+            (0xd000, 0xd000),
+        ],
+    },
     // 0x35ac0..0x35adc
     Definition {
         kind: ClassicConsumerKind::Control18,
@@ -206,7 +279,11 @@ impl ClassicConsumer {
                 }
                 let target = conditional(
                     image,
-                    site + 2,
+                    site + if def.kind == ClassicConsumerKind::DiMode {
+                        4
+                    } else {
+                        2
+                    },
                     if def.target_accepts { 0xd000 } else { 0xd100 },
                 )
                 .ok_or(Error::InvalidContract)?;
@@ -218,10 +295,42 @@ impl ClassicConsumer {
                 let (accept, reject) = if def.target_accepts {
                     (target, site + 4)
                 } else {
-                    (site + 4, target)
+                    (
+                        site + if def.kind == ClassicConsumerKind::DiMode {
+                            6
+                        } else {
+                            4
+                        },
+                        target,
+                    )
+                };
+                let relocated_load = if def.kind == ClassicConsumerKind::DiMode {
+                    let value = literal(image, site + 2).ok_or(Error::InvalidContract)?;
+                    if !(0x01ff0000..0x02010000).contains(&value)
+                        || half(image, target) != Some(0x2107)
+                    {
+                        return Err(Error::InvalidContract);
+                    }
+                    Some((0, value))
+                } else {
+                    None
                 };
                 // Positive branch semantics beyond the local selector grammar.
                 match def.kind {
+                    ClassicConsumerKind::ReadBoundary => {
+                        if !matches(
+                            image,
+                            reject,
+                            &[
+                                (0x7810, 0xffff),
+                                (0x21cc, 0xffff),
+                                (0x4008, 0xffff),
+                                (0x28c4, 0xffff),
+                            ],
+                        ) {
+                            return Err(Error::InvalidContract);
+                        }
+                    }
                     ClassicConsumerKind::ParameterClass => {
                         if half(image, accept) != Some(0x20b1)
                             || !half(image, accept + 2).is_some_and(|v| v & 0xf800 == 0xf000)
@@ -272,17 +381,31 @@ impl ClassicConsumer {
                     selection: C7Selection {
                         site,
                         replay: vec![op],
-                        span: 4,
+                        span: if relocated_load.is_some() { 6 } else { 4 },
                         accept,
                         reject,
                     },
                     caller: SavedLink::detect(image, site)?,
+                    relocated_load,
                 };
                 if hit.replace(bound).is_some() {
                     return Err(Error::Ambiguous);
                 }
             }
             result.push(hit.ok_or(Error::UnknownLayout)?);
+        }
+        let initializer = result
+            .iter()
+            .find(|c| c.kind == ClassicConsumerKind::InitializationBypass)
+            .ok_or(Error::InvalidContract)?;
+        let parameters = result
+            .iter()
+            .find(|c| c.kind == ClassicConsumerKind::ParameterClass)
+            .ok_or(Error::InvalidContract)?;
+        if thumb_asm::decode_bl(image, initializer.selection.reject() + 2)
+            != Some(parameters.caller.entry as u32)
+        {
+            return Err(Error::InvalidContract);
         }
         Ok(result)
     }

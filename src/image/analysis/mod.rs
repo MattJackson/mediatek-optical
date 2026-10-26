@@ -9,6 +9,7 @@ mod switch;
 mod uhd;
 mod uhd_consumers;
 mod uhd_di;
+mod uhd_parameter;
 mod vid;
 
 pub use auth::{AuthCell, AuthCellVariant};
@@ -18,6 +19,7 @@ pub use media::{MediaGate, MediaGateVariant};
 pub use uhd::{C7Selection, UhdArea, UhdAreaContract, UhdAreas, UhdEdge, UhdHandling, UhdLiteral};
 pub use uhd_consumers::{ClassicConsumer, ClassicConsumerKind};
 pub use uhd_di::ClassicDi;
+pub use uhd_parameter::{ClassicParameter, ClassicParameterVariant};
 pub use vid::{VidGate, VidGateVariant};
 
 #[cfg(test)]
