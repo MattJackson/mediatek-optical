@@ -121,13 +121,14 @@ checksum = "ce5d3ddc6d3fa000eb1536d85e147bfe31aacaba692ed6a876f95cb7c855be78"
 
 [[package]]
 name = "mediatek-optical"
-version = "1.1.2"
+version = "1.2.0"
 dependencies = [
  "aes",
  "cmac",
  "serde",
  "serde_json",
  "sha2",
+ "thumb-asm",
 ]
 
 [[package]]
@@ -224,6 +225,12 @@ dependencies = [
  "quote",
  "unicode-ident",
 ]
+
+[[package]]
+name = "thumb-asm"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f36c8af63f23b293e1cf4a44a4b014748280480802adf13a69de26166de8f05b"
 
 [[package]]
 name = "typenum"

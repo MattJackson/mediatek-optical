@@ -3,6 +3,8 @@
 //!
 //! Requires the `image` feature.
 
+#[cfg(feature = "analysis")]
+pub mod analysis;
 mod chip;
 pub mod cmac;
 mod family;

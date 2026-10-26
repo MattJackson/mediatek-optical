@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.2.0 — Unreleased
+
+- Add opt-in read-only OEM hook analysis, with evidence-selected media and VID
+  grammars and five auth-cell register contracts. Resolve the VID preparation
+  success path before selecting a state-band check; derive literal addresses,
+  validate stack preparation and retain original failure continuations.
+- Keep the transport-only default build free of image analysis and decoding.
+
 ## 1.1.2
 
 - Expose matching allocation-free `ProductIdentity` APIs for vendor, drive model, product suffix, raw product and revision. OEM context such as `PP-100` no longer needs to be mistaken for the drive model by host display code.

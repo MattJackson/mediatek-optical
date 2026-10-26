@@ -1,0 +1,66 @@
+[
+  {
+    "name": "auth-r1-r4",
+    "model": "BD-RE BU40N",
+    "rev": "1.02",
+    "sha256": "97bee5c51fbeb7980c35539bdf44e5d2c1628908721815fcee4ea2b9f22e9263",
+    "source_offset": "0x136952",
+    "producer": 2,
+    "gate": 84,
+    "site": 202,
+    "leading_padding": 2,
+    "fixture_bytes": 2050
+  },
+  {
+    "name": "auth-r0-r0",
+    "model": "BD-RE  BE16NU50",
+    "rev": "1.01",
+    "sha256": "9c46e6972b7950004e9746256c97b79e8e681faad1a4174b542477ad6ff5257e",
+    "source_offset": "0x139a3a",
+    "producer": 2,
+    "gate": 84,
+    "site": 198,
+    "leading_padding": 2,
+    "fixture_bytes": 2050
+  },
+  {
+    "name": "auth-r0-r5",
+    "model": "BD-RE BU40N",
+    "rev": "CB04",
+    "sha256": "78f75561d474d09a4b3bd31ce346395600e2ed5d23431f6bfa02a500ccaee7d4",
+    "source_offset": "0x134258",
+    "producer": 0,
+    "gate": 82,
+    "site": 196,
+    "leading_padding": 0,
+    "fixture_bytes": 2048
+  },
+  {
+    "name": "bu40n-auth",
+    "source_offset": "0x13675c",
+    "sha256": "221ad35b7edd402353e125841893ce651064e8fc6b90368fe84ff19a85a506f4",
+    "leading_padding": 0,
+    "fixture_bytes": 1188
+  },
+  {
+    "name": "wh-auth",
+    "source_offset": "0x13a9ce",
+    "sha256": "97b287072e20c9527de6f34f6d564c8edcc6afb3ecf5675c11b8262c11663061",
+    "leading_padding": 2,
+    "fixture_bytes": 1620
+  },
+  {
+    "name": "bu40n-media",
+    "source_offset": "0x1365be",
+    "sha256": "221ad35b7edd402353e125841893ce651064e8fc6b90368fe84ff19a85a506f4",
+    "leading_padding": 0,
+    "fixture_bytes": 130
+  },
+  {
+    "name": "wh-media",
+    "source_offset": "0x11ced2",
+    "sha256": "97b287072e20c9527de6f34f6d564c8edcc6afb3ecf5675c11b8262c11663061",
+    "leading_padding": 0,
+    "fixture_bytes": 82
+  }
+]
