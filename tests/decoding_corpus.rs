@@ -23,7 +23,18 @@ fn files(root: &Path, out: &mut Vec<PathBuf>) {
 fn images() -> (PathBuf, Vec<PathBuf>) {
     let root = PathBuf::from(std::env::var("MTK_HOARD_ROOT").expect("set MTK_HOARD_ROOT"));
     let mut paths = Vec::new();
-    files(&root.join("images/mediatek"), &mut paths);
+    let legacy = root.join("images/mediatek");
+    if legacy.is_dir() {
+        files(&legacy, &mut paths);
+    } else {
+        for bucket in ["oem", "dump", "mk", "omni"] {
+            let directory = root.join(bucket).join("mediatek");
+            if directory.is_dir() {
+                files(&directory, &mut paths);
+            }
+        }
+    }
+    paths.retain(|path| path.extension().is_some_and(|ext| ext == "bin"));
     paths.sort();
     (root, paths)
 }
@@ -242,7 +253,7 @@ fn intm_and_v9_argument_proofs_match_independent_disassembly() {
     assert_eq!(tail.error, 0x9d094);
     for offset in [
         4, 6, 14, 20, 22, 24, 26, 28, 32, 38, 40, 42, 48, 50, 58, 60, 62, 68, 70, 76, 78, 80, 84,
-        86, 90, 92, 98,
+        86, 90, 92,
     ] {
         let mut changed = intm.clone();
         changed[0x9d63e + offset] ^= 1;
@@ -254,6 +265,21 @@ fn intm_and_v9_argument_proofs_match_independent_disassembly() {
             "acceptance mutation {offset:x}"
         );
     }
+    // A different saved-state slot is a different component contract, rather
+    // than an invalid opcode. Frame/prologue binding must validate that slot;
+    // cached evidence must never silently survive its change.
+    let mut changed_slot = intm.clone();
+    changed_slot[0x9d63e + 98] ^= 1;
+    let changed_tail = mediatek_optical::receiver::programming::inspect_acceptance_tail(
+        &changed_slot,
+        0,
+        &selection,
+        &signature,
+        &integrity,
+    )
+    .unwrap();
+    assert_ne!(changed_tail.saved_state_offset, tail.saved_state_offset);
+    assert_ne!(changed_tail, tail);
     for start in [0, 0x10000] {
         let mut registers = unknown;
         registers[4] = Value::Constant(selection.offset_cell);
