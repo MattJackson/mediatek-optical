@@ -13,6 +13,10 @@ pub enum ClassicConsumerKind {
     DiMode,
     /// Native read-boundary position reflection.
     ReadBoundary,
+    /// Native read-controller mode bits and position-field programming.
+    ReadControl,
+    /// Independent media-default mode writer after speed selection.
+    MediaDefaults,
     /// Native mode-byte checks for values two and three.
     Mode23,
     /// Native parameter-programming branch.
@@ -50,6 +54,52 @@ struct Definition {
 // Reference 40eb760e23f100d55e86e9c061c73428d4087ef712294e4dbfcefa3093837a1a.
 // Addresses document provenance only; inspection searches all instruction offsets.
 const DEFINITIONS: &[Definition] = &[
+    // 0x6799a..0x679b4; modern explicit C7 counterpart0x688e6.
+    Definition {
+        kind: ClassicConsumerKind::MediaDefaults,
+        gate: 6,
+        target: 228,
+        target_accepts: false,
+        pattern: &[
+            (0x4f00, 0xff00),
+            (0x7839, 0xffff),
+            (0x26c8, 0xffff),
+            (0x438e, 0xffff),
+            (0xd100, 0xff00),
+            (0x783b, 0xffff),
+            (0x21cc, 0xffff),
+            (0x4399, 0xffff),
+            (0xd101, 0xffff),
+            (0x2115, 0xffff),
+            (0xe000, 0xf800),
+            (0x211c, 0xffff),
+            (0xe000, 0xf800),
+        ],
+    },
+    // 0x106a62..0x106a80; modern C7 counterpart 0xdc7ea.
+    Definition {
+        kind: ClassicConsumerKind::ReadControl,
+        gate: 6,
+        target: 42,
+        target_accepts: false,
+        pattern: &[
+            (0x4a00, 0xff00),
+            (0x7812, 0xffff),
+            (0x21c8, 0xffff),
+            (0x4391, 0xffff),
+            (0x6981, 0xffff),
+            (0xd10e, 0xffff),
+            (0x2201, 0xffff),
+            (0x4311, 0xffff),
+            (0x6181, 0xffff),
+            (0x69c1, 0xffff),
+            (0x0a49, 0xffff),
+            (0x0249, 0xffff),
+            (0x61c1, 0xffff),
+            (0x6a81, 0xffff),
+            (0x4311, 0xffff),
+        ],
+    },
     // 0x1530f8..0x153114; modern explicit C7 counterpart 0x143310.
     Definition {
         kind: ClassicConsumerKind::ReadBoundary,
@@ -279,7 +329,10 @@ impl ClassicConsumer {
                 }
                 let target = conditional(
                     image,
-                    site + if def.kind == ClassicConsumerKind::DiMode {
+                    site + if matches!(
+                        def.kind,
+                        ClassicConsumerKind::DiMode | ClassicConsumerKind::ReadControl
+                    ) {
                         4
                     } else {
                         2
@@ -287,7 +340,10 @@ impl ClassicConsumer {
                     if def.target_accepts { 0xd000 } else { 0xd100 },
                 )
                 .ok_or(Error::InvalidContract)?;
-                if (def.kind != ClassicConsumerKind::ReadStatus && target != region + def.target)
+                if (!matches!(
+                    def.kind,
+                    ClassicConsumerKind::ReadStatus | ClassicConsumerKind::MediaDefaults
+                ) && target != region + def.target)
                     || target + 4 > image.len()
                 {
                     return Err(Error::InvalidContract);
@@ -296,7 +352,10 @@ impl ClassicConsumer {
                     (target, site + 4)
                 } else {
                     (
-                        site + if def.kind == ClassicConsumerKind::DiMode {
+                        site + if matches!(
+                            def.kind,
+                            ClassicConsumerKind::DiMode | ClassicConsumerKind::ReadControl
+                        ) {
                             6
                         } else {
                             4
@@ -317,6 +376,50 @@ impl ClassicConsumer {
                 };
                 // Positive branch semantics beyond the local selector grammar.
                 match def.kind {
+                    ClassicConsumerKind::MediaDefaults => {
+                        let branch = |at| -> Option<usize> {
+                            let ins = thumb_asm::isa::decode_at(image, at)?;
+                            if ins.mnemonic != "b" || ins.cond.is_some() {
+                                return None;
+                            }
+                            ins.branch_target().map(|v| v as usize)
+                        };
+                        let store = branch(region + 20).ok_or(Error::InvalidContract)?;
+                        if branch(region + 24) != Some(store)
+                            || half(image, store) != Some(0x7011)
+                            || !(region + 26..region + 0x400).contains(&store)
+                        {
+                            return Err(Error::InvalidContract);
+                        }
+                        let mut join = reject;
+                        for _ in 0..3 {
+                            if join == store + 2 {
+                                break;
+                            }
+                            join = branch(join).ok_or(Error::InvalidContract)?;
+                        }
+                        if join != store + 2 {
+                            return Err(Error::InvalidContract);
+                        }
+                    }
+                    ClassicConsumerKind::ReadControl => {
+                        if region < 10
+                            || literal(image, region - 10) != Some(0x042080c0)
+                            || !matches(
+                                image,
+                                region - 10,
+                                &[
+                                    (0x4800, 0xff00),
+                                    (0x6981, 0xffff),
+                                    (0x2212, 0xffff),
+                                    (0x4391, 0xffff),
+                                    (0x6181, 0xffff),
+                                ],
+                            )
+                        {
+                            return Err(Error::InvalidContract);
+                        }
+                    }
                     ClassicConsumerKind::ReadBoundary => {
                         if !matches(
                             image,
@@ -375,17 +478,37 @@ impl ClassicConsumer {
                     }
                     _ => {}
                 }
+                let caller = SavedLink::detect(image, site)?;
+                if def.kind == ClassicConsumerKind::MediaDefaults {
+                    let at = caller.entry + 16;
+                    if half(image, at).map(|v| v & 0xff00) != Some(0x4a00)
+                        || !literal(image, at)
+                            .is_some_and(|v| (0x01ff0000..0x02010000).contains(&v))
+                    {
+                        return Err(Error::InvalidContract);
+                    }
+                }
                 let bound = Self {
                     kind: def.kind,
                     region,
                     selection: C7Selection {
                         site,
-                        replay: vec![op],
-                        span: if relocated_load.is_some() { 6 } else { 4 },
+                        replay: if def.kind == ClassicConsumerKind::ReadControl {
+                            vec![op, 0x6981]
+                        } else {
+                            vec![op]
+                        },
+                        span: if relocated_load.is_some()
+                            || def.kind == ClassicConsumerKind::ReadControl
+                        {
+                            6
+                        } else {
+                            4
+                        },
                         accept,
                         reject,
                     },
-                    caller: SavedLink::detect(image, site)?,
+                    caller,
                     relocated_load,
                 };
                 if hit.replace(bound).is_some() {

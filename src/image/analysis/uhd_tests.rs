@@ -177,6 +177,8 @@ fn uhd_contracts_corpus_matches_inventory_without_chip_or_model_selection() {
             super::ClassicDi::detect(&bytes).unwrap_or_else(|e| panic!("{}: {e}", row["sha256"]));
             super::ClassicConsumer::inspect(&bytes, contracts.state_address().unwrap())
                 .unwrap_or_else(|e| panic!("{} consumers: {e}", row["sha256"]));
+            super::ClassicPositionSetup::detect(&bytes, contracts.state_address().unwrap())
+                .unwrap_or_else(|e| panic!("{} setup: {e}", row["sha256"]));
             super::ClassicReadPosition::detect(&bytes, contracts.state_address().unwrap())
                 .unwrap_or_else(|e| panic!("{} read-position: {e}", row["sha256"]));
             super::ClassicCalibration::detect(&bytes, contracts.state_address().unwrap())
@@ -246,7 +248,7 @@ fn classic_auxiliary_gates_bind_shared_state_native_edges_and_saved_callers() {
         let state = case["state"].as_u64().unwrap() as u32;
         let contracts = super::ClassicConsumer::inspect(&bytes, state)
             .unwrap_or_else(|e| panic!("{} consumers: {e}", case["source_sha256"]));
-        assert_eq!(contracts.len(), 9);
+        assert_eq!(contracts.len(), 11);
         for contract in &contracts {
             let expected = expected
                 .iter()
@@ -265,11 +267,7 @@ fn classic_auxiliary_gates_bind_shared_state_native_edges_and_saved_callers() {
                 expected["caller"]["entry"].as_u64().unwrap() as usize
             );
             let mut bad = bytes.clone();
-            let branch_offset = if contract.relocated_load.is_some() {
-                4
-            } else {
-                2
-            };
+            let branch_offset = if contract.selection.span() == 6 { 4 } else { 2 };
             bad[contract.selection.site() + branch_offset] ^= 1;
             assert!(super::ClassicConsumer::inspect(&bad, state).is_err());
             if contract.kind == super::ClassicConsumerKind::InitializationBypass {
@@ -284,7 +282,7 @@ fn classic_auxiliary_gates_bind_shared_state_native_edges_and_saved_callers() {
         }
         assert!(super::ClassicConsumer::inspect(&bytes, state + 1).is_err());
     }
-    assert_eq!(count, 36);
+    assert_eq!(count, 44);
 }
 
 #[test]
@@ -429,6 +427,30 @@ fn classic_read_position_binds_decoder_masks_ranges_and_saved_frames() {
             assert!(super::ClassicReadPosition::detect(&bad, state).is_err());
         }
         assert!(super::ClassicReadPosition::detect(&bytes, state + 1).is_err());
+        count += 1;
+    }
+    assert_eq!(count, 4);
+}
+
+#[test]
+fn classic_position_setup_binds_both_selectors_and_native_table_operands() {
+    let (root, cases) = fixtures();
+    let mut count = 0;
+    for case in cases {
+        let Some(entry) = case["position_setup_entry"].as_u64() else {
+            continue;
+        };
+        let bytes = image(&root, &case);
+        let state = case["state"].as_u64().unwrap() as u32;
+        let contract = super::ClassicPositionSetup::detect(&bytes, state).unwrap();
+        assert_eq!(contract.entry, entry as usize);
+        assert_eq!(contract.callers[0].entry, contract.callers[1].entry);
+        for selection in [&contract.input, &contract.command] {
+            let mut bad = bytes.clone();
+            bad[selection.site() + 2] ^= 1;
+            assert!(super::ClassicPositionSetup::detect(&bad, state).is_err());
+        }
+        assert!(super::ClassicPositionSetup::detect(&bytes, state + 1).is_err());
         count += 1;
     }
     assert_eq!(count, 4);

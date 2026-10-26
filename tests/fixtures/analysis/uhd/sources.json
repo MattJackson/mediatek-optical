@@ -208,116 +208,6 @@
         "sha256": "08a749eab87f36acd11297742e255be4e3edabb837ef34c33c6a00205dbefcaf"
       },
       {
-        "file": "43c484dc-aux-read-boundary.bin",
-        "offset": 1389480,
-        "sha256": "3202837f6dc342ab2fae7f016eee27f9338a5213f126186af67d1cdee71b1345"
-      },
-      {
-        "file": "43c484dc-aux-di-mode.bin",
-        "offset": 1090590,
-        "sha256": "566971ebb9e1b6de38d2df6fd99a879acc4b80d1d69415075ae31c5f19a97d14"
-      },
-      {
-        "file": "43c484dc-aux-control18.bin",
-        "offset": 219482,
-        "sha256": "81d358eab64b35225b4884da2ffabe40932dea0e83932e9dda9779426bc9639a"
-      },
-      {
-        "file": "43c484dc-aux-mode23.bin",
-        "offset": 220656,
-        "sha256": "7bbdf0a3141d708dfe25a432154b9a6cf4e54b220351b3a770b82023ebee2ed4"
-      },
-      {
-        "file": "43c484dc-aux-parameter-class.bin",
-        "offset": 204394,
-        "sha256": "378bcf8f5f40c63d6e88bb425e1b0fcbe557cbd99b005b3c9c870909a26886fc"
-      },
-      {
-        "file": "43c484dc-aux-request-argument.bin",
-        "offset": 296096,
-        "sha256": "6a4d578e28fa1ca6a349bb02bb8c86234aabfc34def7b5ee602fa5681f0960b7"
-      },
-      {
-        "file": "43c484dc-aux-read-value.bin",
-        "offset": 1670000,
-        "sha256": "28276cb31cb62517e7fa343dedb02a9157ddc22e50c8d51a3d25caf13786194b"
-      },
-      {
-        "file": "43c484dc-aux-read-status.bin",
-        "offset": 1670000,
-        "sha256": "28276cb31cb62517e7fa343dedb02a9157ddc22e50c8d51a3d25caf13786194b"
-      },
-      {
-        "file": "43c484dc-aux-initialization-bypass.bin",
-        "offset": 494360,
-        "sha256": "9f54b25f0689754ebd763f2201226461d0bf7411feead1ad50ba390b51b00aad"
-      },
-      {
-        "file": "43c484dc-aux-literal-32180.bin",
-        "offset": 205184,
-        "sha256": "f432991d53e591a11b77112608ed0534698f929a84b40f641e85de2da49fbc7f"
-      },
-      {
-        "file": "43c484dc-aux-literal-35b4c.bin",
-        "offset": 219980,
-        "sha256": "f432991d53e591a11b77112608ed0534698f929a84b40f641e85de2da49fbc7f"
-      },
-      {
-        "file": "43c484dc-aux-literal-36400.bin",
-        "offset": 222208,
-        "sha256": "f432991d53e591a11b77112608ed0534698f929a84b40f641e85de2da49fbc7f"
-      },
-      {
-        "file": "43c484dc-aux-literal-48694.bin",
-        "offset": 296596,
-        "sha256": "f432991d53e591a11b77112608ed0534698f929a84b40f641e85de2da49fbc7f"
-      },
-      {
-        "file": "43c484dc-aux-literal-48698.bin",
-        "offset": 296600,
-        "sha256": "04ce706254a429320610b0369b3b6dfc6f09146456167a07016ad38033a6e293"
-      },
-      {
-        "file": "43c484dc-aux-literal-78e34.bin",
-        "offset": 495156,
-        "sha256": "f432991d53e591a11b77112608ed0534698f929a84b40f641e85de2da49fbc7f"
-      },
-      {
-        "file": "43c484dc-aux-literal-10a67c.bin",
-        "offset": 1091196,
-        "sha256": "f432991d53e591a11b77112608ed0534698f929a84b40f641e85de2da49fbc7f"
-      },
-      {
-        "file": "43c484dc-aux-literal-10a6e0.bin",
-        "offset": 1091296,
-        "sha256": "648aa620cb2201dbaf8f269bfd31398b8c8bd5f450a2d897bd2d1862297bf045"
-      },
-      {
-        "file": "43c484dc-aux-literal-1536ac.bin",
-        "offset": 1390252,
-        "sha256": "f432991d53e591a11b77112608ed0534698f929a84b40f641e85de2da49fbc7f"
-      },
-      {
-        "file": "43c484dc-aux-literal-197fc4.bin",
-        "offset": 1671108,
-        "sha256": "f432991d53e591a11b77112608ed0534698f929a84b40f641e85de2da49fbc7f"
-      },
-      {
-        "file": "43c484dc-aux-literal-198d5c.bin",
-        "offset": 1674588,
-        "sha256": "f432991d53e591a11b77112608ed0534698f929a84b40f641e85de2da49fbc7f"
-      },
-      {
-        "file": "43c484dc-aux-literal-198d60.bin",
-        "offset": 1674592,
-        "sha256": "6f2c010daeefaff9fbea1a2363e820fe45f74ccb85436827c9e896ebd2ad50de"
-      },
-      {
-        "file": "43c484dc-aux-callee-192ce8.bin",
-        "offset": 1649896,
-        "sha256": "0c5dc176978dab2405038d99d3ecca79fba4ae057fe0f296be21ff50309efc0c"
-      },
-      {
         "file": "43c484dc-parameter-code.bin",
         "offset": 1069276,
         "sha256": "d89e7a1956d82f621f39f800d7ef3d2f4634576697e00d4356902486477c59ec"
@@ -581,6 +471,186 @@
         "file": "43c484dc-read-position-103d7c.bin",
         "offset": 1064316,
         "sha256": "86cd7cc6b14affe383c5bf454c5f8567556644f929efd21785564841be513290"
+      },
+      {
+        "file": "43c484dc-position-setup-fcb24.bin",
+        "offset": 1035044,
+        "sha256": "c0a31062786e5a0bd1384d210fb9360d8f4884066f50c01c05ebbe286db774e2"
+      },
+      {
+        "file": "43c484dc-position-setup-fced0.bin",
+        "offset": 1035984,
+        "sha256": "f432991d53e591a11b77112608ed0534698f929a84b40f641e85de2da49fbc7f"
+      },
+      {
+        "file": "43c484dc-position-setup-fcedc.bin",
+        "offset": 1035996,
+        "sha256": "d5cd13ef98904c239f3cfbf037c5e3cc5c63208d0eaca661811dbf3e3244ba26"
+      },
+      {
+        "file": "43c484dc-position-setup-fced4.bin",
+        "offset": 1035988,
+        "sha256": "c61815b9f15c46297633a2dca9f4ba6348e4c05252954bdc07707f522d745dba"
+      },
+      {
+        "file": "43c484dc-position-setup-fced8.bin",
+        "offset": 1035992,
+        "sha256": "648aa620cb2201dbaf8f269bfd31398b8c8bd5f450a2d897bd2d1862297bf045"
+      },
+      {
+        "file": "43c484dc-position-setup-fcee0.bin",
+        "offset": 1036000,
+        "sha256": "7cc7b0429e4d2c261609616d8bbc820d9dc955bb9b1189bef85d211558aa320d"
+      },
+      {
+        "file": "43c484dc-position-setup-fcee4.bin",
+        "offset": 1036004,
+        "sha256": "40a0cbc97179c56e3b3e3a0e59d6b6d5887388024fea4dc350801119c54809b5"
+      },
+      {
+        "file": "43c484dc-position-setup-fcee8.bin",
+        "offset": 1036008,
+        "sha256": "52b32150be150964d22077128bc04b0c69e5eca645c4d0e04a9e9930a58a1d76"
+      },
+      {
+        "file": "43c484dc-aux-media-defaults.bin",
+        "offset": 423720,
+        "sha256": "159bf56f1210fd04815e9fc99a9e49229fe600b3340f65a2d1695877530a72af"
+      },
+      {
+        "file": "43c484dc-aux-read-control.bin",
+        "offset": 1076696,
+        "sha256": "cb814774ae76cebbb270b592b836dee3ccd9c2a46b41387914a92e72965d8c88"
+      },
+      {
+        "file": "43c484dc-aux-read-boundary.bin",
+        "offset": 1389480,
+        "sha256": "3202837f6dc342ab2fae7f016eee27f9338a5213f126186af67d1cdee71b1345"
+      },
+      {
+        "file": "43c484dc-aux-di-mode.bin",
+        "offset": 1090590,
+        "sha256": "566971ebb9e1b6de38d2df6fd99a879acc4b80d1d69415075ae31c5f19a97d14"
+      },
+      {
+        "file": "43c484dc-aux-control18.bin",
+        "offset": 219482,
+        "sha256": "81d358eab64b35225b4884da2ffabe40932dea0e83932e9dda9779426bc9639a"
+      },
+      {
+        "file": "43c484dc-aux-mode23.bin",
+        "offset": 220656,
+        "sha256": "7bbdf0a3141d708dfe25a432154b9a6cf4e54b220351b3a770b82023ebee2ed4"
+      },
+      {
+        "file": "43c484dc-aux-parameter-class.bin",
+        "offset": 204394,
+        "sha256": "378bcf8f5f40c63d6e88bb425e1b0fcbe557cbd99b005b3c9c870909a26886fc"
+      },
+      {
+        "file": "43c484dc-aux-request-argument.bin",
+        "offset": 296096,
+        "sha256": "6a4d578e28fa1ca6a349bb02bb8c86234aabfc34def7b5ee602fa5681f0960b7"
+      },
+      {
+        "file": "43c484dc-aux-read-value.bin",
+        "offset": 1670000,
+        "sha256": "28276cb31cb62517e7fa343dedb02a9157ddc22e50c8d51a3d25caf13786194b"
+      },
+      {
+        "file": "43c484dc-aux-read-status.bin",
+        "offset": 1670000,
+        "sha256": "28276cb31cb62517e7fa343dedb02a9157ddc22e50c8d51a3d25caf13786194b"
+      },
+      {
+        "file": "43c484dc-aux-initialization-bypass.bin",
+        "offset": 494360,
+        "sha256": "9f54b25f0689754ebd763f2201226461d0bf7411feead1ad50ba390b51b00aad"
+      },
+      {
+        "file": "43c484dc-aux-literal-32180.bin",
+        "offset": 205184,
+        "sha256": "f432991d53e591a11b77112608ed0534698f929a84b40f641e85de2da49fbc7f"
+      },
+      {
+        "file": "43c484dc-aux-literal-35b4c.bin",
+        "offset": 219980,
+        "sha256": "f432991d53e591a11b77112608ed0534698f929a84b40f641e85de2da49fbc7f"
+      },
+      {
+        "file": "43c484dc-aux-literal-36400.bin",
+        "offset": 222208,
+        "sha256": "f432991d53e591a11b77112608ed0534698f929a84b40f641e85de2da49fbc7f"
+      },
+      {
+        "file": "43c484dc-aux-literal-48694.bin",
+        "offset": 296596,
+        "sha256": "f432991d53e591a11b77112608ed0534698f929a84b40f641e85de2da49fbc7f"
+      },
+      {
+        "file": "43c484dc-aux-literal-48698.bin",
+        "offset": 296600,
+        "sha256": "04ce706254a429320610b0369b3b6dfc6f09146456167a07016ad38033a6e293"
+      },
+      {
+        "file": "43c484dc-aux-literal-6785c.bin",
+        "offset": 424028,
+        "sha256": "f432991d53e591a11b77112608ed0534698f929a84b40f641e85de2da49fbc7f"
+      },
+      {
+        "file": "43c484dc-aux-literal-678b0.bin",
+        "offset": 424112,
+        "sha256": "648aa620cb2201dbaf8f269bfd31398b8c8bd5f450a2d897bd2d1862297bf045"
+      },
+      {
+        "file": "43c484dc-aux-literal-78e34.bin",
+        "offset": 495156,
+        "sha256": "f432991d53e591a11b77112608ed0534698f929a84b40f641e85de2da49fbc7f"
+      },
+      {
+        "file": "43c484dc-aux-literal-107018.bin",
+        "offset": 1077272,
+        "sha256": "f432991d53e591a11b77112608ed0534698f929a84b40f641e85de2da49fbc7f"
+      },
+      {
+        "file": "43c484dc-aux-literal-10703c.bin",
+        "offset": 1077308,
+        "sha256": "8993e68ac2750296e833a275918a95041034369f2d39d0bdb0d96d87b94f26f5"
+      },
+      {
+        "file": "43c484dc-aux-literal-10a67c.bin",
+        "offset": 1091196,
+        "sha256": "f432991d53e591a11b77112608ed0534698f929a84b40f641e85de2da49fbc7f"
+      },
+      {
+        "file": "43c484dc-aux-literal-10a6e0.bin",
+        "offset": 1091296,
+        "sha256": "648aa620cb2201dbaf8f269bfd31398b8c8bd5f450a2d897bd2d1862297bf045"
+      },
+      {
+        "file": "43c484dc-aux-literal-1536ac.bin",
+        "offset": 1390252,
+        "sha256": "f432991d53e591a11b77112608ed0534698f929a84b40f641e85de2da49fbc7f"
+      },
+      {
+        "file": "43c484dc-aux-literal-197fc4.bin",
+        "offset": 1671108,
+        "sha256": "f432991d53e591a11b77112608ed0534698f929a84b40f641e85de2da49fbc7f"
+      },
+      {
+        "file": "43c484dc-aux-literal-198d5c.bin",
+        "offset": 1674588,
+        "sha256": "f432991d53e591a11b77112608ed0534698f929a84b40f641e85de2da49fbc7f"
+      },
+      {
+        "file": "43c484dc-aux-literal-198d60.bin",
+        "offset": 1674592,
+        "sha256": "6f2c010daeefaff9fbea1a2363e820fe45f74ccb85436827c9e896ebd2ad50de"
+      },
+      {
+        "file": "43c484dc-aux-callee-192ce8.bin",
+        "offset": 1649896,
+        "sha256": "0c5dc176978dab2405038d99d3ecca79fba4ae057fe0f296be21ff50309efc0c"
       }
     ],
     "areas": [
@@ -711,6 +781,36 @@
           ]
         },
         "kind": "initialization-bypass"
+      },
+      {
+        "start": 423934,
+        "site": 423940,
+        "caller": {
+          "entry": 423720,
+          "site": 423940,
+          "depths": [
+            24
+          ],
+          "returns": [
+            424270
+          ]
+        },
+        "kind": "media-defaults"
+      },
+      {
+        "start": 1076734,
+        "site": 1076740,
+        "caller": {
+          "entry": 1076696,
+          "site": 1076740,
+          "depths": [
+            32
+          ],
+          "returns": [
+            1077226
+          ]
+        },
+        "kind": "read-control"
       },
       {
         "start": 1389716,
@@ -856,7 +956,8 @@
     },
     "position_entry": 1035312,
     "calibration_entry": 1066392,
-    "read_position_entry": 1063236
+    "read_position_entry": 1063236,
+    "position_setup_entry": 1035044
   },
   {
     "source_sha256": "40eb760e23f100d55e86e9c061c73428d4087ef712294e4dbfcefa3093837a1a",
@@ -1065,116 +1166,6 @@
         "file": "40eb760e-callee-1a0f14.bin",
         "offset": 1707796,
         "sha256": "08a749eab87f36acd11297742e255be4e3edabb837ef34c33c6a00205dbefcaf"
-      },
-      {
-        "file": "40eb760e-aux-read-boundary.bin",
-        "offset": 1388556,
-        "sha256": "a85e79d87d5a926b22ab1beefb96e4cf34ff44e23e4b72d11be1fdd03b135576"
-      },
-      {
-        "file": "40eb760e-aux-di-mode.bin",
-        "offset": 1089666,
-        "sha256": "a07c6d70bb5dbf280056705b6e2f3128aa5ebabf639a6954040f54229482f1bf"
-      },
-      {
-        "file": "40eb760e-aux-control18.bin",
-        "offset": 219482,
-        "sha256": "81d358eab64b35225b4884da2ffabe40932dea0e83932e9dda9779426bc9639a"
-      },
-      {
-        "file": "40eb760e-aux-mode23.bin",
-        "offset": 220656,
-        "sha256": "95db8ef6d94ad1cc01d805579457dda6f8939664a24a564c7310753ff694a1dd"
-      },
-      {
-        "file": "40eb760e-aux-parameter-class.bin",
-        "offset": 204394,
-        "sha256": "a08f061a39b05cd123da72bd6b27e420592c0a43c16490806fc317d1b450ffa7"
-      },
-      {
-        "file": "40eb760e-aux-request-argument.bin",
-        "offset": 296096,
-        "sha256": "bc5b8c4b69f145bd83220a0cd1796af08b678d1a8ae4bcf6672d1aad39a1fc8d"
-      },
-      {
-        "file": "40eb760e-aux-read-value.bin",
-        "offset": 1666876,
-        "sha256": "8f83f2795bc89b30f2807ea849a5e092ceffe3343eb2b23b575979648bc58dd6"
-      },
-      {
-        "file": "40eb760e-aux-read-status.bin",
-        "offset": 1666876,
-        "sha256": "8f83f2795bc89b30f2807ea849a5e092ceffe3343eb2b23b575979648bc58dd6"
-      },
-      {
-        "file": "40eb760e-aux-initialization-bypass.bin",
-        "offset": 494724,
-        "sha256": "ad9a7ea074eccfee173f2267517a24ef0ed30dd8c3438e5d945a5e34b87b561d"
-      },
-      {
-        "file": "40eb760e-aux-literal-32180.bin",
-        "offset": 205184,
-        "sha256": "f432991d53e591a11b77112608ed0534698f929a84b40f641e85de2da49fbc7f"
-      },
-      {
-        "file": "40eb760e-aux-literal-35b4c.bin",
-        "offset": 219980,
-        "sha256": "f432991d53e591a11b77112608ed0534698f929a84b40f641e85de2da49fbc7f"
-      },
-      {
-        "file": "40eb760e-aux-literal-36400.bin",
-        "offset": 222208,
-        "sha256": "f432991d53e591a11b77112608ed0534698f929a84b40f641e85de2da49fbc7f"
-      },
-      {
-        "file": "40eb760e-aux-literal-48694.bin",
-        "offset": 296596,
-        "sha256": "f432991d53e591a11b77112608ed0534698f929a84b40f641e85de2da49fbc7f"
-      },
-      {
-        "file": "40eb760e-aux-literal-48698.bin",
-        "offset": 296600,
-        "sha256": "04ce706254a429320610b0369b3b6dfc6f09146456167a07016ad38033a6e293"
-      },
-      {
-        "file": "40eb760e-aux-literal-78fa0.bin",
-        "offset": 495520,
-        "sha256": "f432991d53e591a11b77112608ed0534698f929a84b40f641e85de2da49fbc7f"
-      },
-      {
-        "file": "40eb760e-aux-literal-10a2e0.bin",
-        "offset": 1090272,
-        "sha256": "f432991d53e591a11b77112608ed0534698f929a84b40f641e85de2da49fbc7f"
-      },
-      {
-        "file": "40eb760e-aux-literal-10a344.bin",
-        "offset": 1090372,
-        "sha256": "648aa620cb2201dbaf8f269bfd31398b8c8bd5f450a2d897bd2d1862297bf045"
-      },
-      {
-        "file": "40eb760e-aux-literal-153310.bin",
-        "offset": 1389328,
-        "sha256": "f432991d53e591a11b77112608ed0534698f929a84b40f641e85de2da49fbc7f"
-      },
-      {
-        "file": "40eb760e-aux-literal-197390.bin",
-        "offset": 1667984,
-        "sha256": "f432991d53e591a11b77112608ed0534698f929a84b40f641e85de2da49fbc7f"
-      },
-      {
-        "file": "40eb760e-aux-literal-198128.bin",
-        "offset": 1671464,
-        "sha256": "f432991d53e591a11b77112608ed0534698f929a84b40f641e85de2da49fbc7f"
-      },
-      {
-        "file": "40eb760e-aux-literal-19812c.bin",
-        "offset": 1671468,
-        "sha256": "6f2c010daeefaff9fbea1a2363e820fe45f74ccb85436827c9e896ebd2ad50de"
-      },
-      {
-        "file": "40eb760e-aux-callee-1920b4.bin",
-        "offset": 1646772,
-        "sha256": "0c5dc176978dab2405038d99d3ecca79fba4ae057fe0f296be21ff50309efc0c"
       },
       {
         "file": "40eb760e-parameter-code.bin",
@@ -1440,6 +1431,186 @@
         "file": "40eb760e-read-position-103aa0.bin",
         "offset": 1063584,
         "sha256": "c976a8d7d4c70a75885862c2eb22fc96c0a9921b81f990e1df34dc6399939a0f"
+      },
+      {
+        "file": "40eb760e-position-setup-fc848.bin",
+        "offset": 1034312,
+        "sha256": "c0a31062786e5a0bd1384d210fb9360d8f4884066f50c01c05ebbe286db774e2"
+      },
+      {
+        "file": "40eb760e-position-setup-fcbf4.bin",
+        "offset": 1035252,
+        "sha256": "f432991d53e591a11b77112608ed0534698f929a84b40f641e85de2da49fbc7f"
+      },
+      {
+        "file": "40eb760e-position-setup-fcc00.bin",
+        "offset": 1035264,
+        "sha256": "c4265ffd08e1cd04eb92b12d0882359fb889498a09cbf048d88b7c851437b8db"
+      },
+      {
+        "file": "40eb760e-position-setup-fcbf8.bin",
+        "offset": 1035256,
+        "sha256": "c61815b9f15c46297633a2dca9f4ba6348e4c05252954bdc07707f522d745dba"
+      },
+      {
+        "file": "40eb760e-position-setup-fcbfc.bin",
+        "offset": 1035260,
+        "sha256": "648aa620cb2201dbaf8f269bfd31398b8c8bd5f450a2d897bd2d1862297bf045"
+      },
+      {
+        "file": "40eb760e-position-setup-fcc04.bin",
+        "offset": 1035268,
+        "sha256": "7cc7b0429e4d2c261609616d8bbc820d9dc955bb9b1189bef85d211558aa320d"
+      },
+      {
+        "file": "40eb760e-position-setup-fcc08.bin",
+        "offset": 1035272,
+        "sha256": "40a0cbc97179c56e3b3e3a0e59d6b6d5887388024fea4dc350801119c54809b5"
+      },
+      {
+        "file": "40eb760e-position-setup-fcc0c.bin",
+        "offset": 1035276,
+        "sha256": "52b32150be150964d22077128bc04b0c69e5eca645c4d0e04a9e9930a58a1d76"
+      },
+      {
+        "file": "40eb760e-aux-media-defaults.bin",
+        "offset": 424132,
+        "sha256": "5aeb4c173f713a94dfde89032d068fd16b23b8cee90db1e898fe2ce245c450b4"
+      },
+      {
+        "file": "40eb760e-aux-read-control.bin",
+        "offset": 1075772,
+        "sha256": "10f1b7ee2d7402c9c2c580c0b47bd22f6431aa3c35bcc31b579a928d0ae92be1"
+      },
+      {
+        "file": "40eb760e-aux-read-boundary.bin",
+        "offset": 1388556,
+        "sha256": "a85e79d87d5a926b22ab1beefb96e4cf34ff44e23e4b72d11be1fdd03b135576"
+      },
+      {
+        "file": "40eb760e-aux-di-mode.bin",
+        "offset": 1089666,
+        "sha256": "a07c6d70bb5dbf280056705b6e2f3128aa5ebabf639a6954040f54229482f1bf"
+      },
+      {
+        "file": "40eb760e-aux-control18.bin",
+        "offset": 219482,
+        "sha256": "81d358eab64b35225b4884da2ffabe40932dea0e83932e9dda9779426bc9639a"
+      },
+      {
+        "file": "40eb760e-aux-mode23.bin",
+        "offset": 220656,
+        "sha256": "95db8ef6d94ad1cc01d805579457dda6f8939664a24a564c7310753ff694a1dd"
+      },
+      {
+        "file": "40eb760e-aux-parameter-class.bin",
+        "offset": 204394,
+        "sha256": "a08f061a39b05cd123da72bd6b27e420592c0a43c16490806fc317d1b450ffa7"
+      },
+      {
+        "file": "40eb760e-aux-request-argument.bin",
+        "offset": 296096,
+        "sha256": "bc5b8c4b69f145bd83220a0cd1796af08b678d1a8ae4bcf6672d1aad39a1fc8d"
+      },
+      {
+        "file": "40eb760e-aux-read-value.bin",
+        "offset": 1666876,
+        "sha256": "8f83f2795bc89b30f2807ea849a5e092ceffe3343eb2b23b575979648bc58dd6"
+      },
+      {
+        "file": "40eb760e-aux-read-status.bin",
+        "offset": 1666876,
+        "sha256": "8f83f2795bc89b30f2807ea849a5e092ceffe3343eb2b23b575979648bc58dd6"
+      },
+      {
+        "file": "40eb760e-aux-initialization-bypass.bin",
+        "offset": 494724,
+        "sha256": "ad9a7ea074eccfee173f2267517a24ef0ed30dd8c3438e5d945a5e34b87b561d"
+      },
+      {
+        "file": "40eb760e-aux-literal-32180.bin",
+        "offset": 205184,
+        "sha256": "f432991d53e591a11b77112608ed0534698f929a84b40f641e85de2da49fbc7f"
+      },
+      {
+        "file": "40eb760e-aux-literal-35b4c.bin",
+        "offset": 219980,
+        "sha256": "f432991d53e591a11b77112608ed0534698f929a84b40f641e85de2da49fbc7f"
+      },
+      {
+        "file": "40eb760e-aux-literal-36400.bin",
+        "offset": 222208,
+        "sha256": "f432991d53e591a11b77112608ed0534698f929a84b40f641e85de2da49fbc7f"
+      },
+      {
+        "file": "40eb760e-aux-literal-48694.bin",
+        "offset": 296596,
+        "sha256": "f432991d53e591a11b77112608ed0534698f929a84b40f641e85de2da49fbc7f"
+      },
+      {
+        "file": "40eb760e-aux-literal-48698.bin",
+        "offset": 296600,
+        "sha256": "04ce706254a429320610b0369b3b6dfc6f09146456167a07016ad38033a6e293"
+      },
+      {
+        "file": "40eb760e-aux-literal-679f8.bin",
+        "offset": 424440,
+        "sha256": "f432991d53e591a11b77112608ed0534698f929a84b40f641e85de2da49fbc7f"
+      },
+      {
+        "file": "40eb760e-aux-literal-67a4c.bin",
+        "offset": 424524,
+        "sha256": "648aa620cb2201dbaf8f269bfd31398b8c8bd5f450a2d897bd2d1862297bf045"
+      },
+      {
+        "file": "40eb760e-aux-literal-78fa0.bin",
+        "offset": 495520,
+        "sha256": "f432991d53e591a11b77112608ed0534698f929a84b40f641e85de2da49fbc7f"
+      },
+      {
+        "file": "40eb760e-aux-literal-106c7c.bin",
+        "offset": 1076348,
+        "sha256": "f432991d53e591a11b77112608ed0534698f929a84b40f641e85de2da49fbc7f"
+      },
+      {
+        "file": "40eb760e-aux-literal-106ca0.bin",
+        "offset": 1076384,
+        "sha256": "8993e68ac2750296e833a275918a95041034369f2d39d0bdb0d96d87b94f26f5"
+      },
+      {
+        "file": "40eb760e-aux-literal-10a2e0.bin",
+        "offset": 1090272,
+        "sha256": "f432991d53e591a11b77112608ed0534698f929a84b40f641e85de2da49fbc7f"
+      },
+      {
+        "file": "40eb760e-aux-literal-10a344.bin",
+        "offset": 1090372,
+        "sha256": "648aa620cb2201dbaf8f269bfd31398b8c8bd5f450a2d897bd2d1862297bf045"
+      },
+      {
+        "file": "40eb760e-aux-literal-153310.bin",
+        "offset": 1389328,
+        "sha256": "f432991d53e591a11b77112608ed0534698f929a84b40f641e85de2da49fbc7f"
+      },
+      {
+        "file": "40eb760e-aux-literal-197390.bin",
+        "offset": 1667984,
+        "sha256": "f432991d53e591a11b77112608ed0534698f929a84b40f641e85de2da49fbc7f"
+      },
+      {
+        "file": "40eb760e-aux-literal-198128.bin",
+        "offset": 1671464,
+        "sha256": "f432991d53e591a11b77112608ed0534698f929a84b40f641e85de2da49fbc7f"
+      },
+      {
+        "file": "40eb760e-aux-literal-19812c.bin",
+        "offset": 1671468,
+        "sha256": "6f2c010daeefaff9fbea1a2363e820fe45f74ccb85436827c9e896ebd2ad50de"
+      },
+      {
+        "file": "40eb760e-aux-callee-1920b4.bin",
+        "offset": 1646772,
+        "sha256": "0c5dc176978dab2405038d99d3ecca79fba4ae057fe0f296be21ff50309efc0c"
       }
     ],
     "areas": [
@@ -1570,6 +1741,36 @@
           ]
         },
         "kind": "initialization-bypass"
+      },
+      {
+        "start": 424346,
+        "site": 424352,
+        "caller": {
+          "entry": 424132,
+          "site": 424352,
+          "depths": [
+            24
+          ],
+          "returns": [
+            424682
+          ]
+        },
+        "kind": "media-defaults"
+      },
+      {
+        "start": 1075810,
+        "site": 1075816,
+        "caller": {
+          "entry": 1075772,
+          "site": 1075816,
+          "depths": [
+            32
+          ],
+          "returns": [
+            1076302
+          ]
+        },
+        "kind": "read-control"
       },
       {
         "start": 1388792,
@@ -1715,7 +1916,8 @@
     },
     "position_entry": 1034580,
     "calibration_entry": 1065660,
-    "read_position_entry": 1062504
+    "read_position_entry": 1062504,
+    "position_setup_entry": 1034312
   },
   {
     "source_sha256": "b093a73656e58ee2a4367b5d92324fd7da3889f632a22b2f1be8802607cd3de4",
@@ -1909,116 +2111,6 @@
         "file": "b093a736-callee-1a12d8.bin",
         "offset": 1708760,
         "sha256": "08a749eab87f36acd11297742e255be4e3edabb837ef34c33c6a00205dbefcaf"
-      },
-      {
-        "file": "b093a736-aux-read-boundary.bin",
-        "offset": 1389224,
-        "sha256": "f387a5a36c4d19fd39f19504e54aa9409e105aebee08252cb5324d7b4da046c1"
-      },
-      {
-        "file": "b093a736-aux-di-mode.bin",
-        "offset": 1090306,
-        "sha256": "5892fe3c6118e8c5fea27e7d9bdde6dfb7000f681ed859b1456ccfb0e05ecf5b"
-      },
-      {
-        "file": "b093a736-aux-control18.bin",
-        "offset": 219482,
-        "sha256": "97384515fb6159ab76f7e6bd719f40e3d8221718c0bebd80924a52537615350b"
-      },
-      {
-        "file": "b093a736-aux-mode23.bin",
-        "offset": 220656,
-        "sha256": "c5c841b5e4fb71fdd0701648b4819bf557393b6cc0a30488ba0b5faeea59f0ba"
-      },
-      {
-        "file": "b093a736-aux-parameter-class.bin",
-        "offset": 204394,
-        "sha256": "6c7e2d13f8f84fb66f280ffbfc597b96248290905b4a7d9a64ebf3e4175344f5"
-      },
-      {
-        "file": "b093a736-aux-request-argument.bin",
-        "offset": 296096,
-        "sha256": "1b23d1cfe337f2ea86f37bda7b1d0fe15d97ede81055935b2257f5b043923736"
-      },
-      {
-        "file": "b093a736-aux-read-value.bin",
-        "offset": 1667656,
-        "sha256": "a643095f2532591bb0d8f22706b9b2d1c6450538ea8686eaf4d4d9395120a8ac"
-      },
-      {
-        "file": "b093a736-aux-read-status.bin",
-        "offset": 1667656,
-        "sha256": "a643095f2532591bb0d8f22706b9b2d1c6450538ea8686eaf4d4d9395120a8ac"
-      },
-      {
-        "file": "b093a736-aux-initialization-bypass.bin",
-        "offset": 495440,
-        "sha256": "4b74c34cdb79ab152540a0f64b465f326c7f86c220561c157f3479aac510f2b7"
-      },
-      {
-        "file": "b093a736-aux-literal-32180.bin",
-        "offset": 205184,
-        "sha256": "610d36bcfe50e0142ba5d50611089b02b9c85681c12540f0455ea7d7ae6b802e"
-      },
-      {
-        "file": "b093a736-aux-literal-35b4c.bin",
-        "offset": 219980,
-        "sha256": "610d36bcfe50e0142ba5d50611089b02b9c85681c12540f0455ea7d7ae6b802e"
-      },
-      {
-        "file": "b093a736-aux-literal-36400.bin",
-        "offset": 222208,
-        "sha256": "610d36bcfe50e0142ba5d50611089b02b9c85681c12540f0455ea7d7ae6b802e"
-      },
-      {
-        "file": "b093a736-aux-literal-48694.bin",
-        "offset": 296596,
-        "sha256": "610d36bcfe50e0142ba5d50611089b02b9c85681c12540f0455ea7d7ae6b802e"
-      },
-      {
-        "file": "b093a736-aux-literal-48698.bin",
-        "offset": 296600,
-        "sha256": "04ce706254a429320610b0369b3b6dfc6f09146456167a07016ad38033a6e293"
-      },
-      {
-        "file": "b093a736-aux-literal-7926c.bin",
-        "offset": 496236,
-        "sha256": "610d36bcfe50e0142ba5d50611089b02b9c85681c12540f0455ea7d7ae6b802e"
-      },
-      {
-        "file": "b093a736-aux-literal-10a530.bin",
-        "offset": 1090864,
-        "sha256": "610d36bcfe50e0142ba5d50611089b02b9c85681c12540f0455ea7d7ae6b802e"
-      },
-      {
-        "file": "b093a736-aux-literal-10a594.bin",
-        "offset": 1090964,
-        "sha256": "0a21a27ff9f4003e2a817f57b3a538e5902fe13a3688600359f1bef833e359ee"
-      },
-      {
-        "file": "b093a736-aux-literal-1535ac.bin",
-        "offset": 1389996,
-        "sha256": "610d36bcfe50e0142ba5d50611089b02b9c85681c12540f0455ea7d7ae6b802e"
-      },
-      {
-        "file": "b093a736-aux-literal-19769c.bin",
-        "offset": 1668764,
-        "sha256": "610d36bcfe50e0142ba5d50611089b02b9c85681c12540f0455ea7d7ae6b802e"
-      },
-      {
-        "file": "b093a736-aux-literal-198434.bin",
-        "offset": 1672244,
-        "sha256": "610d36bcfe50e0142ba5d50611089b02b9c85681c12540f0455ea7d7ae6b802e"
-      },
-      {
-        "file": "b093a736-aux-literal-198438.bin",
-        "offset": 1672248,
-        "sha256": "3e6bf0a83bb48bfc05c084b369262994cff2d2df7fc1cfcb0180597d7691282c"
-      },
-      {
-        "file": "b093a736-aux-callee-1923c0.bin",
-        "offset": 1647552,
-        "sha256": "0c5dc176978dab2405038d99d3ecca79fba4ae057fe0f296be21ff50309efc0c"
       },
       {
         "file": "b093a736-parameter-code.bin",
@@ -2284,6 +2376,186 @@
         "file": "b093a736-read-position-103c58.bin",
         "offset": 1064024,
         "sha256": "e9791f8a8c534a26f17e76c5744f1779df6656b28ac7b85e788f03bba77f9fae"
+      },
+      {
+        "file": "b093a736-position-setup-fcde4.bin",
+        "offset": 1035748,
+        "sha256": "c0a31062786e5a0bd1384d210fb9360d8f4884066f50c01c05ebbe286db774e2"
+      },
+      {
+        "file": "b093a736-position-setup-fd190.bin",
+        "offset": 1036688,
+        "sha256": "610d36bcfe50e0142ba5d50611089b02b9c85681c12540f0455ea7d7ae6b802e"
+      },
+      {
+        "file": "b093a736-position-setup-fd19c.bin",
+        "offset": 1036700,
+        "sha256": "b5d214a19dd784acf5a0695b1d56ae2178fdfb192626c8ef1251cb446bfb2086"
+      },
+      {
+        "file": "b093a736-position-setup-fd194.bin",
+        "offset": 1036692,
+        "sha256": "d7a5f50950b81dbd59b3e1e692f021dfc5086965ef995b5cbf1e484fe3dde0e2"
+      },
+      {
+        "file": "b093a736-position-setup-fd198.bin",
+        "offset": 1036696,
+        "sha256": "0a21a27ff9f4003e2a817f57b3a538e5902fe13a3688600359f1bef833e359ee"
+      },
+      {
+        "file": "b093a736-position-setup-fd1a0.bin",
+        "offset": 1036704,
+        "sha256": "7cc7b0429e4d2c261609616d8bbc820d9dc955bb9b1189bef85d211558aa320d"
+      },
+      {
+        "file": "b093a736-position-setup-fd1a4.bin",
+        "offset": 1036708,
+        "sha256": "40a0cbc97179c56e3b3e3a0e59d6b6d5887388024fea4dc350801119c54809b5"
+      },
+      {
+        "file": "b093a736-position-setup-fd1a8.bin",
+        "offset": 1036712,
+        "sha256": "52b32150be150964d22077128bc04b0c69e5eca645c4d0e04a9e9930a58a1d76"
+      },
+      {
+        "file": "b093a736-aux-media-defaults.bin",
+        "offset": 423836,
+        "sha256": "3c315f4ada931a5c4e2c6a05988b8d31e2e26adc75bf14750596410f878a2b9e"
+      },
+      {
+        "file": "b093a736-aux-read-control.bin",
+        "offset": 1076410,
+        "sha256": "2af000461ec2bb70115d1dc2a4c92cecc0d3e46361d59b5bb758adec6fa46655"
+      },
+      {
+        "file": "b093a736-aux-read-boundary.bin",
+        "offset": 1389224,
+        "sha256": "f387a5a36c4d19fd39f19504e54aa9409e105aebee08252cb5324d7b4da046c1"
+      },
+      {
+        "file": "b093a736-aux-di-mode.bin",
+        "offset": 1090306,
+        "sha256": "5892fe3c6118e8c5fea27e7d9bdde6dfb7000f681ed859b1456ccfb0e05ecf5b"
+      },
+      {
+        "file": "b093a736-aux-control18.bin",
+        "offset": 219482,
+        "sha256": "97384515fb6159ab76f7e6bd719f40e3d8221718c0bebd80924a52537615350b"
+      },
+      {
+        "file": "b093a736-aux-mode23.bin",
+        "offset": 220656,
+        "sha256": "c5c841b5e4fb71fdd0701648b4819bf557393b6cc0a30488ba0b5faeea59f0ba"
+      },
+      {
+        "file": "b093a736-aux-parameter-class.bin",
+        "offset": 204394,
+        "sha256": "6c7e2d13f8f84fb66f280ffbfc597b96248290905b4a7d9a64ebf3e4175344f5"
+      },
+      {
+        "file": "b093a736-aux-request-argument.bin",
+        "offset": 296096,
+        "sha256": "1b23d1cfe337f2ea86f37bda7b1d0fe15d97ede81055935b2257f5b043923736"
+      },
+      {
+        "file": "b093a736-aux-read-value.bin",
+        "offset": 1667656,
+        "sha256": "a643095f2532591bb0d8f22706b9b2d1c6450538ea8686eaf4d4d9395120a8ac"
+      },
+      {
+        "file": "b093a736-aux-read-status.bin",
+        "offset": 1667656,
+        "sha256": "a643095f2532591bb0d8f22706b9b2d1c6450538ea8686eaf4d4d9395120a8ac"
+      },
+      {
+        "file": "b093a736-aux-initialization-bypass.bin",
+        "offset": 495440,
+        "sha256": "4b74c34cdb79ab152540a0f64b465f326c7f86c220561c157f3479aac510f2b7"
+      },
+      {
+        "file": "b093a736-aux-literal-32180.bin",
+        "offset": 205184,
+        "sha256": "610d36bcfe50e0142ba5d50611089b02b9c85681c12540f0455ea7d7ae6b802e"
+      },
+      {
+        "file": "b093a736-aux-literal-35b4c.bin",
+        "offset": 219980,
+        "sha256": "610d36bcfe50e0142ba5d50611089b02b9c85681c12540f0455ea7d7ae6b802e"
+      },
+      {
+        "file": "b093a736-aux-literal-36400.bin",
+        "offset": 222208,
+        "sha256": "610d36bcfe50e0142ba5d50611089b02b9c85681c12540f0455ea7d7ae6b802e"
+      },
+      {
+        "file": "b093a736-aux-literal-48694.bin",
+        "offset": 296596,
+        "sha256": "610d36bcfe50e0142ba5d50611089b02b9c85681c12540f0455ea7d7ae6b802e"
+      },
+      {
+        "file": "b093a736-aux-literal-48698.bin",
+        "offset": 296600,
+        "sha256": "04ce706254a429320610b0369b3b6dfc6f09146456167a07016ad38033a6e293"
+      },
+      {
+        "file": "b093a736-aux-literal-678d0.bin",
+        "offset": 424144,
+        "sha256": "610d36bcfe50e0142ba5d50611089b02b9c85681c12540f0455ea7d7ae6b802e"
+      },
+      {
+        "file": "b093a736-aux-literal-67924.bin",
+        "offset": 424228,
+        "sha256": "0a21a27ff9f4003e2a817f57b3a538e5902fe13a3688600359f1bef833e359ee"
+      },
+      {
+        "file": "b093a736-aux-literal-7926c.bin",
+        "offset": 496236,
+        "sha256": "610d36bcfe50e0142ba5d50611089b02b9c85681c12540f0455ea7d7ae6b802e"
+      },
+      {
+        "file": "b093a736-aux-literal-106efc.bin",
+        "offset": 1076988,
+        "sha256": "610d36bcfe50e0142ba5d50611089b02b9c85681c12540f0455ea7d7ae6b802e"
+      },
+      {
+        "file": "b093a736-aux-literal-106f20.bin",
+        "offset": 1077024,
+        "sha256": "8993e68ac2750296e833a275918a95041034369f2d39d0bdb0d96d87b94f26f5"
+      },
+      {
+        "file": "b093a736-aux-literal-10a530.bin",
+        "offset": 1090864,
+        "sha256": "610d36bcfe50e0142ba5d50611089b02b9c85681c12540f0455ea7d7ae6b802e"
+      },
+      {
+        "file": "b093a736-aux-literal-10a594.bin",
+        "offset": 1090964,
+        "sha256": "0a21a27ff9f4003e2a817f57b3a538e5902fe13a3688600359f1bef833e359ee"
+      },
+      {
+        "file": "b093a736-aux-literal-1535ac.bin",
+        "offset": 1389996,
+        "sha256": "610d36bcfe50e0142ba5d50611089b02b9c85681c12540f0455ea7d7ae6b802e"
+      },
+      {
+        "file": "b093a736-aux-literal-19769c.bin",
+        "offset": 1668764,
+        "sha256": "610d36bcfe50e0142ba5d50611089b02b9c85681c12540f0455ea7d7ae6b802e"
+      },
+      {
+        "file": "b093a736-aux-literal-198434.bin",
+        "offset": 1672244,
+        "sha256": "610d36bcfe50e0142ba5d50611089b02b9c85681c12540f0455ea7d7ae6b802e"
+      },
+      {
+        "file": "b093a736-aux-literal-198438.bin",
+        "offset": 1672248,
+        "sha256": "3e6bf0a83bb48bfc05c084b369262994cff2d2df7fc1cfcb0180597d7691282c"
+      },
+      {
+        "file": "b093a736-aux-callee-1923c0.bin",
+        "offset": 1647552,
+        "sha256": "0c5dc176978dab2405038d99d3ecca79fba4ae057fe0f296be21ff50309efc0c"
       }
     ],
     "areas": [
@@ -2414,6 +2686,36 @@
           ]
         },
         "kind": "initialization-bypass"
+      },
+      {
+        "start": 424050,
+        "site": 424056,
+        "caller": {
+          "entry": 423836,
+          "site": 424056,
+          "depths": [
+            24
+          ],
+          "returns": [
+            424386
+          ]
+        },
+        "kind": "media-defaults"
+      },
+      {
+        "start": 1076448,
+        "site": 1076454,
+        "caller": {
+          "entry": 1076410,
+          "site": 1076454,
+          "depths": [
+            32
+          ],
+          "returns": [
+            1076940
+          ]
+        },
+        "kind": "read-control"
       },
       {
         "start": 1389460,
@@ -2559,7 +2861,8 @@
     },
     "position_entry": 1036016,
     "calibration_entry": 1066100,
-    "read_position_entry": 1062944
+    "read_position_entry": 1062944,
+    "position_setup_entry": 1035748
   },
   {
     "source_sha256": "0b2cdb82ff520589d4c750fae726571798901bf41e433de0a7164f7d74927d5f",
@@ -2763,116 +3066,6 @@
         "file": "0b2cdb82-callee-19ef38.bin",
         "offset": 1699640,
         "sha256": "08a749eab87f36acd11297742e255be4e3edabb837ef34c33c6a00205dbefcaf"
-      },
-      {
-        "file": "0b2cdb82-aux-read-boundary.bin",
-        "offset": 1380796,
-        "sha256": "931d4678159fe5937376c8b287065833d2c16862bc679d0d29548cf1ab3f9dba"
-      },
-      {
-        "file": "0b2cdb82-aux-di-mode.bin",
-        "offset": 1084050,
-        "sha256": "7f9d78a8e850c5b2a043eae47b856561519f45bb5c5ff0e8d18d22f72fdcbda2"
-      },
-      {
-        "file": "0b2cdb82-aux-control18.bin",
-        "offset": 219246,
-        "sha256": "3c89df8e478efd63c8a729d39643e5b9291f96187578fe941a46006126448536"
-      },
-      {
-        "file": "0b2cdb82-aux-mode23.bin",
-        "offset": 220420,
-        "sha256": "fa7c9a00066260640a4da1260848c13d277a113e79a4aa04e504d5e8e2d226f0"
-      },
-      {
-        "file": "0b2cdb82-aux-parameter-class.bin",
-        "offset": 204162,
-        "sha256": "1ff03aa114260859c39f38ea427224df0ae7a72856219fdd7931efa0a43f232e"
-      },
-      {
-        "file": "0b2cdb82-aux-request-argument.bin",
-        "offset": 295776,
-        "sha256": "5bcc95b9efb28e293849edaf2da62a5e0177e975bddc989d9cf23dfe1e27fb66"
-      },
-      {
-        "file": "0b2cdb82-aux-read-value.bin",
-        "offset": 1659044,
-        "sha256": "446bb2b0520021965e55a438a1eea7377ce8d83e3e15b6865e9b88e0c018b477"
-      },
-      {
-        "file": "0b2cdb82-aux-read-status.bin",
-        "offset": 1659044,
-        "sha256": "446bb2b0520021965e55a438a1eea7377ce8d83e3e15b6865e9b88e0c018b477"
-      },
-      {
-        "file": "0b2cdb82-aux-initialization-bypass.bin",
-        "offset": 493792,
-        "sha256": "583e9c0a453bb47d6b99f95667b46fd301280693b3d5ebc7fd39e26776b6ebef"
-      },
-      {
-        "file": "0b2cdb82-aux-literal-32098.bin",
-        "offset": 204952,
-        "sha256": "f432991d53e591a11b77112608ed0534698f929a84b40f641e85de2da49fbc7f"
-      },
-      {
-        "file": "0b2cdb82-aux-literal-35a60.bin",
-        "offset": 219744,
-        "sha256": "f432991d53e591a11b77112608ed0534698f929a84b40f641e85de2da49fbc7f"
-      },
-      {
-        "file": "0b2cdb82-aux-literal-36314.bin",
-        "offset": 221972,
-        "sha256": "f432991d53e591a11b77112608ed0534698f929a84b40f641e85de2da49fbc7f"
-      },
-      {
-        "file": "0b2cdb82-aux-literal-48554.bin",
-        "offset": 296276,
-        "sha256": "f432991d53e591a11b77112608ed0534698f929a84b40f641e85de2da49fbc7f"
-      },
-      {
-        "file": "0b2cdb82-aux-literal-48558.bin",
-        "offset": 296280,
-        "sha256": "04ce706254a429320610b0369b3b6dfc6f09146456167a07016ad38033a6e293"
-      },
-      {
-        "file": "0b2cdb82-aux-literal-78bfc.bin",
-        "offset": 494588,
-        "sha256": "f432991d53e591a11b77112608ed0534698f929a84b40f641e85de2da49fbc7f"
-      },
-      {
-        "file": "0b2cdb82-aux-literal-108dac.bin",
-        "offset": 1084844,
-        "sha256": "f432991d53e591a11b77112608ed0534698f929a84b40f641e85de2da49fbc7f"
-      },
-      {
-        "file": "0b2cdb82-aux-literal-108db0.bin",
-        "offset": 1084848,
-        "sha256": "53af24bb1a5ba26fe328126c6cb85f481e7a7d637346d581a823d3138aaa9b1f"
-      },
-      {
-        "file": "0b2cdb82-aux-literal-1514c0.bin",
-        "offset": 1381568,
-        "sha256": "f432991d53e591a11b77112608ed0534698f929a84b40f641e85de2da49fbc7f"
-      },
-      {
-        "file": "0b2cdb82-aux-literal-1954f8.bin",
-        "offset": 1660152,
-        "sha256": "f432991d53e591a11b77112608ed0534698f929a84b40f641e85de2da49fbc7f"
-      },
-      {
-        "file": "0b2cdb82-aux-literal-196228.bin",
-        "offset": 1663528,
-        "sha256": "f432991d53e591a11b77112608ed0534698f929a84b40f641e85de2da49fbc7f"
-      },
-      {
-        "file": "0b2cdb82-aux-literal-19622c.bin",
-        "offset": 1663532,
-        "sha256": "3e6bf0a83bb48bfc05c084b369262994cff2d2df7fc1cfcb0180597d7691282c"
-      },
-      {
-        "file": "0b2cdb82-aux-callee-1901c0.bin",
-        "offset": 1638848,
-        "sha256": "0c5dc176978dab2405038d99d3ecca79fba4ae057fe0f296be21ff50309efc0c"
       },
       {
         "file": "0b2cdb82-parameter-code.bin",
@@ -3118,6 +3311,186 @@
         "file": "0b2cdb82-read-position-102510.bin",
         "offset": 1058064,
         "sha256": "c2151a242fc0ca4d982476c7d857f45e11e2a2363aa2c6a5cdba051b968d2a3f"
+      },
+      {
+        "file": "0b2cdb82-position-setup-fb2f4.bin",
+        "offset": 1028852,
+        "sha256": "c0a31062786e5a0bd1384d210fb9360d8f4884066f50c01c05ebbe286db774e2"
+      },
+      {
+        "file": "0b2cdb82-position-setup-fb6a0.bin",
+        "offset": 1029792,
+        "sha256": "f432991d53e591a11b77112608ed0534698f929a84b40f641e85de2da49fbc7f"
+      },
+      {
+        "file": "0b2cdb82-position-setup-fb6ac.bin",
+        "offset": 1029804,
+        "sha256": "ddfa66662f545f30b2e6260f9482bcc1f44655356d0a2c99150ce8436c446235"
+      },
+      {
+        "file": "0b2cdb82-position-setup-fb6a4.bin",
+        "offset": 1029796,
+        "sha256": "c61815b9f15c46297633a2dca9f4ba6348e4c05252954bdc07707f522d745dba"
+      },
+      {
+        "file": "0b2cdb82-position-setup-fb6a8.bin",
+        "offset": 1029800,
+        "sha256": "53af24bb1a5ba26fe328126c6cb85f481e7a7d637346d581a823d3138aaa9b1f"
+      },
+      {
+        "file": "0b2cdb82-position-setup-fb6b0.bin",
+        "offset": 1029808,
+        "sha256": "7cc7b0429e4d2c261609616d8bbc820d9dc955bb9b1189bef85d211558aa320d"
+      },
+      {
+        "file": "0b2cdb82-position-setup-fb6b4.bin",
+        "offset": 1029812,
+        "sha256": "40a0cbc97179c56e3b3e3a0e59d6b6d5887388024fea4dc350801119c54809b5"
+      },
+      {
+        "file": "0b2cdb82-position-setup-fb6b8.bin",
+        "offset": 1029816,
+        "sha256": "52b32150be150964d22077128bc04b0c69e5eca645c4d0e04a9e9930a58a1d76"
+      },
+      {
+        "file": "0b2cdb82-aux-media-defaults.bin",
+        "offset": 423808,
+        "sha256": "6bc6716dd68951d27bbde9578063a8487cba947bc6700eaf2df01c860185214c"
+      },
+      {
+        "file": "0b2cdb82-aux-read-control.bin",
+        "offset": 1070172,
+        "sha256": "8fbade04c3a0196e17720a9c1a9f93150f342244593b6cc81cec11599e49457f"
+      },
+      {
+        "file": "0b2cdb82-aux-read-boundary.bin",
+        "offset": 1380796,
+        "sha256": "931d4678159fe5937376c8b287065833d2c16862bc679d0d29548cf1ab3f9dba"
+      },
+      {
+        "file": "0b2cdb82-aux-di-mode.bin",
+        "offset": 1084050,
+        "sha256": "7f9d78a8e850c5b2a043eae47b856561519f45bb5c5ff0e8d18d22f72fdcbda2"
+      },
+      {
+        "file": "0b2cdb82-aux-control18.bin",
+        "offset": 219246,
+        "sha256": "3c89df8e478efd63c8a729d39643e5b9291f96187578fe941a46006126448536"
+      },
+      {
+        "file": "0b2cdb82-aux-mode23.bin",
+        "offset": 220420,
+        "sha256": "fa7c9a00066260640a4da1260848c13d277a113e79a4aa04e504d5e8e2d226f0"
+      },
+      {
+        "file": "0b2cdb82-aux-parameter-class.bin",
+        "offset": 204162,
+        "sha256": "1ff03aa114260859c39f38ea427224df0ae7a72856219fdd7931efa0a43f232e"
+      },
+      {
+        "file": "0b2cdb82-aux-request-argument.bin",
+        "offset": 295776,
+        "sha256": "5bcc95b9efb28e293849edaf2da62a5e0177e975bddc989d9cf23dfe1e27fb66"
+      },
+      {
+        "file": "0b2cdb82-aux-read-value.bin",
+        "offset": 1659044,
+        "sha256": "446bb2b0520021965e55a438a1eea7377ce8d83e3e15b6865e9b88e0c018b477"
+      },
+      {
+        "file": "0b2cdb82-aux-read-status.bin",
+        "offset": 1659044,
+        "sha256": "446bb2b0520021965e55a438a1eea7377ce8d83e3e15b6865e9b88e0c018b477"
+      },
+      {
+        "file": "0b2cdb82-aux-initialization-bypass.bin",
+        "offset": 493792,
+        "sha256": "583e9c0a453bb47d6b99f95667b46fd301280693b3d5ebc7fd39e26776b6ebef"
+      },
+      {
+        "file": "0b2cdb82-aux-literal-32098.bin",
+        "offset": 204952,
+        "sha256": "f432991d53e591a11b77112608ed0534698f929a84b40f641e85de2da49fbc7f"
+      },
+      {
+        "file": "0b2cdb82-aux-literal-35a60.bin",
+        "offset": 219744,
+        "sha256": "f432991d53e591a11b77112608ed0534698f929a84b40f641e85de2da49fbc7f"
+      },
+      {
+        "file": "0b2cdb82-aux-literal-36314.bin",
+        "offset": 221972,
+        "sha256": "f432991d53e591a11b77112608ed0534698f929a84b40f641e85de2da49fbc7f"
+      },
+      {
+        "file": "0b2cdb82-aux-literal-48554.bin",
+        "offset": 296276,
+        "sha256": "f432991d53e591a11b77112608ed0534698f929a84b40f641e85de2da49fbc7f"
+      },
+      {
+        "file": "0b2cdb82-aux-literal-48558.bin",
+        "offset": 296280,
+        "sha256": "04ce706254a429320610b0369b3b6dfc6f09146456167a07016ad38033a6e293"
+      },
+      {
+        "file": "0b2cdb82-aux-literal-678a4.bin",
+        "offset": 424100,
+        "sha256": "f432991d53e591a11b77112608ed0534698f929a84b40f641e85de2da49fbc7f"
+      },
+      {
+        "file": "0b2cdb82-aux-literal-678f8.bin",
+        "offset": 424184,
+        "sha256": "53af24bb1a5ba26fe328126c6cb85f481e7a7d637346d581a823d3138aaa9b1f"
+      },
+      {
+        "file": "0b2cdb82-aux-literal-78bfc.bin",
+        "offset": 494588,
+        "sha256": "f432991d53e591a11b77112608ed0534698f929a84b40f641e85de2da49fbc7f"
+      },
+      {
+        "file": "0b2cdb82-aux-literal-10569c.bin",
+        "offset": 1070748,
+        "sha256": "f432991d53e591a11b77112608ed0534698f929a84b40f641e85de2da49fbc7f"
+      },
+      {
+        "file": "0b2cdb82-aux-literal-1056c0.bin",
+        "offset": 1070784,
+        "sha256": "8993e68ac2750296e833a275918a95041034369f2d39d0bdb0d96d87b94f26f5"
+      },
+      {
+        "file": "0b2cdb82-aux-literal-108dac.bin",
+        "offset": 1084844,
+        "sha256": "f432991d53e591a11b77112608ed0534698f929a84b40f641e85de2da49fbc7f"
+      },
+      {
+        "file": "0b2cdb82-aux-literal-108db0.bin",
+        "offset": 1084848,
+        "sha256": "53af24bb1a5ba26fe328126c6cb85f481e7a7d637346d581a823d3138aaa9b1f"
+      },
+      {
+        "file": "0b2cdb82-aux-literal-1514c0.bin",
+        "offset": 1381568,
+        "sha256": "f432991d53e591a11b77112608ed0534698f929a84b40f641e85de2da49fbc7f"
+      },
+      {
+        "file": "0b2cdb82-aux-literal-1954f8.bin",
+        "offset": 1660152,
+        "sha256": "f432991d53e591a11b77112608ed0534698f929a84b40f641e85de2da49fbc7f"
+      },
+      {
+        "file": "0b2cdb82-aux-literal-196228.bin",
+        "offset": 1663528,
+        "sha256": "f432991d53e591a11b77112608ed0534698f929a84b40f641e85de2da49fbc7f"
+      },
+      {
+        "file": "0b2cdb82-aux-literal-19622c.bin",
+        "offset": 1663532,
+        "sha256": "3e6bf0a83bb48bfc05c084b369262994cff2d2df7fc1cfcb0180597d7691282c"
+      },
+      {
+        "file": "0b2cdb82-aux-callee-1901c0.bin",
+        "offset": 1638848,
+        "sha256": "0c5dc176978dab2405038d99d3ecca79fba4ae057fe0f296be21ff50309efc0c"
       }
     ],
     "areas": [
@@ -3248,6 +3621,36 @@
           ]
         },
         "kind": "initialization-bypass"
+      },
+      {
+        "start": 424010,
+        "site": 424016,
+        "caller": {
+          "entry": 423808,
+          "site": 424016,
+          "depths": [
+            24
+          ],
+          "returns": [
+            424346
+          ]
+        },
+        "kind": "media-defaults"
+      },
+      {
+        "start": 1070210,
+        "site": 1070216,
+        "caller": {
+          "entry": 1070172,
+          "site": 1070216,
+          "depths": [
+            32
+          ],
+          "returns": [
+            1070702
+          ]
+        },
+        "kind": "read-control"
       },
       {
         "start": 1381032,
@@ -3393,7 +3796,8 @@
     },
     "position_entry": 1029120,
     "calibration_entry": 1060140,
-    "read_position_entry": 1056984
+    "read_position_entry": 1056984,
+    "position_setup_entry": 1028852
   },
   {
     "source_sha256": "648a16d024eea31ef4901f3ac2180cbfffeda1161d70f9096335d8a6097445bc",
