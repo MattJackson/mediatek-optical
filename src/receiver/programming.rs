@@ -11,7 +11,9 @@ mod reserved;
 pub use reserved::{inspect_reserved_skips, ReservedSkips};
 
 mod loop_evidence;
-pub use loop_evidence::{inspect_compact_program_loop, ProgramLoopEvidence};
+pub use loop_evidence::{
+    inspect_compact_program_loop, inspect_program_loop, ProgramLoopEvidence, ProgramLoopVariant,
+};
 
 /// Both branches of the legacy application's update-bit-zero range selection.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

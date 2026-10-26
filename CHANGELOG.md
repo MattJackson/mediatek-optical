@@ -2,7 +2,7 @@
 
 ## 1.2.0 — Unreleased
 
-- Recognize the shared compact programming loop with role-checked relocated RAM
+- Recognize the shared compact and wide programming loops with role-checked relocated RAM
   cells. Evidence exposes source/destination, staging and remaining-length cells
   plus selected spans; it does not authorize a transfer or change receiver
   encoding, allocation or integrity policy.
