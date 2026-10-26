@@ -13,3 +13,8 @@ filenames or hashes.
 The WH14NS40 MT1939 excerpt retains the complete shared VID-success setup and
 its alternate nibble-4 branch. It validates a control-flow contract, not UHD
 capability; the existing two-round VID grammar already recognizes this producer.
+
+`classic-speed-sources.json` records sparse native RMAX/OPTM setter, selector
+and consumer excerpts from four code forms. Tests restore their original offsets
+into an erased image; no relocations or guessed firmware padding are written to
+a flashable image. SHA-256 values bind every excerpt to its original input.

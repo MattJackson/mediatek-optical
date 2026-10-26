@@ -2,13 +2,17 @@
 //! relationships, never a drive model or filename. Emission remains a caller policy.
 
 mod auth;
+mod classic_speed;
 mod media;
 mod vid;
 
 pub use auth::{AuthCell, AuthCellVariant};
+pub use classic_speed::ClassicSpeed;
 pub use media::{MediaGate, MediaGateVariant};
 pub use vid::{VidGate, VidGateVariant};
 
+#[cfg(test)]
+mod classic_speed_tests;
 #[cfg(test)]
 mod tests;
 
