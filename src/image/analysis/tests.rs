@@ -9,11 +9,15 @@ const WH_MEDIA: &[u8] = include_bytes!("../../../tests/fixtures/analysis/wh-medi
 fn source_layouts_select_independent_media_contracts() {
     let bu = MediaGate::inspect(BU_MEDIA).unwrap();
     assert_eq!(bu.variant(), MediaGateVariant::Explicit);
-    assert_eq!(bu.bd_site(), 16);
+    assert_eq!(bu.bd_site(), Some(16));
     assert_eq!(bu.uhd_site(), Some(4));
     let wh = MediaGate::inspect(WH_MEDIA).unwrap();
     assert_eq!(wh.variant(), MediaGateVariant::Descriptor);
-    assert_eq!(wh.bd_site(), 6);
+    assert_eq!(
+        wh.bd_site(),
+        None,
+        "descriptor bytes do not establish a BD role"
+    );
     assert_eq!(
         wh.uhd_site(),
         None,

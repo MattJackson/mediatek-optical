@@ -9,6 +9,8 @@
 - Reuse the existing two-round VID grammar for MT1939 classic. Recognize its
   interleaved r6 setup and preserve the distinct non-C/nibble-4 continuation;
   recognition alone does not establish UHD support or enable host emission.
+- Keep descriptor-pattern candidates distinct from proven native BD controls;
+  their protocol role must not be inferred from matching registers or sense bytes.
 - Keep the transport-only default build free of image analysis and decoding.
 
 ## 1.1.2

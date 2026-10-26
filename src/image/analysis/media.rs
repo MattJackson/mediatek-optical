@@ -30,7 +30,7 @@ const DESCRIPTOR: &[(u16, u16)] = &[
 pub enum MediaGateVariant {
     /// Independent native UHD and BD class checks.
     Explicit,
-    /// Shared descriptor classifier; only the BD discriminator is currently proven.
+    /// Shared descriptor candidate. Its BD/UHD protocol role is not established.
     Descriptor,
 }
 
@@ -98,9 +98,10 @@ impl MediaGate {
     pub fn anchor(&self) -> usize {
         self.anchor
     }
-    /// Whole-instruction native BD-control site.
-    pub fn bd_site(&self) -> usize {
-        self.bd_site
+    /// Whole-instruction native BD-control site, only when that role is proven.
+    /// A descriptor-pattern match alone does not establish a BD discriminator.
+    pub fn bd_site(&self) -> Option<usize> {
+        (self.variant == MediaGateVariant::Explicit).then_some(self.bd_site)
     }
     /// Native UHD-control site, when its separate role is proven.
     pub fn uhd_site(&self) -> Option<usize> {
