@@ -148,5 +148,12 @@
     "source_offset": "0x17c27a",
     "fixture_bytes": 258,
     "fixture_sha256": "5ce143a99173d0fb8d6a2c35d25fb652a950b05b3712a813451de841f8f0fe6b"
+  },
+  {
+    "name": "uh12-cmac-range",
+    "sha256": "eeb1c948f1ed98245b7d21d03fe5e333a3349d28453690e2a60b4a8dc01765ba",
+    "source_offset": "0x17c0e0",
+    "fixture_bytes": 250,
+    "fixture_sha256": "ca5bd1e97f81ab23b90dd874ff2b712c08b77f0db6cff754e2eae423e86cccff"
   }
 ]

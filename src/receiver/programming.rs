@@ -73,7 +73,23 @@ pub fn inspect_integrity_walker(
         index += 1;
     }
     let crypto = crypto?;
-    (Some(crypto) != diagnostic).then_some(crypto)
+    if Some(crypto) == diagnostic {
+        return None;
+    }
+    for (index, &expected) in super::mixed::COMPACT_CMAC_RANGE.iter().enumerate() {
+        let at = crypto.checked_add(u32::try_from(index * 2).ok()?)?;
+        let actual = word(bytes, base, at)?;
+        if expected & 0xf800 == 0x4800 {
+            if actual & 0xff00 != expected & 0xff00
+                || literal(bytes, base, at, (expected >> 8) & 7)? != 0x04063000
+            {
+                return None;
+            }
+        } else if actual != expected {
+            return None;
+        }
+    }
+    Some(crypto)
 }
 
 /// Both branches of the legacy application's update-bit-zero range selection.
@@ -430,8 +446,13 @@ mod integrity_join_tests {
     use super::*;
     #[test]
     fn complete_walker_binds_staging_and_retains_native_crypto() {
-        let bytes = include_bytes!("../../tests/fixtures/analysis/uh12-native-checks.bin");
-        let base = 0x17c27a;
+        let checks = include_bytes!("../../tests/fixtures/analysis/uh12-native-checks.bin");
+        let crypto = include_bytes!("../../tests/fixtures/analysis/uh12-cmac-range.bin");
+        let mut bytes = vec![0; 0x200000];
+        bytes[0x17c27a..0x17c27a + checks.len()].copy_from_slice(checks);
+        bytes[0x17c0e0..0x17c0e0 + crypto.len()].copy_from_slice(crypto);
+        let bytes = bytes.as_slice();
+        let base = 0;
         let start = 0x17c298;
         assert_eq!(
             inspect_integrity_walker(bytes, base, start, 0x02000c2c),
