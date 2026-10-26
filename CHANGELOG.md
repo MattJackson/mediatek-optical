@@ -2,6 +2,10 @@
 
 ## 1.2.0 — Unreleased
 
+- Follow explicit forward joins when binding boot/application integrity results.
+  Associate bulk decoder argument evidence with its exact range selection and
+  reuse the checked programming-tail grammar. These are read-only components;
+  intervening control flow and called-helper semantics remain separate checks.
 - Recognize the shared compact and wide programming loops with role-checked relocated RAM
   cells. Evidence exposes source/destination, staging and remaining-length cells
   plus selected spans; it does not authorize a transfer or change receiver

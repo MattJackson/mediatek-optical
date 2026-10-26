@@ -94,5 +94,21 @@
     "leading_padding": 0,
     "fixture_bytes": 2060,
     "fixture_sha256": "642844ae861edec362cbd8de585af7deb30fa7b4ef30a0628ff1230d77696406"
+  },
+  {
+    "name": "uh12-integrity-selection",
+    "sha256": "eeb1c948f1ed98245b7d21d03fe5e333a3349d28453690e2a60b4a8dc01765ba",
+    "source_offset": "0xa78bc",
+    "leading_padding": 0,
+    "fixture_bytes": 788,
+    "fixture_sha256": "2917d4588425bbefebed04b55c969f04c1053d809e3363613f78a4195c62259a"
+  },
+  {
+    "name": "uh12-application",
+    "sha256": "eeb1c948f1ed98245b7d21d03fe5e333a3349d28453690e2a60b4a8dc01765ba",
+    "source_offset": "0xa5288",
+    "leading_padding": 0,
+    "fixture_bytes": 10648,
+    "fixture_sha256": "010daf5a7294b821b141a0b6d770bec79d0e237f0fe6a2aa4ff6ad655470cbae"
   }
 ]

@@ -20,10 +20,40 @@ pub struct SelectedRange {
     pub acceptance: Option<programming::AcceptanceTail>,
 }
 
+#[cfg(test)]
+mod bulk_acceptance_tests {
+    use super::*;
+    const BASE: u32 = 0xa5288;
+    const HELD: &[u8] = include_bytes!("../../tests/fixtures/analysis/uh12-application.bin");
+
+    #[test]
+    fn bulk_decoder_and_integrity_bind_the_selected_programming_tail() {
+        let analysis = ApplicationAnalysis::inspect(HELD, BASE).unwrap();
+        assert_eq!(analysis.ranges().len(), 1);
+        assert_eq!(analysis.bulk_decoders().len(), 1);
+        assert_eq!(analysis.integrity_selections().len(), 1);
+        let tail = analysis.ranges()[0].acceptance.unwrap();
+        assert_eq!(tail.program_target, 0x17c44e);
+        assert_eq!(tail.program_call, 0xa7942);
+        for address in [0xa77ea, 0xa78ca, 0xa78f4, 0xa7938, 0xa7940] {
+            let mut changed = HELD.to_vec();
+            changed[(address - BASE) as usize] ^= 1;
+            let analysis = ApplicationAnalysis::inspect(&changed, BASE).unwrap();
+            assert!(analysis.ranges()[0].acceptance.is_none(), "{address:#x}");
+        }
+        let mut changed = HELD.to_vec();
+        changed[(0xa7942 - BASE) as usize] ^= 1;
+        let changed = ApplicationAnalysis::inspect(&changed, BASE).unwrap();
+        assert_ne!(changed.ranges()[0].acceptance, Some(tail));
+    }
+}
+
 /// A scratch header call and in-place body call sharing the same pointer cell
 /// and AES routine. Both selected-start policies are traced independently.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BulkDecode {
+    /// Range-selection block whose two starts supplied these decode calls.
+    pub selection_address: u32,
     /// Scratch header input/output evidence.
     pub header: Call,
     /// Body call when the selected start is zero.
@@ -226,10 +256,48 @@ impl ApplicationAnalysis {
                 conflicting_arguments = true;
             } else if let Some(header) = header {
                 bulk.push(BulkDecode {
+                    selection_address: range.selection.address,
                     header,
                     from_zero,
                     preserving_boot,
                 });
+            }
+        }
+        for range in &mut ranges {
+            if range.signature.is_some() {
+                continue;
+            }
+            let mut candidates = bulk
+                .iter()
+                .filter(|decode| decode.selection_address == range.selection.address)
+                .flat_map(|decode| {
+                    let cell = match decode.from_zero.source {
+                        Value::Loaded { cell, offset: 0 } => cell,
+                        _ => return Vec::new(),
+                    };
+                    integrity
+                        .iter()
+                        .filter_map(|checks| {
+                            if checks.address <= decode.from_zero.address
+                                || checks.address.checked_sub(decode.from_zero.address)? > 1024
+                            {
+                                return None;
+                            }
+                            programming::inspect_acceptance_with_staging(
+                                bytes,
+                                base,
+                                &range.selection,
+                                cell,
+                                checks,
+                            )
+                        })
+                        .collect::<Vec<_>>()
+                });
+            let first = candidates.next();
+            if candidates.next().is_some() {
+                conflicting_arguments = true;
+            } else {
+                range.acceptance = first;
             }
         }
         Some(Self {

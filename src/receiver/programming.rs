@@ -5,6 +5,7 @@
 //! particular, matching a header does not imply that boot is preserved.
 
 mod acceptance;
+pub(super) use acceptance::inspect_acceptance_with_staging;
 pub use acceptance::{inspect_acceptance_tail, AcceptanceTail};
 
 mod reserved;
@@ -298,8 +299,9 @@ fn inspect_shared_selection(bytes: &[u8], base: u32, start: u32) -> Option<Selec
     })
 }
 
-/// Establish the legacy application's complete boot/application CMAC choice.
+/// Establish the application's complete boot/application CMAC choice.
 /// Clearing update bit zero skips the boot checker, never the application one.
+/// The result test may be immediate or reached by an explicit forward join.
 pub fn inspect_legacy_integrity(bytes: &[u8], base: u32, start: u32) -> Option<IntegritySelection> {
     use super::decoding::branch_link;
     if base & 1 != 0 || start & 1 != 0 || literal(bytes, base, start, 0)? != 0x04002040 {
@@ -311,20 +313,47 @@ pub fn inspect_legacy_integrity(bytes: &[u8], base: u32, start: u32) -> Option<I
         (4, 0x07c0),
         (6, 0xd003),
         (12, 0x2801),
-        (14, 0xd102),
         (16, 0x2001),
-        (22, 0x2800),
     ] {
         if word(bytes, base, at(offset)?)? != expected {
             return None;
         }
     }
-    let branch = word(bytes, base, at(24)?)?;
+    let after_call = at(22)?;
+    let op = word(bytes, base, after_call)?;
+    let join = if op == 0x2800 {
+        after_call
+    } else if op & 0xf800 == 0xe000 {
+        let delta = (i32::from(op & 0x7ff) << 21) >> 20;
+        let target = u32::try_from(i64::from(after_call) + 4 + i64::from(delta)).ok()?;
+        if target <= after_call || target.checked_sub(after_call)? > 256 {
+            return None;
+        }
+        target
+    } else {
+        return None;
+    };
+    // Boot-check failure and application-check completion must test the same
+    // unmodified r0. Never linearly decode a skipped literal/padding island.
+    let boot_failure = word(bytes, base, at(14)?)?;
+    if boot_failure & 0xff00 != 0xd100
+        || u32::try_from(i64::from(at(14)?) + 4 + i64::from(boot_failure as u8 as i8) * 2).ok()?
+            != join
+        || word(bytes, base, join)? != 0x2800
+    {
+        return None;
+    }
+    let branch_at = join.checked_add(2)?;
+    let branch = word(bytes, base, branch_at)?;
     if branch & 0xff00 != 0xd100 {
         return None;
     }
-    let success = u32::try_from(i64::from(at(24)?) + 4 + i64::from(branch as u8 as i8) * 2).ok()?;
-    let failure = at(26)?;
+    let success =
+        u32::try_from(i64::from(branch_at) + 4 + i64::from(branch as u8 as i8) * 2).ok()?;
+    let failure = join.checked_add(4)?;
+    if success <= failure {
+        return None;
+    }
     word(bytes, base, success)?;
     word(bytes, base, failure)?;
     Some(IntegritySelection {
@@ -334,6 +363,45 @@ pub fn inspect_legacy_integrity(bytes: &[u8], base: u32, start: u32) -> Option<I
         success,
         failure,
     })
+}
+
+#[cfg(test)]
+mod integrity_join_tests {
+    use super::*;
+    const BASE: u32 = 0xa78bc;
+    const HELD: &[u8] =
+        include_bytes!("../../tests/fixtures/analysis/uh12-integrity-selection.bin");
+
+    #[test]
+    fn shared_integrity_branches_join_on_the_same_result_test() {
+        let proof = inspect_legacy_integrity(HELD, BASE, BASE).unwrap();
+        assert_eq!(proof.boot_check, 0x17c27a);
+        assert_eq!(proof.application_check, 0x17c298);
+        assert_eq!(proof.success, 0xa78e4);
+        assert_eq!(proof.failure, 0xa78da);
+        for at in [6, 14, 16, 22, 26, 29] {
+            let mut changed = HELD.to_vec();
+            changed[at] ^= 1;
+            assert!(
+                inspect_legacy_integrity(&changed, BASE, BASE).is_none(),
+                "{at:#x}"
+            );
+        }
+        let mut island = HELD.to_vec();
+        island[24..26].fill(0xff);
+        assert_eq!(inspect_legacy_integrity(&island, BASE, BASE), Some(proof));
+    }
+
+    #[test]
+    fn immediate_integrity_join_remains_supported() {
+        let mut immediate = HELD.to_vec();
+        for (at, word) in [(14, 0xd102u16), (22, 0x2800), (24, 0xd106)] {
+            immediate[at..at + 2].copy_from_slice(&word.to_le_bytes());
+        }
+        let proof = inspect_legacy_integrity(&immediate, BASE, BASE).unwrap();
+        assert_eq!(proof.success, BASE + 40);
+        assert_eq!(proof.failure, BASE + 26);
+    }
 }
 
 /// Match all instructions, both branches, literals and the branch join.

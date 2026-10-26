@@ -43,6 +43,25 @@ pub fn inspect_acceptance_tail(
     {
         return None;
     }
+    inspect_acceptance_with_staging(bytes, base, selection, signature.staging_cell, integrity)
+}
+
+/// Shared argument grammar after independently traced plaintext or bulk decode.
+/// This remains component evidence, not proof of the intervening control flow.
+pub(crate) fn inspect_acceptance_with_staging(
+    bytes: &[u8],
+    base: u32,
+    selection: &Selection,
+    staging_cell: u32,
+    integrity: &IntegritySelection,
+) -> Option<AcceptanceTail> {
+    if super::inspect_selection(bytes, base, selection.address)? != *selection
+        || super::inspect_legacy_integrity(bytes, base, integrity.address)? != *integrity
+        || staging_cell & 3 != 0
+        || !(0x02000000..0x02010000).contains(&staging_cell)
+    {
+        return None;
+    }
     let start = integrity.success;
     let at = |delta: u32| start.checked_add(delta);
     for (offset, expected) in [
@@ -76,7 +95,7 @@ pub fn inspect_acceptance_tail(
             return None;
         }
     }
-    if literal(bytes, base, at(16)?, 1)? != signature.staging_cell
+    if literal(bytes, base, at(16)?, 1)? != staging_cell
         || literal(bytes, base, at(82)?, 6)? != selection.length_cell
         || literal(bytes, base, at(88)?, 0)? != selection.start_cell
     {
