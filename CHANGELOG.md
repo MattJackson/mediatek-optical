@@ -2,6 +2,11 @@
 
 ## 1.2.0 — Unreleased
 
+- Expose the validated native authentication refusal separately from an alternate
+  implementation continuation, preserving the classic nibble-4 path contract.
+- Bind classic read-speed selectors to native RMAX/OPTM setter and consumer
+  roles, rejecting impure, ambiguous or disconnected leaf paths.
+
 - Validate all three native CMAC helper bodies and hardware operands at their
   decoded call targets, allowing proven call relocations across the same
   implementation while rejecting a wrong helper role or changed helper body.

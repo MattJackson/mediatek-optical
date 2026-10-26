@@ -32,6 +32,7 @@ fn auth_checks_follow_the_success_branch_and_derive_state_addresses() {
     assert_eq!(bu.variant(), AuthCellVariant::R0StateR4);
     assert_eq!(bu.site(), 0x136826 - 0x13675c);
     assert_eq!(bu.state_address(), 0x01ff9e04);
+    assert_eq!(bu.refusal(), bu.deny());
     let wh = AuthCell::detect(WH_AUTH).unwrap();
     assert_eq!(wh.variant(), AuthCellVariant::R1StateR1);
     assert_eq!(wh.site(), 0x13aa96 - 0x13a9ce + 2);
@@ -124,6 +125,8 @@ fn classic_vid_state_gate_retains_its_alternate_nibble_path() {
     assert_eq!(result.site(), 0x17f5ac - 0x17f4d6 + 2);
     assert_eq!(result.state_address(), 0x01ff9dd3);
     assert_eq!(result.deny(), 0x17f626 - 0x17f4d6 + 2);
+    assert_eq!(result.refusal(), 0x17f65e - 0x17f4d6 + 2);
+    assert_ne!(result.refusal(), result.deny());
 }
 
 #[test]

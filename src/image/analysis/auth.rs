@@ -23,6 +23,7 @@ pub struct AuthCell {
     variant: AuthCellVariant,
     site: usize,
     deny: usize,
+    refusal: usize,
     state: u32,
 }
 
@@ -123,6 +124,7 @@ impl AuthCell {
                 let valid_store = matches!(store_hw, 0x7005 | 0x7006 | 0x703e)
                     || (first == 0x2001 && half(image, deny + 2) == Some(0x7038));
                 let branch = if first == 0x2001 { deny + 4 } else { store + 2 };
+                let mut refusal = deny;
                 if alternate {
                     // This continuation is not a denial store: it re-reads the
                     // same byte through still-live r1 and selects a distinct
@@ -146,6 +148,7 @@ impl AuthCell {
                     {
                         return Err(Error::InvalidContract);
                     }
+                    refusal = exit;
                 } else if !valid_store || half(image, branch).map_or(true, |h| h & 0xf800 != 0xe000)
                 {
                     return Err(Error::InvalidContract);
@@ -157,6 +160,7 @@ impl AuthCell {
                     variant,
                     site: pc,
                     deny,
+                    refusal,
                     state,
                 });
             }
@@ -225,6 +229,12 @@ impl AuthCell {
     /// implementation rather than going directly to a denial store.
     pub fn deny(&self) -> usize {
         self.deny
+    }
+    /// Validated native refusal block. Unlike [`Self::deny`], this is not the
+    /// alternate nibble-4 implementation on classic firmware. It is reached
+    /// before entering either native implementation, with their live registers.
+    pub fn refusal(&self) -> usize {
+        self.refusal
     }
     /// State address derived from the live literal load.
     pub fn state_address(&self) -> u32 {
