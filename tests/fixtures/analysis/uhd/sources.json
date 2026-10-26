@@ -1,5 +1,88 @@
 [
   {
+    "source_sha256": "43c484dccc37ccb36183e970c5a4f28e90d6ccb530c0efd3bd8f96943ba7dfe3",
+    "parts": [
+      {
+        "file": "43c484dc-hardware_control_bit.bin",
+        "offset": 222280,
+        "sha256": "75b9d129d38f5583beab5b7d13378ad7a07cfbc09cff6cd00a101d1bfe511fea"
+      },
+      {
+        "file": "43c484dc-hardware_control_field.bin",
+        "offset": 205080,
+        "sha256": "9e925e496c3aa5631cba437e96c8d03abe3774d1e47c1148d18b3430809607ad"
+      },
+      {
+        "file": "43c484dc-speed_defaults_hardware_sensitive.bin",
+        "offset": 423680,
+        "sha256": "cb90a5f73dfdca2797d0953756828cfdd5ac319e29e561239f012752e6ada161"
+      },
+      {
+        "file": "43c484dc-forward_calculation.bin",
+        "offset": 1037324,
+        "sha256": "128d0c5cce76404d776aee72a4832475553f0d3a11bcdb60383f5bf752245a4a"
+      },
+      {
+        "file": "43c484dc-reverse_calculation.bin",
+        "offset": 1037444,
+        "sha256": "b5b6b1b7d9a4ee32f3b1166daf33d688178b0d82d0f1086a86f65dfcbf0b506f"
+      },
+      {
+        "file": "43c484dc-hardware_parameter_nibble.bin",
+        "offset": 1038208,
+        "sha256": "af252958c24339dd34d47103d94125bd0875331d0b85493f65d20060ca999453"
+      },
+      {
+        "file": "43c484dc-di_format_switch.bin",
+        "offset": 1649896,
+        "sha256": "0c5dc176978dab2405038d99d3ecca79fba4ae057fe0f296be21ff50309efc0c"
+      },
+      {
+        "file": "43c484dc-di_identifier_recognition.bin",
+        "offset": 1090588,
+        "sha256": "d4f9ac8430ffd57cd9c9edc2aa0f086f778a3da030cbfb6fe0977b3ed9d7b916"
+      }
+    ],
+    "areas": [
+      {
+        "area": "hardware_control_bit",
+        "site": 222322,
+        "variant": "classic"
+      },
+      {
+        "area": "hardware_control_field",
+        "site": 205120,
+        "variant": "classic"
+      },
+      {
+        "area": "speed_defaults_hardware_sensitive",
+        "site": 423720,
+        "variant": "classic"
+      },
+      {
+        "area": "forward_calculation",
+        "site": 1037366,
+        "variant": "classic"
+      },
+      {
+        "area": "reverse_calculation",
+        "site": 1037486,
+        "variant": "classic"
+      },
+      {
+        "area": "hardware_parameter_nibble",
+        "site": 1038248,
+        "variant": "classic"
+      },
+      {
+        "area": "di_identifier_recognition",
+        "site": 1091810,
+        "variant": "classic"
+      }
+    ],
+    "state": 33529299
+  },
+  {
     "source_sha256": "40eb760e23f100d55e86e9c061c73428d4087ef712294e4dbfcefa3093837a1a",
     "parts": [
       {
@@ -33,9 +116,14 @@
         "sha256": "13f5647b3e938fbd2cfc0134d555d62799f6c9795f3117a3bc453732111d3edf"
       },
       {
+        "file": "40eb760e-di_format_switch.bin",
+        "offset": 1646772,
+        "sha256": "0c5dc176978dab2405038d99d3ecca79fba4ae057fe0f296be21ff50309efc0c"
+      },
+      {
         "file": "40eb760e-di_identifier_recognition.bin",
-        "offset": 1090844,
-        "sha256": "7485c8a18e5f6086e4a4c14dcaa9fd4822bcb84366dd77b566d9b29eb88ea568"
+        "offset": 1089664,
+        "sha256": "5e2503a346c32ebead5a94d79ece9b1d0feeccce2ebd179f0915b20ec5867670"
       }
     ],
     "areas": [
@@ -111,9 +199,14 @@
         "sha256": "7a4035135ffb44296d48f126e581a01f6cad6a6a4d43fec326451ddbe28b0221"
       },
       {
+        "file": "b093a736-di_format_switch.bin",
+        "offset": 1647552,
+        "sha256": "0c5dc176978dab2405038d99d3ecca79fba4ae057fe0f296be21ff50309efc0c"
+      },
+      {
         "file": "b093a736-di_identifier_recognition.bin",
-        "offset": 1091020,
-        "sha256": "40ba8bd00c2633bd0f3238e6930e41220925600234465cb9cf5965391d54794e"
+        "offset": 1090304,
+        "sha256": "b95ca8989eae7a11d005b4cf3887c403a332d6a376a0bc799704fe39c671e398"
       }
     ],
     "areas": [
@@ -189,9 +282,14 @@
         "sha256": "fd04abcb2091638d420652efc2d404e35854b837f863b8436acfdf301b1366ac"
       },
       {
+        "file": "0b2cdb82-di_format_switch.bin",
+        "offset": 1638848,
+        "sha256": "0c5dc176978dab2405038d99d3ecca79fba4ae057fe0f296be21ff50309efc0c"
+      },
+      {
         "file": "0b2cdb82-di_identifier_recognition.bin",
-        "offset": 1085216,
-        "sha256": "b18a1b31db718bf4e7bed44b2d00576a0b5b5f4a1e8da5b188f1c1d56df709ec"
+        "offset": 1084048,
+        "sha256": "efa75fe5db560ad475f66a9d6ed69d726bf3d276e6307a4f4cbfceca243470a2"
       }
     ],
     "areas": [

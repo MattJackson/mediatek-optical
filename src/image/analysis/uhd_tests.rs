@@ -127,5 +127,48 @@ fn uhd_contracts_corpus_matches_inventory_without_chip_or_model_selection() {
             );
         }
         contracts.state_address().unwrap();
+        if contracts
+            .area(UhdArea::DiscInformation)
+            .unwrap()
+            .variant()
+            .starts_with("classic")
+        {
+            super::ClassicDi::detect(&bytes).unwrap_or_else(|e| panic!("{}: {e}", row["sha256"]));
+        }
     }
+}
+
+#[test]
+fn classic_di_binds_native_frame_format_and_layer_continuations() {
+    let (root, cases) = fixtures();
+    let mut count = 0;
+    for case in cases {
+        let image = image(&root, &case);
+        let areas = UhdAreas::inspect(&image);
+        if !areas
+            .area(UhdArea::DiscInformation)
+            .unwrap()
+            .variant()
+            .starts_with("classic")
+        {
+            continue;
+        }
+        let contract = super::ClassicDi::detect(&image)
+            .unwrap_or_else(|e| panic!("{}: {e}", case["source_sha256"]));
+        assert_eq!(contract.state, areas.state_address().unwrap());
+        assert!(contract.entry < contract.epilogue);
+        assert!(contract.epilogue < contract.prevalidation);
+        assert!(contract.prevalidation < contract.format);
+        assert!(contract.format < contract.layers);
+        // Reject altered layer arithmetic, rather than assuming all C states
+        // normalize alike from the identification grammar alone.
+        let mut bad = image.clone();
+        bad[contract.layers + 26] ^= 8;
+        assert!(super::ClassicDi::detect(&bad).is_err());
+        let mut bad = image.clone();
+        bad[contract.format + 6] ^= 1;
+        assert!(super::ClassicDi::detect(&bad).is_err());
+        count += 1;
+    }
+    assert_eq!(count, 4);
 }

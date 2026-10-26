@@ -5,12 +5,14 @@ mod auth;
 mod classic_speed;
 mod media;
 mod uhd;
+mod uhd_di;
 mod vid;
 
 pub use auth::{AuthCell, AuthCellVariant};
 pub use classic_speed::ClassicSpeed;
 pub use media::{MediaGate, MediaGateVariant};
 pub use uhd::{C7Selection, UhdArea, UhdAreaContract, UhdAreas, UhdEdge, UhdHandling, UhdLiteral};
+pub use uhd_di::ClassicDi;
 pub use vid::{VidGate, VidGateVariant};
 
 #[cfg(test)]
