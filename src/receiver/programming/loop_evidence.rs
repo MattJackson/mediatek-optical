@@ -1,4 +1,4 @@
-//! Complete compact loop matching with role-checked RAM literal relocation.
+//! Complete programming-loop matching with role-checked RAM literal relocation.
 use core::ops::Range;
 
 /// Complete instruction forms, independent of model names and RAM relocation.
