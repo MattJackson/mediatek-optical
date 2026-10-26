@@ -1,0 +1,704 @@
+[
+  {
+    "source_sha256": "40eb760e23f100d55e86e9c061c73428d4087ef712294e4dbfcefa3093837a1a",
+    "parts": [
+      {
+        "file": "40eb760e-hardware_control_bit.bin",
+        "offset": 222280,
+        "sha256": "75b9d129d38f5583beab5b7d13378ad7a07cfbc09cff6cd00a101d1bfe511fea"
+      },
+      {
+        "file": "40eb760e-hardware_control_field.bin",
+        "offset": 205080,
+        "sha256": "9e925e496c3aa5631cba437e96c8d03abe3774d1e47c1148d18b3430809607ad"
+      },
+      {
+        "file": "40eb760e-speed_defaults_hardware_sensitive.bin",
+        "offset": 424092,
+        "sha256": "e072d7547ae86b9e8d2787be1255b5d387f790ab21feb07bbd980b2178b579c9"
+      },
+      {
+        "file": "40eb760e-forward_calculation.bin",
+        "offset": 1036592,
+        "sha256": "5cd573bbf740b71e734ede689489168138f4883b157edad0a5acb7a6a507ddd4"
+      },
+      {
+        "file": "40eb760e-reverse_calculation.bin",
+        "offset": 1036712,
+        "sha256": "7cf5c0301f23c3d1f635abb6dce85592a3e83c4567fd3c69f8c5d102e834038d"
+      },
+      {
+        "file": "40eb760e-hardware_parameter_nibble.bin",
+        "offset": 1037476,
+        "sha256": "13f5647b3e938fbd2cfc0134d555d62799f6c9795f3117a3bc453732111d3edf"
+      },
+      {
+        "file": "40eb760e-di_identifier_recognition.bin",
+        "offset": 1090844,
+        "sha256": "7485c8a18e5f6086e4a4c14dcaa9fd4822bcb84366dd77b566d9b29eb88ea568"
+      }
+    ],
+    "areas": [
+      {
+        "area": "hardware_control_bit",
+        "site": 222322,
+        "variant": "classic"
+      },
+      {
+        "area": "hardware_control_field",
+        "site": 205120,
+        "variant": "classic"
+      },
+      {
+        "area": "speed_defaults_hardware_sensitive",
+        "site": 424132,
+        "variant": "classic"
+      },
+      {
+        "area": "forward_calculation",
+        "site": 1036634,
+        "variant": "classic"
+      },
+      {
+        "area": "reverse_calculation",
+        "site": 1036754,
+        "variant": "classic"
+      },
+      {
+        "area": "hardware_parameter_nibble",
+        "site": 1037516,
+        "variant": "classic"
+      },
+      {
+        "area": "di_identifier_recognition",
+        "site": 1090886,
+        "variant": "classic"
+      }
+    ],
+    "state": 33529299
+  },
+  {
+    "source_sha256": "b093a73656e58ee2a4367b5d92324fd7da3889f632a22b2f1be8802607cd3de4",
+    "parts": [
+      {
+        "file": "b093a736-hardware_control_bit.bin",
+        "offset": 222280,
+        "sha256": "6872b0f0d5ccc1de24152b36634d0dabbe1e0f68478d9e2496499488f479ed83"
+      },
+      {
+        "file": "b093a736-hardware_control_field.bin",
+        "offset": 205080,
+        "sha256": "65e350bfac1ace8c688791d21033ed5742254e65db5d119c5861b925961ae228"
+      },
+      {
+        "file": "b093a736-speed_defaults_hardware_sensitive.bin",
+        "offset": 423796,
+        "sha256": "84cf12e31be2685f9218bb94d78b78e3ef17162420f44ac4f0c4a990b854e788"
+      },
+      {
+        "file": "b093a736-forward_calculation.bin",
+        "offset": 1038028,
+        "sha256": "7fda98b78d3689095caa9ceb12d64524cdb3d342ae15e44cf17b811188c689cc"
+      },
+      {
+        "file": "b093a736-reverse_calculation.bin",
+        "offset": 1038148,
+        "sha256": "0b0d9259bed9e280960cfc1c01de1678481f9450450eddf06978107647ae4ffd"
+      },
+      {
+        "file": "b093a736-hardware_parameter_nibble.bin",
+        "offset": 1038912,
+        "sha256": "7a4035135ffb44296d48f126e581a01f6cad6a6a4d43fec326451ddbe28b0221"
+      },
+      {
+        "file": "b093a736-di_identifier_recognition.bin",
+        "offset": 1091020,
+        "sha256": "40ba8bd00c2633bd0f3238e6930e41220925600234465cb9cf5965391d54794e"
+      }
+    ],
+    "areas": [
+      {
+        "area": "hardware_control_bit",
+        "site": 222322,
+        "variant": "classic"
+      },
+      {
+        "area": "hardware_control_field",
+        "site": 205120,
+        "variant": "classic"
+      },
+      {
+        "area": "speed_defaults_hardware_sensitive",
+        "site": 423836,
+        "variant": "classic"
+      },
+      {
+        "area": "forward_calculation",
+        "site": 1038070,
+        "variant": "classic"
+      },
+      {
+        "area": "reverse_calculation",
+        "site": 1038190,
+        "variant": "classic"
+      },
+      {
+        "area": "hardware_parameter_nibble",
+        "site": 1038952,
+        "variant": "classic"
+      },
+      {
+        "area": "di_identifier_recognition",
+        "site": 1091062,
+        "variant": "classic_register_variant"
+      }
+    ],
+    "state": 33529300
+  },
+  {
+    "source_sha256": "0b2cdb82ff520589d4c750fae726571798901bf41e433de0a7164f7d74927d5f",
+    "parts": [
+      {
+        "file": "0b2cdb82-hardware_control_bit.bin",
+        "offset": 222044,
+        "sha256": "75b9d129d38f5583beab5b7d13378ad7a07cfbc09cff6cd00a101d1bfe511fea"
+      },
+      {
+        "file": "0b2cdb82-hardware_control_field.bin",
+        "offset": 204848,
+        "sha256": "de4c30c95003098ec4f5d50fb7611b92527d113707b8f040adc71195876d1238"
+      },
+      {
+        "file": "0b2cdb82-speed_defaults_hardware_sensitive.bin",
+        "offset": 423768,
+        "sha256": "7618446d9b0fdf37b97db1fa8b1e51d3f6dba3de0e3aa0eb75410d69c761b244"
+      },
+      {
+        "file": "0b2cdb82-forward_calculation.bin",
+        "offset": 1031132,
+        "sha256": "10151764d1aa66ef177d583b6d5eb6b6fbe318955686ad83098d8e23e025d068"
+      },
+      {
+        "file": "0b2cdb82-reverse_calculation.bin",
+        "offset": 1031252,
+        "sha256": "86916dd9946bdb7797b3a4b65de442a6abca1a73cd6375a54f0c6fd06837ad62"
+      },
+      {
+        "file": "0b2cdb82-hardware_parameter_nibble.bin",
+        "offset": 1032016,
+        "sha256": "fd04abcb2091638d420652efc2d404e35854b837f863b8436acfdf301b1366ac"
+      },
+      {
+        "file": "0b2cdb82-di_identifier_recognition.bin",
+        "offset": 1085216,
+        "sha256": "b18a1b31db718bf4e7bed44b2d00576a0b5b5f4a1e8da5b188f1c1d56df709ec"
+      }
+    ],
+    "areas": [
+      {
+        "area": "hardware_control_bit",
+        "site": 222086,
+        "variant": "classic"
+      },
+      {
+        "area": "hardware_control_field",
+        "site": 204888,
+        "variant": "classic"
+      },
+      {
+        "area": "speed_defaults_hardware_sensitive",
+        "site": 423808,
+        "variant": "classic_default8"
+      },
+      {
+        "area": "forward_calculation",
+        "site": 1031174,
+        "variant": "classic"
+      },
+      {
+        "area": "reverse_calculation",
+        "site": 1031294,
+        "variant": "classic"
+      },
+      {
+        "area": "hardware_parameter_nibble",
+        "site": 1032056,
+        "variant": "classic"
+      },
+      {
+        "area": "di_identifier_recognition",
+        "site": 1085258,
+        "variant": "classic"
+      }
+    ],
+    "state": 33529299
+  },
+  {
+    "source_sha256": "648a16d024eea31ef4901f3ac2180cbfffeda1161d70f9096335d8a6097445bc",
+    "parts": [
+      {
+        "file": "648a16d0-hardware_control_bit.bin",
+        "offset": 157404,
+        "sha256": "082d773c59a8ff763975fd41c191defb6d66c14c5bd8e7d29cf1b6ccb1c7c295"
+      },
+      {
+        "file": "648a16d0-hardware_control_field.bin",
+        "offset": 208448,
+        "sha256": "b3b68e26db4b0a94ad4b16bd285a6c5bbd9a67388ec6641ba7d66ae38571605c"
+      },
+      {
+        "file": "648a16d0-speed_defaults_hardware_sensitive.bin",
+        "offset": 427824,
+        "sha256": "28fe1895a7ce4b91e26a38a9b07ff055cd4f81d6a93044546e4e5147eba6e6fd"
+      },
+      {
+        "file": "648a16d0-forward_calculation.bin",
+        "offset": 888380,
+        "sha256": "97cb005b421946dba2be82ac6a64238a5befbd622f8070fb8b5fbaac2a47379b"
+      },
+      {
+        "file": "648a16d0-reverse_calculation.bin",
+        "offset": 888500,
+        "sha256": "bf0b7b93c0f22075c121bd502a585cc8468485dade54af347c39330352cebeaf"
+      },
+      {
+        "file": "648a16d0-hardware_parameter_nibble.bin",
+        "offset": 889852,
+        "sha256": "5ad4db29e23512ae776d69ab89b3e25d83cfc525a16a5f0bd62d1de0ae002899"
+      },
+      {
+        "file": "648a16d0-di_identifier_recognition.bin",
+        "offset": 919940,
+        "sha256": "e5f8c413822b07ba4084ccfdc99c529689447f2f0b44332ac9a1e9ddfdd5169a"
+      }
+    ],
+    "areas": [
+      {
+        "area": "hardware_control_bit",
+        "site": 157446,
+        "variant": "modern"
+      },
+      {
+        "area": "hardware_control_field",
+        "site": 208490,
+        "variant": "modern"
+      },
+      {
+        "area": "speed_defaults_hardware_sensitive",
+        "site": 427866,
+        "variant": "modern"
+      },
+      {
+        "area": "forward_calculation",
+        "site": 888420,
+        "variant": "modern"
+      },
+      {
+        "area": "reverse_calculation",
+        "site": 888542,
+        "variant": "modern"
+      },
+      {
+        "area": "hardware_parameter_nibble",
+        "site": 889892,
+        "variant": "modern"
+      },
+      {
+        "area": "di_identifier_recognition",
+        "site": 919980,
+        "variant": "modern"
+      }
+    ],
+    "state": 33529344
+  },
+  {
+    "source_sha256": "08d14869e553b84a92c4f897a120559673e75eee6d786988d038471aa2f5369a",
+    "parts": [
+      {
+        "file": "08d14869-hardware_control_bit.bin",
+        "offset": 167732,
+        "sha256": "5179f451062dae3d31eaa6cd4a27ae888aa0cd52108bef0b2ef921c0d6571484"
+      },
+      {
+        "file": "08d14869-hardware_control_field.bin",
+        "offset": 218136,
+        "sha256": "45dbb7f11aee937ec6c8dc8aab231f44e4a6a36ec97cb2f8ef52b13638626f0f"
+      },
+      {
+        "file": "08d14869-speed_defaults_hardware_sensitive.bin",
+        "offset": 895820,
+        "sha256": "3f054f9c43a54e94a8e3d9b24ba30ff05895cfac8a3b2ab7a0e7d672c1398920"
+      },
+      {
+        "file": "08d14869-forward_calculation.bin",
+        "offset": 886380,
+        "sha256": "d9de76909e500a726e471a002719438ff9e190bcfcdadaedecb090e142a934e3"
+      },
+      {
+        "file": "08d14869-reverse_calculation.bin",
+        "offset": 886608,
+        "sha256": "444fd5a318152a5d59530b7e6e741fce42a0a089a03be39bf1b3708c192a55da"
+      },
+      {
+        "file": "08d14869-hardware_parameter_nibble.bin",
+        "offset": 887932,
+        "sha256": "8138a0ba0e1749174baecfcfe4c1bd887ad88e9ea395218c9ec556906c7297fd"
+      },
+      {
+        "file": "08d14869-di_identifier_recognition.bin",
+        "offset": 920436,
+        "sha256": "77490a2cdf1a14e8fc16a946a8012ef30827973004a3cb08c68445d39f58a87b"
+      }
+    ],
+    "areas": [
+      {
+        "area": "hardware_control_bit",
+        "site": 167772,
+        "variant": "modern_base40"
+      },
+      {
+        "area": "hardware_control_field",
+        "site": 218178,
+        "variant": "modern_redundant_c8_test"
+      },
+      {
+        "area": "speed_defaults_hardware_sensitive",
+        "site": 895860,
+        "variant": "slim_fixed6_c7_aware"
+      },
+      {
+        "area": "forward_calculation",
+        "site": 886422,
+        "variant": "modern"
+      },
+      {
+        "area": "reverse_calculation",
+        "site": 886650,
+        "variant": "modern"
+      },
+      {
+        "area": "hardware_parameter_nibble",
+        "site": 887972,
+        "variant": "modern_register_variant"
+      },
+      {
+        "area": "di_identifier_recognition",
+        "site": 920478,
+        "variant": "modern_u_flag_variant"
+      }
+    ],
+    "state": 33529348
+  },
+  {
+    "source_sha256": "148d89cc6ea4351c987913ec0417152808a2fb32c06c230c2ef9a1585233ed50",
+    "parts": [
+      {
+        "file": "148d89cc-hardware_control_bit.bin",
+        "offset": 167988,
+        "sha256": "a2576ea516cc3f359b14da579357198765bce0f62557f09b3dda9859aaa3079f"
+      },
+      {
+        "file": "148d89cc-hardware_control_field.bin",
+        "offset": 218372,
+        "sha256": "ec2fac74b3a0cfdd23d8abd38c701cb28ae0835cddea0525d572cce049d44514"
+      },
+      {
+        "file": "148d89cc-speed_defaults_hardware_sensitive.bin",
+        "offset": 891504,
+        "sha256": "71d21a07e1a08d44272548f5bdcf6bfb37f976c4b11489ba1c7a99c1c28aa331"
+      },
+      {
+        "file": "148d89cc-forward_calculation.bin",
+        "offset": 881884,
+        "sha256": "04a28c17f0995c03afa801fd2c656eb05480d4b38a6c715bb1305a4d30c2e2aa"
+      },
+      {
+        "file": "148d89cc-reverse_calculation.bin",
+        "offset": 882108,
+        "sha256": "57dbdf3fddae5fdd1e40e4fb2fbe82eba76376967aa318e16888286fbe112a1f"
+      },
+      {
+        "file": "148d89cc-hardware_parameter_nibble.bin",
+        "offset": 883392,
+        "sha256": "5bb8bccda472a3c3258022cf174e355e400114d3383f7686c77df85ac30aeefa"
+      },
+      {
+        "file": "148d89cc-di_identifier_recognition.bin",
+        "offset": 914468,
+        "sha256": "b816ac5e10cfe077b2784859d643cdc4fdcb59124494dfd21b1ac19fefe40258"
+      }
+    ],
+    "areas": [
+      {
+        "area": "hardware_control_bit",
+        "site": 168028,
+        "variant": "classic_base40"
+      },
+      {
+        "area": "hardware_control_field",
+        "site": 218414,
+        "variant": "modern_redundant_c8_test"
+      },
+      {
+        "area": "speed_defaults_hardware_sensitive",
+        "site": 891546,
+        "variant": "slim_fixed6_no_c7_test"
+      },
+      {
+        "area": "forward_calculation",
+        "site": 881926,
+        "variant": "classic"
+      },
+      {
+        "area": "reverse_calculation",
+        "site": 882150,
+        "variant": "classic"
+      },
+      {
+        "area": "hardware_parameter_nibble",
+        "site": 883434,
+        "variant": "classic_register_variant"
+      },
+      {
+        "area": "di_identifier_recognition",
+        "site": 914508,
+        "variant": "no_u_modern_register_variant"
+      }
+    ],
+    "state": 33529349
+  },
+  {
+    "source_sha256": "5e2ec51fb3559623e555aadf280c96268fee6da0acfa7b4000c0d4564e7da073",
+    "parts": [
+      {
+        "file": "5e2ec51f-hardware_control_bit.bin",
+        "offset": 166860,
+        "sha256": "e0a2be3fa3adeb009eae8be2d6c939b9d5b9b7541fb830be64f52c014bebc282"
+      },
+      {
+        "file": "5e2ec51f-hardware_control_field.bin",
+        "offset": 217108,
+        "sha256": "ceb90ed5d56897f0e1eb0bf2660ef4678ea325c08681ed9d6b3245edc5f2dc37"
+      },
+      {
+        "file": "5e2ec51f-speed_defaults_hardware_sensitive.bin",
+        "offset": 897952,
+        "sha256": "be84a00eb9414db8a8fb9b6077635b35a578b00b5e7ada7c704b94736134e12f"
+      },
+      {
+        "file": "5e2ec51f-forward_calculation.bin",
+        "offset": 891300,
+        "sha256": "a30fcbf5cc4f8e8c530e68d65ae8445e65e115224f1b187693e5b3b289802a0e"
+      },
+      {
+        "file": "5e2ec51f-reverse_calculation.bin",
+        "offset": 891420,
+        "sha256": "88a03667756abfd460ade0df5ca7e53b9cade815c5e7cf031e791a3e883d0a49"
+      },
+      {
+        "file": "5e2ec51f-hardware_parameter_nibble.bin",
+        "offset": 892772,
+        "sha256": "840f79854507a51ff9e61ba5c84bdbcc253797a7e4790a51c4c8efc941d1ad39"
+      },
+      {
+        "file": "5e2ec51f-di_identifier_recognition.bin",
+        "offset": 927672,
+        "sha256": "2b0af3c79601519273d96c0638fc255206c095b0d6c2e3018fbb02de4c85591b"
+      }
+    ],
+    "areas": [
+      {
+        "area": "hardware_control_bit",
+        "site": 166900,
+        "variant": "modern"
+      },
+      {
+        "area": "hardware_control_field",
+        "site": 217150,
+        "variant": "modern_redundant_c8_test"
+      },
+      {
+        "area": "speed_defaults_hardware_sensitive",
+        "site": 897992,
+        "variant": "desktop_default8_c7_aware"
+      },
+      {
+        "area": "forward_calculation",
+        "site": 891340,
+        "variant": "modern"
+      },
+      {
+        "area": "reverse_calculation",
+        "site": 891462,
+        "variant": "modern"
+      },
+      {
+        "area": "hardware_parameter_nibble",
+        "site": 892812,
+        "variant": "modern_register_variant"
+      },
+      {
+        "area": "di_identifier_recognition",
+        "site": 927714,
+        "variant": "modern_u_flag_store_variant"
+      }
+    ],
+    "state": 33529344
+  },
+  {
+    "source_sha256": "243a7b0bb237724ab0831ba0d0775f281259cc29643c0617df738856875db6ba",
+    "parts": [
+      {
+        "file": "243a7b0b-hardware_control_bit.bin",
+        "offset": 178536,
+        "sha256": "1aa20a159247bb658b4d65dcf7c9cf557770a7ad7d4dd713a6357f7115b8ef53"
+      },
+      {
+        "file": "243a7b0b-hardware_control_field.bin",
+        "offset": 225972,
+        "sha256": "16a378576e79678c5ff6a67d1363b247e55261f95084e87e56511c0c305e5d32"
+      },
+      {
+        "file": "243a7b0b-speed_defaults_hardware_sensitive.bin",
+        "offset": 428024,
+        "sha256": "3126a9149fe4ef840c94e20f4876c34afbe46e56defc004cbc1d28ae602bb580"
+      },
+      {
+        "file": "243a7b0b-forward_calculation.bin",
+        "offset": 1011140,
+        "sha256": "3b66c8395723ee6bde27f59969f8140c0a5618903c665b08ec8c44e1bcc35e1b"
+      },
+      {
+        "file": "243a7b0b-reverse_calculation.bin",
+        "offset": 1011260,
+        "sha256": "5b369a4ecad70f5d3410a1428f99a181f923a2811f712ec2c5ba1aae6bde0c7e"
+      },
+      {
+        "file": "243a7b0b-hardware_parameter_nibble.bin",
+        "offset": 1012612,
+        "sha256": "54b95e7728f01cbe68335c9aab44e09cf05347a7be52090c449e43e846068757"
+      },
+      {
+        "file": "243a7b0b-di_identifier_recognition.bin",
+        "offset": 1069412,
+        "sha256": "6b669eb2c3c63529e38629addebe96325b43d9ad48699f5dacfb32c75e22722a"
+      }
+    ],
+    "areas": [
+      {
+        "area": "hardware_control_bit",
+        "site": 178578,
+        "variant": "modern"
+      },
+      {
+        "area": "hardware_control_field",
+        "site": 226014,
+        "variant": "modern"
+      },
+      {
+        "area": "speed_defaults_hardware_sensitive",
+        "site": 428064,
+        "variant": "modern_reader_register_variant"
+      },
+      {
+        "area": "forward_calculation",
+        "site": 1011180,
+        "variant": "modern"
+      },
+      {
+        "area": "reverse_calculation",
+        "site": 1011302,
+        "variant": "modern"
+      },
+      {
+        "area": "hardware_parameter_nibble",
+        "site": 1012652,
+        "variant": "modern"
+      },
+      {
+        "area": "di_identifier_recognition",
+        "site": 1069452,
+        "variant": "modern"
+      }
+    ],
+    "state": 33529250
+  },
+  {
+    "source_sha256": "c88a69013d557b9c4cf1a4d603c314585f51a258b9747c345184e866eef36306",
+    "parts": [
+      {
+        "file": "c88a6901-hardware_control_bit.bin",
+        "offset": 160108,
+        "sha256": "841fe8391d3961b47e847b44f15fa48e1dc70dc1c8b01a34bd3c7ded6fbffb05"
+      },
+      {
+        "file": "c88a6901-hardware_control_field.bin",
+        "offset": 211436,
+        "sha256": "142a3e190e309019bf65d4033559ddf511f8dc82c8406b44214925affe42e1fe"
+      },
+      {
+        "file": "c88a6901-speed_defaults_hardware_sensitive.bin",
+        "offset": 430464,
+        "sha256": "64598cffc63e162159d943cde74385bc12d3cf38b5e11b232bd745959969c294"
+      },
+      {
+        "file": "c88a6901-forward_calculation.bin",
+        "offset": 899676,
+        "sha256": "93054e2be70dfa3040b1e2dff83293d5cad66152df8cba4aed4ddee16efce4df"
+      },
+      {
+        "file": "c88a6901-reverse_calculation.bin",
+        "offset": 899908,
+        "sha256": "a81857b43dcb78fa2b8141442f8699f5bc2045c6889cce6a4e50bb8617e68571"
+      },
+      {
+        "file": "c88a6901-hardware_parameter_nibble.bin",
+        "offset": 901092,
+        "sha256": "7e64f5c445282072add71bf1926e0437944f9981ac4f58469551299205d90af7"
+      },
+      {
+        "file": "c88a6901-di_identifier_recognition.bin",
+        "offset": 929920,
+        "sha256": "afcb6a3e13b5360b04c78f12fe62203989d5995344b1c2a9f99326c38a6f1a64"
+      }
+    ],
+    "areas": [
+      {
+        "area": "hardware_control_bit",
+        "site": 160150,
+        "variant": "classic_base80"
+      },
+      {
+        "area": "hardware_control_field",
+        "site": 211476,
+        "variant": "classic_register_variant"
+      },
+      {
+        "area": "speed_defaults_hardware_sensitive",
+        "site": 430506,
+        "variant": "slim_early_fixed6"
+      },
+      {
+        "area": "forward_calculation",
+        "site": 899716,
+        "variant": "classic"
+      },
+      {
+        "area": "reverse_calculation",
+        "site": 899950,
+        "variant": "classic"
+      },
+      {
+        "area": "hardware_parameter_nibble",
+        "site": 901132,
+        "variant": "classic"
+      },
+      {
+        "area": "di_identifier_recognition",
+        "site": 929960,
+        "variant": "no_u_modern_early_variant"
+      }
+    ],
+    "state": 33529327
+  }
+]

@@ -4,17 +4,21 @@
 mod auth;
 mod classic_speed;
 mod media;
+mod uhd;
 mod vid;
 
 pub use auth::{AuthCell, AuthCellVariant};
 pub use classic_speed::ClassicSpeed;
 pub use media::{MediaGate, MediaGateVariant};
+pub use uhd::{C7Selection, UhdArea, UhdAreaContract, UhdAreas, UhdEdge, UhdHandling, UhdLiteral};
 pub use vid::{VidGate, VidGateVariant};
 
 #[cfg(test)]
 mod classic_speed_tests;
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod uhd_tests;
 
 /// A recognition failure; absence and conflicting evidence are distinct.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

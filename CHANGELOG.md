@@ -2,6 +2,10 @@
 
 ## 1.2.0 — Unreleased
 
+- Add independent DI-recognition and C7-routing contracts with typed native
+  handling, common state-cell validation, original replay instructions and bound
+  continuations. Inventory hardware defaults separately; no UHD capability claim.
+
 - Expose the validated native authentication refusal separately from an alternate
   implementation continuation, preserving the classic nibble-4 path contract.
 - Bind classic read-speed selectors to native RMAX/OPTM setter and consumer
