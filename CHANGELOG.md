@@ -2,6 +2,10 @@
 
 ## 1.2.0 — Unreleased
 
+- Recognize the shared compact programming loop with role-checked relocated RAM
+  cells. Evidence exposes source/destination, staging and remaining-length cells
+  plus selected spans; it does not authorize a transfer or change receiver
+  encoding, allocation or integrity policy.
 - Add opt-in read-only OEM hook analysis, with evidence-selected media and VID
   grammars and six auth-cell register contracts. Resolve the VID preparation
   success path before selecting a state-band check; derive literal addresses,

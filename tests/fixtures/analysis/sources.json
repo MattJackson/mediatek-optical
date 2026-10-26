@@ -74,5 +74,15 @@
     "producer": 2,
     "gate": 94,
     "site": 216
+  },
+  {
+    "name": "uh12-program",
+    "model": "BDDVDRW UH12NS40",
+    "rev": "1.03",
+    "sha256": "eeb1c948f1ed98245b7d21d03fe5e333a3349d28453690e2a60b4a8dc01765ba",
+    "source_offset": "0x17000",
+    "leading_padding": 0,
+    "fixture_bytes": 2016,
+    "fixture_sha256": "3c3f9685afb255872bc168fe45e54b42fe6e34df556305578d732f162aa25fda"
   }
 ]
