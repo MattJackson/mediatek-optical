@@ -6,7 +6,7 @@
 
 mod acceptance;
 pub(super) use acceptance::inspect_acceptance_with_staging;
-pub use acceptance::{inspect_acceptance_tail, AcceptanceTail};
+pub use acceptance::{inspect_acceptance_tail, AcceptanceTail, ResultCheck};
 
 mod reserved;
 pub use reserved::{inspect_reserved_skips, ReservedSkips};

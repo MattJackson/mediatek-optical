@@ -29,6 +29,39 @@ mod bulk_acceptance_tests {
     const HELD: &[u8] = include_bytes!("../../tests/fixtures/analysis/uh12-application.bin");
 
     #[test]
+    fn acceptance_records_decoded_constant_results_without_inventing_a_call() {
+        use programming::ResultCheck;
+        let baseline = ApplicationAnalysis::inspect(HELD, BASE).unwrap();
+        let original = baseline.ranges()[0].acceptance.unwrap();
+        assert!(matches!(original.marker_check, ResultCheck::Call(_)));
+        let at = (0xa7910 - BASE) as usize;
+        for (first, second, expected) in [
+            (0x2001u16, 0x2001u16, Some(1)),
+            (0x2002, 0xbf00, Some(2)),
+            (0x2000, 0x2001, Some(1)),
+            (0x2001, 0x2000, None),
+            (0x2101, 0x2001, None),
+            (0x2001, 0x6001, None),
+            (0xe000, 0x2001, None),
+        ] {
+            let mut changed = HELD.to_vec();
+            changed[at..at + 2].copy_from_slice(&first.to_le_bytes());
+            changed[at + 2..at + 4].copy_from_slice(&second.to_le_bytes());
+            let result = ApplicationAnalysis::inspect(&changed, BASE).unwrap();
+            match expected {
+                Some(value) => {
+                    let tail = result.ranges()[0].acceptance.unwrap();
+                    assert_eq!(tail.marker_check, ResultCheck::ConstantNonzero(value));
+                    assert_eq!(tail.program_target, original.program_target);
+                    assert_eq!(tail.continuation, original.continuation);
+                    assert!(result.ranges()[0].state_slot.is_some());
+                }
+                None => assert!(result.ranges()[0].acceptance.is_none()),
+            }
+        }
+    }
+
+    #[test]
     fn bulk_decoder_and_integrity_bind_the_selected_programming_tail() {
         let analysis = ApplicationAnalysis::inspect(HELD, BASE).unwrap();
         assert_eq!(analysis.ranges().len(), 1);

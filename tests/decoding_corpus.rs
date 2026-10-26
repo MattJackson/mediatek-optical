@@ -248,7 +248,10 @@ fn intm_and_v9_argument_proofs_match_independent_disassembly() {
     assert_eq!(tail.program_call, 0x9d69c);
     assert_eq!(tail.program_target, 0x140a5a);
     assert_eq!(tail.tag_check, 0x9ccba);
-    assert_eq!(tail.marker_check, 0x9cc90);
+    assert_eq!(
+        tail.marker_check,
+        mediatek_optical::receiver::programming::ResultCheck::Call(0x9cc90)
+    );
     assert_eq!(tail.descriptor_byte, 0x1ec056);
     assert_eq!(tail.error, 0x9d094);
     for offset in [

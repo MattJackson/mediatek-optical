@@ -3,6 +3,34 @@
 use super::{literal, word, IntegritySelection, PlainSignature, Selection};
 use crate::receiver::decoding::branch_link;
 
+/// How the result consumed by a following zero comparison is produced.
+/// Constant results are explicit evidence of a bypass, never a helper address.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ResultCheck {
+    /// A decoded direct call whose return value is tested.
+    Call(u32),
+    /// A proven nonzero r0 assignment with no other register or memory effects.
+    ConstantNonzero(u8),
+}
+
+fn result_check(bytes: &[u8], base: u32, address: u32) -> Option<ResultCheck> {
+    if let Some(target) = branch_link(bytes, base, address) {
+        return Some(ResultCheck::Call(target));
+    }
+    let mut value = None;
+    // Both halfwords must have known effects. Do not wildcard a missing call:
+    // reject branches, stores, other registers and unknown flag producers.
+    for at in [address, address.checked_add(2)?] {
+        let op = word(bytes, base, at)?;
+        if op & 0xff00 == 0x2000 {
+            value = Some(op as u8);
+        } else if op != 0x46c0 && op != 0xbf00 {
+            return None;
+        }
+    }
+    value.filter(|v| *v != 0).map(ResultCheck::ConstantNonzero)
+}
+
 /// Operand-bound acceptance checks and programming arguments.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct AcceptanceTail {
@@ -10,8 +38,8 @@ pub struct AcceptanceTail {
     pub address: u32,
     /// Tag-check helper, required to return nonzero.
     pub tag_check: u32,
-    /// Marker-check helper, required to return nonzero.
-    pub marker_check: u32,
+    /// Producer of the nonzero marker-check result; bypasses remain explicit.
+    pub marker_check: ResultCheck,
     /// Staged byte required to equal 0xDE.
     pub descriptor_byte: u32,
     /// Actual programming call instruction.
@@ -162,7 +190,7 @@ pub(crate) fn inspect_acceptance_with_staging(
     Some(AcceptanceTail {
         address: start,
         tag_check: branch_link(bytes, base, start)?,
-        marker_check: branch_link(bytes, base, at(44)?)?,
+        marker_check: result_check(bytes, base, at(44)?)?,
         descriptor_byte,
         program_call: at(94)?,
         program_target: branch_link(bytes, base, at(94)?)?,
