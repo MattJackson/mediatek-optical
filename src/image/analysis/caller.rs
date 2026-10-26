@@ -46,6 +46,7 @@ impl SavedLink {
                 || pc < entry
                 || pc >= entry + 0x1200
                 || !(0..=512).contains(&depth)
+                || (pc != entry && depth < 4)
             {
                 return Err(Error::InvalidContract);
             }
