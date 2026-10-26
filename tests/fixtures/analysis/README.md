@@ -9,3 +9,7 @@ The full source images are held in the firmware-extractor hoard; BU40N 1.00 and
 WH16NS58 1.V9 also have committed full-image integration fixtures in
 freemkv-firmware. Register variants are selected by code evidence, never these
 filenames or hashes.
+
+The WH14NS40 MT1939 excerpt retains the complete shared VID-success setup and
+its alternate nibble-4 branch. It validates a control-flow contract, not UHD
+capability; the existing two-round VID grammar already recognizes this producer.

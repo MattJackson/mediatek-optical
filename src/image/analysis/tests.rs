@@ -107,3 +107,30 @@ fn truncated_inputs_never_panic_or_claim_support() {
         assert!(MediaGate::inspect(&WH_MEDIA[..len]).is_err());
     }
 }
+
+#[test]
+fn classic_vid_state_gate_retains_its_alternate_nibble_path() {
+    let image = include_bytes!("../../../tests/fixtures/analysis/wh14-classic-vid.bin");
+    let vid = VidGate::inspect(image).unwrap();
+    assert_eq!(vid.variant(), VidGateVariant::TwoRound);
+    assert_eq!(vid.comparison(), 0x17f532 - 0x17f4d6 + 2);
+    assert_eq!(vid.producer(image).unwrap(), 2);
+    let result = AuthCell::detect(image).unwrap();
+    assert_eq!(result.variant(), AuthCellVariant::R0StateR1Alternate);
+    assert_eq!(result.site(), 0x17f5ac - 0x17f4d6 + 2);
+    assert_eq!(result.state_address(), 0x01ff9dd3);
+    assert_eq!(result.deny(), 0x17f626 - 0x17f4d6 + 2);
+}
+
+#[test]
+fn classic_state_gate_refuses_damaged_interleaving_and_alternate_paths() {
+    let source = include_bytes!("../../../tests/fixtures/analysis/wh14-classic-vid.bin");
+    for address in [0x17f5aa, 0x17f62a, 0x17f660] {
+        let mut image = source.to_vec();
+        image[address - 0x17f4d6 + 2] ^= 1;
+        assert!(
+            AuthCell::detect(&image).is_err(),
+            "accepted damaged contract at {address:x}"
+        );
+    }
+}

@@ -13,6 +13,8 @@ pub enum AuthCellVariant {
     R0StateR0,
     /// r0 value read from a preserved r5 state pointer.
     R0StateR5,
+    /// r0 read through r1, interleaved r6 setup; non-C continues to a nibble-4 path.
+    R0StateR1Alternate,
 }
 
 /// A state-band check reached from the successful VID preparation path.
@@ -72,8 +74,16 @@ impl AuthCell {
                 if !rounded || !saved || !agid_saved || pc < start + 6 {
                     return Err(Error::InvalidContract);
                 }
-                let load = half(image, pc - 4).ok_or(Error::Truncated)?;
-                let shift = half(image, pc - 2).ok_or(Error::Truncated)?;
+                let alternate = value == 0
+                    && pc >= 8
+                    && half(image, pc - 8) == Some(0x7808)
+                    && half(image, pc - 6).is_some_and(|h| h & 0xff00 == 0x4e00)
+                    && half(image, pc - 4) == Some(0x0900)
+                    && half(image, pc - 2) == Some(0x1d36);
+                let load_at = pc - if alternate { 8 } else { 4 };
+                let shift_at = pc - if alternate { 4 } else { 2 };
+                let load = half(image, load_at).ok_or(Error::Truncated)?;
+                let shift = half(image, shift_at).ok_or(Error::Truncated)?;
                 if shift != 0x0900 | ((value as u16) << 3) | value as u16 {
                     return Err(Error::InvalidContract);
                 }
@@ -83,10 +93,11 @@ impl AuthCell {
                     (1, 0x7821) => AuthCellVariant::R1StateR4,
                     (0, 0x7800) => AuthCellVariant::R0StateR0,
                     (0, 0x7828) => AuthCellVariant::R0StateR5,
+                    (0, 0x7808) if alternate => AuthCellVariant::R0StateR1Alternate,
                     _ => return Err(Error::UnknownLayout),
                 };
                 let (read_at, read_register, state) = state_read.ok_or(Error::InvalidContract)?;
-                if read_at != pc - 4 || read_register != value {
+                if read_at != load_at || read_register != value {
                     return Err(Error::InvalidContract);
                 }
                 let state = Some(state);
@@ -112,7 +123,31 @@ impl AuthCell {
                 let valid_store = matches!(store_hw, 0x7005 | 0x7006 | 0x703e)
                     || (first == 0x2001 && half(image, deny + 2) == Some(0x7038));
                 let branch = if first == 0x2001 { deny + 4 } else { store + 2 };
-                if !valid_store || half(image, branch).map_or(true, |h| h & 0xf800 != 0xe000) {
+                if alternate {
+                    // This continuation is not a denial store: it re-reads the
+                    // same byte through still-live r1 and selects a distinct
+                    // nibble-4 implementation. Keep that distinction explicit.
+                    if !super::matches(
+                        image,
+                        deny,
+                        &[(0x7808, 0xffff), (0x0900, 0xffff), (0x2804, 0xffff)],
+                    ) {
+                        return Err(Error::InvalidContract);
+                    }
+                    let exit =
+                        conditional(image, deny + 6, 0xd100).ok_or(Error::InvalidContract)?;
+                    if exit <= deny + 8
+                        || exit - deny > 0x100
+                        || !super::matches(
+                            image,
+                            exit,
+                            &[(0x2001, 0xffff), (0x7038, 0xffff), (0xe000, 0xf800)],
+                        )
+                    {
+                        return Err(Error::InvalidContract);
+                    }
+                } else if !valid_store || half(image, branch).map_or(true, |h| h & 0xf800 != 0xe000)
+                {
                     return Err(Error::InvalidContract);
                 }
                 if value == 1 && half(image, pc + 4).map_or(true, |h| h & 0xff00 != 0x4900) {
@@ -186,7 +221,8 @@ impl AuthCell {
     pub fn site(&self) -> usize {
         self.site
     }
-    /// Original state-store continuation on failed comparison.
+    /// Original non-C continuation. The alternate variant retains a nibble-4
+    /// implementation rather than going directly to a denial store.
     pub fn deny(&self) -> usize {
         self.deny
     }

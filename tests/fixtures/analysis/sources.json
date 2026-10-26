@@ -62,5 +62,17 @@
     "sha256": "97b287072e20c9527de6f34f6d564c8edcc6afb3ecf5675c11b8262c11663061",
     "leading_padding": 0,
     "fixture_bytes": 82
+  },
+  {
+    "name": "wh14-classic-vid",
+    "model": "BD-RE WH14NS40",
+    "rev": "1.02",
+    "sha256": "40eb760e23f100d55e86e9c061c73428d4087ef712294e4dbfcefa3093837a1a",
+    "source_offset": "0x17f4d6",
+    "leading_padding": 2,
+    "fixture_bytes": 636,
+    "producer": 2,
+    "gate": 94,
+    "site": 216
   }
 ]

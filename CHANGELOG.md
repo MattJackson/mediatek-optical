@@ -3,9 +3,12 @@
 ## 1.2.0 — Unreleased
 
 - Add opt-in read-only OEM hook analysis, with evidence-selected media and VID
-  grammars and five auth-cell register contracts. Resolve the VID preparation
+  grammars and six auth-cell register contracts. Resolve the VID preparation
   success path before selecting a state-band check; derive literal addresses,
   validate stack preparation and retain original failure continuations.
+- Reuse the existing two-round VID grammar for MT1939 classic. Recognize its
+  interleaved r6 setup and preserve the distinct non-C/nibble-4 continuation;
+  recognition alone does not establish UHD support or enable host emission.
 - Keep the transport-only default build free of image analysis and decoding.
 
 ## 1.1.2
