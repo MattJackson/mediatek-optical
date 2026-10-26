@@ -177,6 +177,10 @@ fn uhd_contracts_corpus_matches_inventory_without_chip_or_model_selection() {
             super::ClassicDi::detect(&bytes).unwrap_or_else(|e| panic!("{}: {e}", row["sha256"]));
             super::ClassicConsumer::inspect(&bytes, contracts.state_address().unwrap())
                 .unwrap_or_else(|e| panic!("{} consumers: {e}", row["sha256"]));
+            super::ClassicCalibration::detect(&bytes, contracts.state_address().unwrap())
+                .unwrap_or_else(|e| panic!("{} calibration: {e}", row["sha256"]));
+            super::ClassicPosition::detect(&bytes, contracts.state_address().unwrap())
+                .unwrap_or_else(|e| panic!("{} position: {e}", row["sha256"]));
             super::ClassicParameter::detect(&bytes, contracts.state_address().unwrap())
                 .unwrap_or_else(|e| panic!("{} parameters: {e}", row["sha256"]));
         }
@@ -344,4 +348,63 @@ fn routing_callers_save_lr_and_restore_native_frames() {
         }
     }
     assert_eq!(count, 24);
+}
+
+#[test]
+fn classic_position_binds_complete_routine_and_both_native_scales() {
+    let (root, cases) = fixtures();
+    let mut count = 0;
+    for case in cases {
+        let Some(entry) = case["position_entry"].as_u64() else {
+            continue;
+        };
+        let bytes = image(&root, &case);
+        let state = case["state"].as_u64().unwrap() as u32;
+        let contract = super::ClassicPosition::detect(&bytes, state).unwrap();
+        assert_eq!(contract.entry, entry as usize);
+        for selection in [&contract.input, &contract.output] {
+            assert_eq!(contract.callers[0].entry, contract.callers[1].entry);
+            let mut bad = bytes.clone();
+            bad[selection.site() + 2] ^= 1;
+            assert!(super::ClassicPosition::detect(&bad, state).is_err());
+        }
+        let mut bad = bytes.clone();
+        bad[contract.entry + 0x52] ^= 1;
+        assert!(super::ClassicPosition::detect(&bad, state).is_err());
+        assert!(super::ClassicPosition::detect(&bytes, state + 1).is_err());
+        count += 1;
+    }
+    assert_eq!(count, 4);
+}
+
+#[test]
+fn classic_calibration_binds_startup_speed_indices_to_the_native_getter() {
+    let (root, cases) = fixtures();
+    let mut count = 0;
+    for case in cases {
+        let Some(entry) = case["calibration_entry"].as_u64() else {
+            continue;
+        };
+        let bytes = image(&root, &case);
+        let state = case["state"].as_u64().unwrap() as u32;
+        let contract = super::ClassicCalibration::detect(&bytes, state).unwrap();
+        let getter = super::ClassicParameter::detect(&bytes, state).unwrap();
+        assert_eq!(contract.caller.entry, entry as usize);
+        assert_eq!(
+            contract.original_base as usize + 0x58,
+            getter.oem_coefficients
+        );
+        assert_eq!(
+            contract.c7_coefficients.is_some(),
+            getter.selection.is_some()
+        );
+        let mut bad = bytes.clone();
+        bad[contract.site + 2] ^= 1;
+        assert!(super::ClassicCalibration::detect(&bad, state).is_err());
+        let mut bad = bytes.clone();
+        bad[entry as usize + 0x5e] ^= 1;
+        assert!(super::ClassicCalibration::detect(&bad, state).is_err());
+        count += 1;
+    }
+    assert_eq!(count, 4);
 }

@@ -97,3 +97,9 @@ fn unique(image: &[u8], pattern: &[(u16, u16)]) -> Result<usize, Error> {
     }
     found.ok_or(Error::UnknownLayout)
 }
+
+mod uhd_position;
+pub use uhd_position::ClassicPosition;
+
+mod uhd_calibration;
+pub use uhd_calibration::ClassicCalibration;

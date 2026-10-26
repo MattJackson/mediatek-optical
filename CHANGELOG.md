@@ -10,6 +10,8 @@
   Bind DI mode selection and read-boundary reflection; expose displaced literal
   loads for relocation. Classify complete native parameter getters as
   media-selected or state-independent, preserving their own calibration tables.
+  Bind the complete paired position-scaling routine and startup calibration
+  lookup to native speed indices and the independently matched parameter getter.
 
 - Expose the validated native authentication refusal separately from an alternate
   implementation continuation, preserving the classic nibble-4 path contract.
