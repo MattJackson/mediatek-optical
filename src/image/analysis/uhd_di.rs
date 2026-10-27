@@ -84,9 +84,9 @@ impl ClassicDi {
         if !matches(image, prevalidation, &validation) {
             return Err(Error::InvalidContract);
         }
-        let identifier =
-            conditional(image, prevalidation + 8, 0xd000).ok_or(Error::InvalidContract)?;
-        if conditional(image, prevalidation + 14, 0xd000) != Some(identifier)
+        let identifier = conditional(image, prevalidation + 8, thumb_asm::Cond::Eq)
+            .ok_or(Error::InvalidContract)?;
+        if conditional(image, prevalidation + 14, thumb_asm::Cond::Eq) != Some(identifier)
             || half(image, identifier) != Some(0x466b)
         {
             return Err(Error::InvalidContract);
@@ -195,7 +195,9 @@ impl ClassicDi {
             return Err(Error::InvalidContract);
         }
         for (branch, destination) in [(10, 18), (20, 30), (32, 42), (44, 54)] {
-            if conditional(image, layers + branch, 0xd100) != Some(layers + destination) {
+            if conditional(image, layers + branch, thumb_asm::Cond::Ne)
+                != Some(layers + destination)
+            {
                 return Err(Error::InvalidContract);
             }
         }

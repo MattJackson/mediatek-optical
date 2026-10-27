@@ -223,8 +223,8 @@ impl ClassicParameter {
                     if literal_value(image, entry + 2) != Some(state) {
                         return Err(Error::InvalidContract);
                     }
-                    let reject =
-                        conditional(image, site + 2, 0xd100).ok_or(Error::InvalidContract)?;
+                    let reject = conditional(image, site + 2, thumb_asm::Cond::Ne)
+                        .ok_or(Error::InvalidContract)?;
                     if reject != entry + 0x68 {
                         return Err(Error::InvalidContract);
                     }

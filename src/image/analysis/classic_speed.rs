@@ -7,17 +7,17 @@ use std::collections::BTreeSet;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ClassicSpeed {
     /// Native selector entry, derived from a real call/OPTM store.
-    pub entry: usize,
+    pub(super) entry: usize,
     /// Shared `lsls r0,#24; lsrs r0,#24` return normalization.
-    pub site: usize,
+    pub(super) site: usize,
     /// Read maximum byte written by the native RMAX setter.
-    pub maximum_cell: u32,
+    pub(super) maximum_cell: u32,
     /// Current requested/optimum read-speed byte.
-    pub optimum_cell: u32,
+    pub(super) optimum_cell: u32,
     /// Media-type byte consumed by the selector.
-    pub media_cell: u32,
+    pub(super) media_cell: u32,
     /// Native call which stores this selector's result as OPTM.
-    pub consumer: usize,
+    pub(super) consumer: usize,
 }
 
 fn word(image: &[u8], at: usize) -> Option<u32> {
@@ -231,6 +231,31 @@ fn selector(image: &[u8], entry: usize) -> Option<(usize, u32, BTreeSet<u32>)> {
 }
 
 impl ClassicSpeed {
+    /// Native selector entry established by its consumer.
+    pub fn entry(&self) -> usize {
+        self.entry
+    }
+    /// Exact normalization-tail patch site.
+    pub fn site(&self) -> usize {
+        self.site
+    }
+    /// Native read-maximum producer cell.
+    pub fn maximum_cell(&self) -> u32 {
+        self.maximum_cell
+    }
+    /// Requested/optimum read-speed cell.
+    pub fn optimum_cell(&self) -> u32 {
+        self.optimum_cell
+    }
+    /// Native media-type cell.
+    pub fn media_cell(&self) -> u32 {
+        self.media_cell
+    }
+    /// Native call which stores the selected optimum value.
+    pub fn consumer(&self) -> usize {
+        self.consumer
+    }
+
     /// Find exactly one read-only selector whose native result is stored as OPTM.
     /// Every reachable instruction is checked; calls, stores, loops, unknown
     /// pointer loads and branches that bypass the common return hook are refused.

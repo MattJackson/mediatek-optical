@@ -394,7 +394,7 @@ impl ClassicReadCompletion {
                     producers[0].1,
                     state_register,
                 )?;
-                if conditional(image, at + 14, 0xd100) != Some(at + 50) {
+                if conditional(image, at + 14, thumb_asm::Cond::Ne) != Some(at + 50) {
                     return Err(Error::InvalidContract);
                 }
                 let join =
@@ -466,8 +466,8 @@ impl ClassicReadCompletion {
         {
             return Err(Error::InvalidContract);
         }
-        let boundary_reject =
-            conditional(image, boundary_region + 8, 0xd100).ok_or(Error::InvalidContract)?;
+        let boundary_reject = conditional(image, boundary_region + 8, thumb_asm::Cond::Ne)
+            .ok_or(Error::InvalidContract)?;
         let specs = [
             (
                 controller_region + 0x12,
@@ -491,7 +491,7 @@ impl ClassicReadCompletion {
         let mut selections = Vec::new();
         let mut callers = Vec::new();
         for (site, accept, reject, span) in specs {
-            if conditional(image, site + span - 2, 0xd100) != Some(reject) {
+            if conditional(image, site + span - 2, thumb_asm::Cond::Ne) != Some(reject) {
                 return Err(Error::InvalidContract);
             }
             selections.push(C7Selection {

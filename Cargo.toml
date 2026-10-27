@@ -35,9 +35,9 @@ std = []
 # Command sequences over a caller-supplied transport. no_std, no alloc.
 drive = []
 # Firmware image analysis: chip detection and the AES-CMAC integrity table.
-image = ["std", "dep:aes", "dep:cmac", "dep:sha2"]
+image = ["std", "dep:aes", "dep:cmac", "dep:sha2", "dep:thumb-asm"]
 # Read-only OEM instruction-layout analysis; transport-only users do not link a decoder.
-analysis = ["image", "dep:thumb-asm"]
+analysis = ["image", "dep:yaxpeax-arm", "dep:yaxpeax-arch"]
 # The AES-128-ECB `enc` transport envelope.
 enc = ["dep:aes"]
 # OEM image reconstruction from a drive read. Implies `image`.
@@ -50,7 +50,10 @@ all-features = true
 aes = { version = "0.8", optional = true }
 cmac = { version = "0.7", optional = true }
 sha2 = { version = "0.10", optional = true }
-thumb-asm = { version = "=0.13.0", optional = true }
+thumb-asm = { version = "=0.14.1", git = "https://github.com/MattJackson/thumb-asm", rev = "0d9b37aa76c964949256146ce9be0cfbe4f823a0", optional = true }
+
+yaxpeax-arm = { version = "0.5", default-features = false, optional = true }
+yaxpeax-arch = { version = "0.3", default-features = false, optional = true }
 
 [dev-dependencies]
 serde = { version = "1", features = ["derive"] }

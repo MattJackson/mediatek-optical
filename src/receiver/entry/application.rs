@@ -31,7 +31,7 @@ pub struct Candidate {
 }
 
 const THUMB_TABLE: &[u8] = b"\x5b\x00\x7b\x44\x9b\x88\x5b\x00\x9f\x44";
-const ARM_HELPER: &[u8] = b"\x01\xc0\x5e\xe5\x0c\x00\x53\xe1\x03\x30\xde\x37\x0c\x30\xde\x27\x83\xc0\x8e\xe0\x1c\xff\x2f\xe1";
+use crate::compiler::ARM_BYTE_SWITCH as ARM_HELPER;
 
 /// Verify the complete compiler helper referenced by a candidate. A partial
 /// read or different helper never licenses interpreting its inline table.

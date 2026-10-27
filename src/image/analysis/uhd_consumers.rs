@@ -337,7 +337,11 @@ impl ClassicConsumer {
                     } else {
                         2
                     },
-                    if def.target_accepts { 0xd000 } else { 0xd100 },
+                    if def.target_accepts {
+                        thumb_asm::Cond::Eq
+                    } else {
+                        thumb_asm::Cond::Ne
+                    },
                 )
                 .ok_or(Error::InvalidContract)?;
                 if (!matches!(
@@ -461,14 +465,14 @@ impl ClassicConsumer {
                             (0x2101, 0xffff),
                             (0xe000, 0xf800),
                         ];
-                        let join = conditional(image, region + 16, 0xd100)
+                        let join = conditional(image, region + 16, thumb_asm::Cond::Ne)
                             .ok_or(Error::InvalidContract)?;
                         let tail = thumb_asm::isa::decode_at(image, target + 10)
                             .ok_or(Error::InvalidContract)?;
                         if !(region + 0x24..=region + 0x80).contains(&target)
                             || !matches(image, target, pattern)
                             || literal(image, target) != literal(image, region + 30)
-                            || conditional(image, target + 6, 0xd100) != Some(join)
+                            || conditional(image, target + 6, thumb_asm::Cond::Ne) != Some(join)
                             || tail.mnemonic != "b"
                             || tail.cond.is_some()
                             || tail.branch_target().map(|v| v as usize) != Some(region + 32)

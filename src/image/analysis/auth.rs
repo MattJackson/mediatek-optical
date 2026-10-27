@@ -44,7 +44,8 @@ impl AuthCell {
         {
             return Err(Error::InvalidContract);
         }
-        let reject = conditional(image, gate + 2, 0xd100).ok_or(Error::InvalidContract)?;
+        let reject =
+            conditional(image, gate + 2, thumb_asm::Cond::Ne).ok_or(Error::InvalidContract)?;
         if reject < gate + 12
             || reject - gate > 0x100
             || half(image, reject - 4) != Some(0x2800)
@@ -52,19 +53,13 @@ impl AuthCell {
         {
             return Err(Error::InvalidContract);
         }
-        let start = conditional(image, reject - 2, 0xd100).ok_or(Error::InvalidContract)?;
+        let start =
+            conditional(image, reject - 2, thumb_asm::Cond::Ne).ok_or(Error::InvalidContract)?;
         if start <= reject || start - reject > 0x80 {
             return Err(Error::InvalidContract);
         }
         let mut pc = start;
-        let mut rounded = false;
-        let mut saved = false;
-        let mut agid_read = false;
-        let mut agid_shifted = false;
-        let mut agid_saved = false;
-        let mut sp_base = false;
-        let mut literals = [None; 8];
-        let mut alignment = [false; 8];
+        let mut flow = super::flow::ScratchFlow::new();
         let mut state_read = None;
         // These are straight-line scratch-setup blocks. Any control transfer
         // before the gate is unknown, including a table embedded in the bytes.
@@ -72,7 +67,7 @@ impl AuthCell {
             let hw = half(image, pc).ok_or(Error::Truncated)?;
             if hw == 0x280c || hw == 0x290c {
                 let value = ((hw >> 8) & 7) as u8;
-                if !rounded || !saved || !agid_saved || pc < start + 6 {
+                if !flow.complete() || pc < start + 6 {
                     return Err(Error::InvalidContract);
                 }
                 let alternate = value == 0
@@ -106,7 +101,8 @@ impl AuthCell {
                 if !(0x0100_0000..0x0300_0000).contains(&state) {
                     return Err(Error::InvalidContract);
                 }
-                let deny = conditional(image, pc + 2, 0xd100).ok_or(Error::InvalidContract)?;
+                let deny = conditional(image, pc + 2, thumb_asm::Cond::Ne)
+                    .ok_or(Error::InvalidContract)?;
                 if deny <= pc + 4 || deny - pc > 0x200 {
                     return Err(Error::InvalidContract);
                 }
@@ -136,8 +132,8 @@ impl AuthCell {
                     ) {
                         return Err(Error::InvalidContract);
                     }
-                    let exit =
-                        conditional(image, deny + 6, 0xd100).ok_or(Error::InvalidContract)?;
+                    let exit = conditional(image, deny + 6, thumb_asm::Cond::Ne)
+                        .ok_or(Error::InvalidContract)?;
                     if exit <= deny + 8
                         || exit - deny > 0x100
                         || !super::matches(
@@ -168,51 +164,10 @@ impl AuthCell {
             if ins.is_branch() || ins.writes_pc() {
                 return Err(Error::InvalidContract);
             }
-            // Track literal-register definitions through the straight-line prefix.
-            // Stores/compares do not define operand zero; other writes invalidate it.
-            let destination = if !ins.mnemonic.starts_with("str")
-                && !matches!(ins.mnemonic, "cmp" | "cmn" | "tst")
-            {
-                ins.operands.as_slice().next().and_then(|o| match o {
-                    thumb_asm::Operand::Reg(r) if r.0 < 8 => Some(r.0 as usize),
-                    _ => None,
-                })
-            } else {
-                None
-            };
-            let literal = if hw & 0xf800 == 0x4800 {
-                thumb_asm::analysis::literal_value(image, pc)
-            } else {
-                None
-            };
-            if hw & 0xf800 == 0x7800 {
-                let rn = ((hw >> 3) & 7) as usize;
-                let rt = (hw & 7) as u8;
-                let offset = (hw >> 6) & 31;
-                if offset == 10 && rt == 0 {
-                    agid_read =
-                        literals[rn].is_some_and(|v| (0x0200_0000..0x0200_2000).contains(&v));
-                }
-                if offset == 0 {
-                    state_read = literals[rn].map(|address| (pc, rt, address));
-                }
+            if let Some((register, address)) = flow.byte_load(image, pc) {
+                state_read = Some((pc, register, address));
             }
-            agid_shifted |= agid_read && hw == 0x0980;
-            sp_base |= hw == 0x466b;
-            agid_saved |= agid_shifted && sp_base && hw & 0xf83f == 0x7018;
-            if hw & 0xffc0 == 0x0880 {
-                alignment[(hw & 7) as usize] = true;
-            } else if hw & 0xffc0 == 0x0080 {
-                let r = (hw & 7) as usize;
-                rounded = alignment[((hw >> 3) & 7) as usize];
-                alignment[r] = false;
-            } else if let Some(dst) = destination {
-                alignment[dst] = false;
-            }
-            saved |= rounded && hw & 0xf800 == 0x9000;
-            if let Some(dst) = destination {
-                literals[dst] = literal;
-            }
+            flow.step(image, pc)?;
             pc += ins.width.bytes();
         }
         Err(Error::UnknownLayout)

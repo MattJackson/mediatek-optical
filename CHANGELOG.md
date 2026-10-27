@@ -2,6 +2,18 @@
 
 ## 1.2.0 — Unreleased
 
+- Add immutable, source-bound image analysis with cached role outcomes and typed
+  diagnostics. Bind command records to native table registration and linked-table
+  traversal; reject orphan tables, cycles and mismatched source images.
+- Bind response-buffer writers and committers to native caller arguments, exact
+  DMA expressions, guarded normalization and native return frames.
+- Preserve actual compiler-switch register effects during saved-frame analysis,
+  including pointer aliases and spilled frame references.
+- Report static SRAM references through decoded aliases and bounded native bulk
+  loops, with unresolved flow exposed separately from observed bytes. Use the
+  existing A32 decoder for ARM boot-branch evidence; Thumb decoding remains in
+  thumb-asm. Static reference absence is not a runtime free-memory guarantee.
+
 - Bind classic read-completion controller fields, boundary reflection and native ROM recovery dispatch through source instructions, shared state and saved frames. Cover the compiler register and branch-veneer variants without model/hash dispatch.
 
 - Add read-only native speed-policy contracts binding maximum/optimum defaults to the requested-rate clamp through register and address flow. Real source excerpts cover eight default grammars and reject changed clamp branches or maximum bindings; firmware rates are unchanged.

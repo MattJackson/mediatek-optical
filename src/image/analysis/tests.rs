@@ -141,3 +141,46 @@ fn classic_state_gate_refuses_damaged_interleaving_and_alternate_paths() {
         );
     }
 }
+
+#[test]
+fn authentication_requires_live_values_and_correct_stack_store_sources() {
+    type Mutation = (usize, fn(&mut thumb_asm::Asm));
+    let cases: &[Mutation] = &[
+        (0xae, |a| {
+            a.movs_imm(0, 0);
+        }),
+        (0xc2, |a| {
+            a.str_sp(0, 0);
+        }),
+        (0xc0, |a| {
+            a.lsls_imm(0, 1, 2);
+        }),
+        (0xb2, |a| {
+            a.movs_imm(3, 0);
+        }),
+        (0xae, |a| {
+            a.movs_imm(5, 0);
+        }),
+        (0xb6, |a| {
+            a.ldr_imm(0, 3, 0);
+        }),
+        (0xc2, |a| {
+            a.strb_imm(1, 3, 0);
+        }),
+        (0xb4, |a| {
+            a.str_sp(0, 4);
+        }),
+    ];
+    for &(at, build) in cases {
+        let mut assembler = thumb_asm::Asm::new();
+        build(&mut assembler);
+        let bytes = assembler.finish().unwrap();
+        assert_eq!(thumb_asm::isa::decode_at(&bytes, 0).unwrap().len(), 2);
+        let mut image = WH_AUTH.to_vec();
+        image[at..at + 2].copy_from_slice(&bytes[..2]);
+        assert!(
+            AuthCell::detect(&image).is_err(),
+            "accepted broken auth flow at {at:#x}"
+        );
+    }
+}

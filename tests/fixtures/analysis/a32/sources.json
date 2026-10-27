@@ -1,0 +1,24 @@
+{
+  "source_file": "BE14NU40_MT1939_JB7_1.01.bin",
+  "source_sha256": "7ff91816c192f4c0ba492b507c8119fafb71df7a25118d0e456682bb34e2e567",
+  "cases": [
+    {
+      "file": "bl-forward.bin",
+      "offset": 34492,
+      "target": 34992,
+      "sha256": "a9d1869218c769ee86fcd55ad252c165ecd9ed2bde40a6dfca203271aa900c65"
+    },
+    {
+      "file": "blx-forward.bin",
+      "offset": 34344,
+      "target": 34748,
+      "sha256": "044593f7922eb6060c2b691270184b6b98f2898ccc8627897417d66af9f23c39"
+    },
+    {
+      "file": "b-backward.bin",
+      "offset": 1652164,
+      "target": 1652152,
+      "sha256": "4fa50ef5c7cf074884d57752b197c183b01413f9df014a40e5604e9f6cdad0b3"
+    }
+  ]
+}

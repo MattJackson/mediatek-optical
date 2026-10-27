@@ -51,14 +51,16 @@ impl MediaGate {
     pub fn inspect(image: &[u8]) -> Result<Self, Error> {
         match unique(image, EXPLICIT) {
             Ok(a) => {
-                if conditional(image, a + 2, 0xd100) != Some(a + 10) {
+                if conditional(image, a + 2, thumb_asm::Cond::Ne) != Some(a + 10) {
                     return Err(Error::InvalidContract);
                 }
-                let accept = conditional(image, a + 20, 0xd000).ok_or(Error::InvalidContract)?;
-                if conditional(image, a + 14, 0xd100) != Some(accept) {
+                let accept = conditional(image, a + 20, thumb_asm::Cond::Eq)
+                    .ok_or(Error::InvalidContract)?;
+                if conditional(image, a + 14, thumb_asm::Cond::Ne) != Some(accept) {
                     return Err(Error::InvalidContract);
                 }
-                let deny = conditional(image, a + 8, 0xd100).ok_or(Error::InvalidContract)?;
+                let deny =
+                    conditional(image, a + 8, thumb_asm::Cond::Ne).ok_or(Error::InvalidContract)?;
                 Ok(Self {
                     variant: MediaGateVariant::Explicit,
                     anchor: a,

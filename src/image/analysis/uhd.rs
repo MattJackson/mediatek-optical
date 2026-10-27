@@ -244,7 +244,7 @@ fn bind(image: &[u8], def: &Definition, site: usize) -> Result<UhdAreaContract, 
     if def.name.starts_with("no_u") {
         let direct_r_failure = (site.saturating_sub(40)..site).step_by(2).any(|prior| {
             half(image, prior).is_some_and(|h| h & 0xf8ff == 0x2852)
-                && super::conditional(image, prior + 2, 0xd100) == Some(site)
+                && super::conditional(image, prior + 2, thumb_asm::Cond::Ne) == Some(site)
         });
         if !direct_r_failure {
             return Err(Error::InvalidContract);
@@ -271,8 +271,12 @@ fn bind(image: &[u8], def: &Definition, site: usize) -> Result<UhdAreaContract, 
             {
                 return Err(Error::InvalidContract);
             }
-            let reject = super::conditional(image, gate + selection.replay.len() * 2, 0xd100)
-                .ok_or(Error::InvalidContract)?;
+            let reject = super::conditional(
+                image,
+                gate + selection.replay.len() * 2,
+                thumb_asm::Cond::Ne,
+            )
+            .ok_or(Error::InvalidContract)?;
             let accept = gate + selection.span;
             if let Some(offset) = selection.reject_offset {
                 if reject != site + offset {

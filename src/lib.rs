@@ -48,6 +48,8 @@ mod product_identity;
 pub use product_identity::ProductIdentity;
 
 pub mod cdb;
+#[cfg(any(feature = "drive", feature = "analysis"))]
+mod compiler;
 #[cfg(feature = "drive")]
 pub mod drive;
 #[cfg(feature = "enc")]

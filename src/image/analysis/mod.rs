@@ -1,9 +1,27 @@
 //! Read-only OEM code-layout contracts. Matches identify instructions and their
 //! relationships, never a drive model or filename. Emission remains a caller policy.
 
+mod arm;
 mod auth;
 mod caller;
+mod caller_stack;
 mod classic_speed;
+mod command;
+pub use command::CommandDispatch;
+mod decoded;
+mod dispatch;
+mod dispatch_roots;
+pub use dispatch::CommandScanner;
+mod flow;
+mod image;
+pub use image::{Diagnostic, ImageAnalysis, Role};
+mod ram;
+mod ram_fill;
+pub use ram::RamReferences;
+mod response;
+mod response_expr;
+mod response_return;
+pub use response::{ResponseCommit, ResponseIo};
 mod media;
 mod switch;
 mod uhd;
@@ -31,6 +49,7 @@ mod uhd_tests;
 
 /// A recognition failure; absence and conflicting evidence are distinct.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum Error {
     /// No supported instruction grammar was found.
     UnknownLayout,
@@ -40,6 +59,17 @@ pub enum Error {
     InvalidContract,
     /// Required bytes or a branch destination lie outside the input.
     Truncated,
+}
+
+impl crate::CodedError for Error {
+    fn code(&self) -> &'static str {
+        match self {
+            Self::UnknownLayout => "mediatek.analysis.unknown_layout",
+            Self::Ambiguous => "mediatek.analysis.ambiguous",
+            Self::InvalidContract => "mediatek.analysis.invalid_contract",
+            Self::Truncated => "mediatek.analysis.truncated",
+        }
+    }
 }
 
 impl core::fmt::Display for Error {
@@ -61,16 +91,16 @@ fn half(image: &[u8], at: usize) -> Option<u16> {
     ))
 }
 
-fn conditional(image: &[u8], at: usize, condition: u16) -> Option<usize> {
-    let h = half(image, at)?;
-    if h & 0xff00 != condition {
+fn conditional(image: &[u8], at: usize, condition: thumb_asm::Cond) -> Option<usize> {
+    let ins = thumb_asm::isa::decode_at(image, at)?;
+    if ins.mnemonic != "b" || ins.cond != Some(condition) {
         return None;
     }
-    let target = (at as i64)
-        .checked_add(4)?
-        .checked_add(i64::from(h as u8 as i8) * 2)?;
-    let target = usize::try_from(target).ok()?;
-    (target + 2 <= image.len()).then_some(target)
+    let target = ins.branch_target()? as usize;
+    target
+        .checked_add(2)
+        .filter(|end| *end <= image.len())
+        .map(|_| target)
 }
 
 fn matches(image: &[u8], at: usize, pattern: &[(u16, u16)]) -> bool {

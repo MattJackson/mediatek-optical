@@ -55,13 +55,14 @@ pub enum VidGateVariant {
 
 /// Positive auth-state==6 gate and its enclosing producer.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct VidGate {
+pub struct VidGate<'a> {
+    image: &'a [u8],
     anchor: usize,
     variant: VidGateVariant,
 }
-impl VidGate {
+impl<'a> VidGate<'a> {
     /// Select an exact unique grammar; an ambiguous earlier form never falls back.
-    pub fn inspect(image: &[u8]) -> Result<Self, Error> {
+    pub fn inspect(image: &'a [u8]) -> Result<Self, Error> {
         let mut found = None;
         for (pattern, variant) in [
             (VID_GATE_SIG, VidGateVariant::Direct),
@@ -70,7 +71,14 @@ impl VidGate {
         ] {
             match unique(image, pattern) {
                 Ok(anchor) => {
-                    if found.replace(Self { anchor, variant }).is_some() {
+                    if found
+                        .replace(Self {
+                            image,
+                            anchor,
+                            variant,
+                        })
+                        .is_some()
+                    {
                         return Err(Error::Ambiguous);
                     }
                 }
@@ -92,8 +100,19 @@ impl VidGate {
     pub fn variant(&self) -> VidGateVariant {
         self.variant
     }
+    /// Producer entry in the immutable analyzed source.
+    pub fn producer_entry(&self) -> Result<usize, Error> {
+        self.producer(self.image)
+    }
+    /// AGID source address in the immutable analyzed source.
+    pub fn agid_address(&self) -> Result<u32, Error> {
+        self.agid_base(self.image)
+    }
     /// Unique nearest producer prologue preceding this gate.
     pub fn producer(&self, image: &[u8]) -> Result<usize, Error> {
+        if image != self.image {
+            return Err(Error::InvalidContract);
+        }
         let mut at = self.anchor + 16;
         let end = at.saturating_sub(0x200);
         while at >= end + 2 {
@@ -106,7 +125,7 @@ impl VidGate {
     }
 }
 
-impl VidGate {
+impl<'a> VidGate<'a> {
     /// Bind the session base to native AGID-byte reads, six-bit extraction and
     /// range checks. Every reachable checked read must have the same live base.
     pub fn agid_base(&self, image: &[u8]) -> Result<u32, Error> {
