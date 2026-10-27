@@ -166,3 +166,206 @@ impl SavedLink {
         Err(Error::UnknownLayout)
     }
 }
+
+impl SavedLink {
+    /// Require every path reaching this site to execute a validated definition,
+    /// without overwriting its saved register afterward. Calls preserve r4-r11.
+    /// The caller must validate the definition's operands and resulting value.
+    pub fn require_register_definition(
+        &self,
+        image: &[u8],
+        definition: usize,
+        definition_end: usize,
+        register: u8,
+    ) -> Result<(), Error> {
+        Self::require_live_definition(
+            image,
+            self.entry,
+            self.site,
+            definition,
+            definition_end,
+            register,
+        )
+    }
+
+    /// Prove a saved-register definition on every path from a native entry to a read.
+    /// Unlike detour binding, this does not impose an LR contract on the function tail.
+    pub fn require_live_definition(
+        image: &[u8],
+        entry: usize,
+        site: usize,
+        definition: usize,
+        definition_end: usize,
+        register: u8,
+    ) -> Result<(), Error> {
+        if entry >= site || !half(image, entry).is_some_and(|op| op & 0xff00 == 0xb500) {
+            return Err(Error::InvalidContract);
+        }
+        if !(4..=11).contains(&register)
+            || definition < entry
+            || definition_end <= definition
+            || definition_end > site
+            || definition_end - definition > 8
+        {
+            return Err(Error::InvalidContract);
+        }
+        let mut queue = VecDeque::from([(entry, false, 0i32)]);
+        let mut seen = BTreeSet::new();
+        let mut reached = false;
+        let mut starts = BTreeSet::new();
+        let mut second_halves = BTreeSet::new();
+        while let Some((pc, mut live, mut depth)) = queue.pop_front() {
+            if !seen.insert((pc, live, depth)) {
+                continue;
+            }
+            if seen.len() > 10000
+                || pc < entry.saturating_sub(0x1200)
+                || pc >= entry + 0x1200
+                || !(0..=512).contains(&depth)
+            {
+                return Err(Error::InvalidContract);
+            }
+            if second_halves.contains(&pc) {
+                return Err(Error::InvalidContract);
+            }
+            starts.insert(pc);
+            if pc == site {
+                if !live {
+                    return Err(Error::InvalidContract);
+                }
+                reached = true;
+                continue;
+            }
+            if pc == definition {
+                queue.push_back((definition_end, true, depth));
+                continue;
+            }
+            let ins = decode_at(image, pc).ok_or(Error::Truncated)?;
+            let next = pc + ins.len();
+            if ins.len() == 4 {
+                if starts.contains(&(pc + 2)) {
+                    return Err(Error::InvalidContract);
+                }
+                second_halves.insert(pc + 2);
+            }
+            // The native contracts here are Thumb-1 plus calls. Refuse other
+            // wide instructions rather than guess their multi-register effects.
+            if ins.len() == 4 && !ins.is_call() {
+                return Err(Error::InvalidContract);
+            }
+            for operand in ins.operands.as_slice() {
+                match operand {
+                    Operand::Text(text) => {
+                        let base = text
+                            .strip_prefix('r')
+                            .and_then(|s| s.strip_suffix('!'))
+                            .and_then(|s| s.parse::<u8>().ok())
+                            .ok_or(Error::InvalidContract)?;
+                        if base == register {
+                            live = false;
+                        }
+                    }
+                    Operand::Mem(m)
+                        if m.mode != thumb_asm::isa::AddrMode::Offset
+                            && m.base.num() == register =>
+                    {
+                        live = false
+                    }
+                    _ => {}
+                }
+            }
+
+            if matches!(ins.mnemonic, "push" | "pop") {
+                let Some(Operand::RegList(bits)) = ins.operands.get(0) else {
+                    return Err(Error::InvalidContract);
+                };
+                let count = bits.count_ones() as i32 * 4;
+                depth += if ins.mnemonic == "push" {
+                    count
+                } else {
+                    -count
+                };
+            } else if matches!(ins.mnemonic, "add" | "sub")
+                && ins.operands.get(0) == Some(Operand::Reg(Reg::SP))
+            {
+                let Some(Operand::Imm(imm)) = ins.operands.as_slice().last() else {
+                    return Err(Error::InvalidContract);
+                };
+                let count = i32::try_from(imm).map_err(|_| Error::InvalidContract)?;
+                depth += if ins.mnemonic == "sub" { count } else { -count };
+            }
+            if ins.is_call() {
+                if let Some(targets) = super::switch::targets(image, pc)? {
+                    queue.extend(targets.into_iter().map(|p| (p, live, depth)));
+                } else {
+                    queue.push_back((next, live, depth));
+                }
+                continue;
+            }
+            if ins.mnemonic == "pop" {
+                let Some(Operand::RegList(bits)) = ins.operands.get(0) else {
+                    return Err(Error::InvalidContract);
+                };
+                if bits & (1 << 15) != 0 {
+                    continue;
+                }
+                if bits & (1 << register) != 0 {
+                    live = false;
+                }
+            } else if matches!(ins.mnemonic, "ldm" | "ldmia" | "stm" | "stmia") {
+                for operand in ins.operands.as_slice() {
+                    if matches!(operand,Operand::Reg(r) if r.num()==register)
+                        || (ins.mnemonic.starts_with("ldm")
+                            && matches!(operand,Operand::RegList(bits) if bits&(1<<register)!=0))
+                    {
+                        live = false;
+                    }
+                }
+            } else if !matches!(
+                ins.mnemonic,
+                "cmp" | "cmn" | "tst" | "teq" | "push" | "b" | "nop"
+            ) && !ins.mnemonic.starts_with("str")
+                && matches!(ins.operands.get(0),Some(Operand::Reg(r)) if r.num()==register)
+            {
+                live = false;
+            }
+            if ins.is_branch() {
+                if ins.mnemonic != "b" {
+                    return Err(Error::InvalidContract);
+                }
+                let target = ins.branch_target().ok_or(Error::InvalidContract)? as usize;
+                queue.push_back((target, live, depth));
+                if ins.cond.is_some() {
+                    queue.push_back((next, live, depth));
+                }
+            } else {
+                queue.push_back((next, live, depth));
+            }
+        }
+        if !reached {
+            return Err(Error::InvalidContract);
+        }
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod live_definition_tests {
+    use super::*;
+    fn fixture(middle: &[u16]) -> (Vec<u8>, usize) {
+        let mut words = vec![0xb510, 0x4c00];
+        words.extend(middle);
+        let site = words.len() * 2;
+        words.extend([0x7820, 0xbd10]);
+        (words.into_iter().flat_map(u16::to_le_bytes).collect(), site)
+    }
+    #[test]
+    fn native_register_definition_rejects_writeback_and_clobber() {
+        let (good, site) = fixture(&[0x46c0]);
+        assert!(SavedLink::require_live_definition(&good, 0, site, 2, 4, 4).is_ok());
+        for middle in [&[0xc401][..], &[0x2400][..], &[0xf844, 0x0b04][..]] {
+            let (bad, site) = fixture(middle);
+            assert!(SavedLink::require_live_definition(&bad, 0, site, 2, 4, 4).is_err());
+        }
+    }
+}

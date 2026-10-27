@@ -357,45 +357,55 @@ impl ClassicReadCompletion {
                 let parent = SavedLink::detect(image, at)?;
                 let producers: Vec<_> = (parent.entry..at)
                     .step_by(2)
-                    .filter(|&site| {
+                    .filter_map(|site| {
                         let Some(op) = half(image, site) else {
-                            return false;
+                            return None;
                         };
                         if op & 0xff00 != 0x4800 | u16::from(state_register) << 8 {
-                            return false;
+                            return None;
                         }
                         let Some(mut value) = literal(image, site) else {
-                            return false;
+                            return None;
                         };
                         let Some(next) = half(image, site + 2) else {
-                            return false;
+                            return None;
                         };
+                        let mut end = site + 2;
                         if next & 0xff00 == 0x3000 | u16::from(state_register) << 8 {
                             let Some(v) = value.checked_add(u32::from(next & 255)) else {
-                                return false;
+                                return None;
                             };
                             value = v;
+                            end = site + 4;
                         } else if next & 0xff00 == 0x3800 | u16::from(state_register) << 8 {
                             let Some(v) = value.checked_sub(u32::from(next & 255)) else {
-                                return false;
+                                return None;
                             };
                             value = v;
+                            end = site + 4;
                         }
                         if next & 0xfe00 == 0x1e00
                             && (next & 7) as u8 == state_register
                             && ((next >> 3) & 7) as u8 == state_register
                         {
                             let Some(v) = value.checked_sub(u32::from((next >> 6) & 7)) else {
-                                return false;
+                                return None;
                             };
                             value = v;
+                            end = site + 4;
                         }
-                        value == state
+                        (value == state).then_some((site, end))
                     })
                     .collect();
                 if producers.len() != 1 {
                     return Err(Error::InvalidContract);
                 }
+                parent.require_register_definition(
+                    image,
+                    producers[0].0,
+                    producers[0].1,
+                    state_register,
+                )?;
                 if conditional(image, at + 14, 0xd100) != Some(at + 50) {
                     return Err(Error::InvalidContract);
                 }
@@ -412,7 +422,7 @@ impl ClassicReadCompletion {
                     .replace((
                         at,
                         at + pattern.len() * 2,
-                        producers[0],
+                        producers[0].0,
                         state_register,
                         request_register,
                         parent,

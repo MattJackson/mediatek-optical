@@ -504,6 +504,19 @@ fn read_completion_binds_native_fields_boundaries_and_saved_frames() {
             bad[s.site() + s.span() - 2] ^= 1;
             assert!(super::ClassicReadCompletion::inspect(&bad, state).is_err());
         }
+        // A syntactically intact old literal is insufficient after a clobber.
+        let mut bad = bytes.clone();
+        let overwrite = 0x2000u16 | u16::from(c.recovery_state_register) << 8;
+        bad[c.recovery_state_load + 4..c.recovery_state_load + 6]
+            .copy_from_slice(&overwrite.to_le_bytes());
+        assert!(super::ClassicReadCompletion::inspect(&bad, state).is_err());
+        // A live path bypassing the definition must also be refused.
+        let mut bad = bytes.clone();
+        let branch = c.recovery_state_load - 2;
+        let delta = c.recovery_region as isize - branch as isize - 4;
+        let instruction = 0xe000 | ((delta / 2) as u16 & 0x7ff);
+        bad[branch..branch + 2].copy_from_slice(&instruction.to_le_bytes());
+        assert!(super::ClassicReadCompletion::inspect(&bad, state).is_err());
         let mut bad = bytes.clone();
         bad[c.recovery_region + 14] ^= 1;
         assert!(super::ClassicReadCompletion::inspect(&bad, state).is_err());
