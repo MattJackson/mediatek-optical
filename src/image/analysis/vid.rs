@@ -106,26 +106,6 @@ impl VidGate {
     }
 }
 
-#[cfg(test)]
-mod selection_tests {
-    use super::*;
-    #[test]
-    fn distinct_unique_variants_are_ambiguous_together() {
-        let bytes = |pattern: &[(u16, u16)]| {
-            pattern
-                .iter()
-                .flat_map(|(op, _)| op.to_le_bytes())
-                .collect::<Vec<_>>()
-        };
-        for alternative in [VID_GATE_SIG_NB, VID_GATE_SIG_JB8] {
-            let mut image = bytes(VID_GATE_SIG);
-            image.extend([0xff; 16]);
-            image.extend(bytes(alternative));
-            assert_eq!(VidGate::inspect(&image), Err(Error::Ambiguous));
-        }
-    }
-}
-
 impl VidGate {
     /// Bind the session base to native AGID-byte reads, six-bit extraction and
     /// range checks. Every reachable checked read must have the same live base.
@@ -190,10 +170,9 @@ impl VidGate {
                     pointer,
                 )
                 .is_ok()
+                    && definition.replace(address).is_some()
                 {
-                    if definition.replace(address).is_some() {
-                        return Err(Error::Ambiguous);
-                    }
+                    return Err(Error::Ambiguous);
                 }
             }
             let address = definition.ok_or(Error::InvalidContract)?;
@@ -203,5 +182,25 @@ impl VidGate {
             base = Some(address);
         }
         base.ok_or(Error::UnknownLayout)
+    }
+}
+
+#[cfg(test)]
+mod selection_tests {
+    use super::*;
+    #[test]
+    fn distinct_unique_variants_are_ambiguous_together() {
+        let bytes = |pattern: &[(u16, u16)]| {
+            pattern
+                .iter()
+                .flat_map(|(op, _)| op.to_le_bytes())
+                .collect::<Vec<_>>()
+        };
+        for alternative in [VID_GATE_SIG_NB, VID_GATE_SIG_JB8] {
+            let mut image = bytes(VID_GATE_SIG);
+            image.extend([0xff; 16]);
+            image.extend(bytes(alternative));
+            assert_eq!(VidGate::inspect(&image), Err(Error::Ambiguous));
+        }
     }
 }

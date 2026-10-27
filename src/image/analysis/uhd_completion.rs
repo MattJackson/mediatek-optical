@@ -358,29 +358,19 @@ impl ClassicReadCompletion {
                 let producers: Vec<_> = (parent.entry..at)
                     .step_by(2)
                     .filter_map(|site| {
-                        let Some(op) = half(image, site) else {
-                            return None;
-                        };
+                        let op = half(image, site)?;
                         if op & 0xff00 != 0x4800 | u16::from(state_register) << 8 {
                             return None;
                         }
-                        let Some(mut value) = literal(image, site) else {
-                            return None;
-                        };
-                        let Some(next) = half(image, site + 2) else {
-                            return None;
-                        };
+                        let mut value = literal(image, site)?;
+                        let next = half(image, site + 2)?;
                         let mut end = site + 2;
                         if next & 0xff00 == 0x3000 | u16::from(state_register) << 8 {
-                            let Some(v) = value.checked_add(u32::from(next & 255)) else {
-                                return None;
-                            };
+                            let v = value.checked_add(u32::from(next & 255))?;
                             value = v;
                             end = site + 4;
                         } else if next & 0xff00 == 0x3800 | u16::from(state_register) << 8 {
-                            let Some(v) = value.checked_sub(u32::from(next & 255)) else {
-                                return None;
-                            };
+                            let v = value.checked_sub(u32::from(next & 255))?;
                             value = v;
                             end = site + 4;
                         }
@@ -388,9 +378,7 @@ impl ClassicReadCompletion {
                             && (next & 7) as u8 == state_register
                             && ((next >> 3) & 7) as u8 == state_register
                         {
-                            let Some(v) = value.checked_sub(u32::from((next >> 6) & 7)) else {
-                                return None;
-                            };
+                            let v = value.checked_sub(u32::from((next >> 6) & 7))?;
                             value = v;
                             end = site + 4;
                         }
