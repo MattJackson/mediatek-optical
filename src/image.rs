@@ -26,6 +26,11 @@ pub fn is_uhd(image: &[u8]) -> bool {
 /// page equals the page at [`layout::BOOT_MIRROR`]. A stored image never
 /// satisfies this, because flash holds the boot page in a different form.
 pub fn is_drive_read(read: &[u8]) -> bool {
+    // These mirrored pages describe the fixed MT19xx geometry, not arbitrary
+    // older optical firmware or a partial fragment with coincidentally equal data.
+    if read.len() != layout::IMAGE_SIZE {
+        return false;
+    }
     match (layout::BOOT_PAGE.of(read), layout::BOOT_MIRROR.of(read)) {
         (Some(boot), Some(mirror)) => boot == mirror,
         _ => false,

@@ -2,6 +2,8 @@
 
 ## 1.2.0 — Unreleased
 
+- Restrict boot-mirror readback detection to complete 2 MiB MT19xx images; older 512 KiB OEM firmware and partial fragments are not raw MT19xx captures.
+
 - Add immutable, source-bound image analysis with cached role outcomes and typed
   diagnostics. Bind command records to native table registration and linked-table
   traversal; reject orphan tables, cycles and mismatched source images.

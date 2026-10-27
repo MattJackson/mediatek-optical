@@ -55,6 +55,9 @@ fn drive_reads_mirror_the_boot_page() {
     img[..layout::BOOT_PAGE.len].fill(0x18);
     assert!(is_drive_read(&img));
     assert!(!is_drive_read(&img[..0x500]));
+    assert!(!is_drive_read(&img[..0x80000]));
+    img.push(0);
+    assert!(!is_drive_read(&img));
 }
 
 #[test]
