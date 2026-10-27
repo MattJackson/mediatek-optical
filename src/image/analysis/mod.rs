@@ -109,3 +109,9 @@ pub use uhd_read_position::ClassicReadPosition;
 
 mod uhd_position_setup;
 pub use uhd_position_setup::ClassicPositionSetup;
+
+mod speed_policy;
+pub use speed_policy::{NativeSpeedPolicy, RequestedRateClamp};
+
+#[cfg(test)]
+mod speed_policy_tests;

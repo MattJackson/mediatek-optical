@@ -349,47 +349,49 @@ fn bind(image: &[u8], def: &Definition, site: usize) -> Result<UhdAreaContract, 
 pub struct UhdAreas {
     areas: Vec<(UhdArea, Result<UhdAreaContract, Error>)>,
 }
+pub(super) fn inspect_role(image: &[u8], area: UhdArea) -> Result<UhdAreaContract, Error> {
+    let mut hits = Vec::new();
+    let mut invalid = None;
+    for def in layouts::DEFINITIONS.iter().filter(|d| d.area == area) {
+        let length = def.pattern.len() * 2;
+        if image.len() < length {
+            continue;
+        }
+        for site in (0..=image.len() - length).step_by(2) {
+            if !matches(image, site, def.pattern) {
+                continue;
+            }
+            match bind(image, def, site) {
+                Ok(contract) => hits.push(contract),
+                // Forward and reverse prefixes share instructions. A
+                // calculation with the opposite operation is not this role.
+                Err(Error::UnknownLayout)
+                    if matches!(
+                        area,
+                        UhdArea::ForwardCalculation | UhdArea::ReverseCalculation
+                    ) => {}
+                Err(error) => invalid = Some(error),
+            }
+        }
+    }
+    if let Some(error) = invalid {
+        Err(error)
+    } else if hits.len() > 1 {
+        Err(Error::Ambiguous)
+    } else {
+        hits.pop().ok_or(Error::UnknownLayout)
+    }
+}
+
 impl UhdAreas {
     /// Inspect native instruction roles; no model, hash, filename or generation whitelist.
     pub fn inspect(image: &[u8]) -> Self {
-        let areas = UhdArea::ALL
-            .into_iter()
-            .map(|area| {
-                let mut hits = Vec::new();
-                let mut invalid = None;
-                for def in layouts::DEFINITIONS.iter().filter(|d| d.area == area) {
-                    let length = def.pattern.len() * 2;
-                    if image.len() < length {
-                        continue;
-                    }
-                    for site in (0..=image.len() - length).step_by(2) {
-                        if !matches(image, site, def.pattern) {
-                            continue;
-                        }
-                        match bind(image, def, site) {
-                            Ok(contract) => hits.push(contract),
-                            // Forward and reverse prefixes share instructions. A
-                            // calculation with the opposite operation is not this role.
-                            Err(Error::UnknownLayout)
-                                if matches!(
-                                    area,
-                                    UhdArea::ForwardCalculation | UhdArea::ReverseCalculation
-                                ) => {}
-                            Err(error) => invalid = Some(error),
-                        }
-                    }
-                }
-                let result = if let Some(error) = invalid {
-                    Err(error)
-                } else if hits.len() > 1 {
-                    Err(Error::Ambiguous)
-                } else {
-                    hits.pop().ok_or(Error::UnknownLayout)
-                };
-                (area, result)
-            })
-            .collect();
-        Self { areas }
+        Self {
+            areas: UhdArea::ALL
+                .into_iter()
+                .map(|area| (area, inspect_role(image, area)))
+                .collect(),
+        }
     }
     /// Independent outcome for this role; no fallback from ambiguity to a chipset guess.
     pub fn area(&self, area: UhdArea) -> Result<&UhdAreaContract, Error> {

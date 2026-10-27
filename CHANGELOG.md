@@ -2,6 +2,8 @@
 
 ## 1.2.0 — Unreleased
 
+- Add read-only native speed-policy contracts binding maximum/optimum defaults to the requested-rate clamp through register and address flow. Real source excerpts cover eight default grammars and reject changed clamp branches or maximum bindings; firmware rates are unchanged.
+
 - Add independent DI-recognition and C7-routing contracts with typed native
   handling, common state-cell validation, original replay instructions and bound
   continuations. Inventory hardware defaults separately; no UHD capability claim.
