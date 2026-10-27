@@ -115,3 +115,6 @@ pub use speed_policy::{NativeSpeedPolicy, RequestedRateClamp};
 
 #[cfg(test)]
 mod speed_policy_tests;
+
+mod uhd_completion;
+pub use uhd_completion::ClassicReadCompletion;

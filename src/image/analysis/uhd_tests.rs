@@ -455,3 +455,64 @@ fn classic_position_setup_binds_both_selectors_and_native_table_operands() {
     }
     assert_eq!(count, 4);
 }
+
+#[test]
+fn read_completion_binds_native_fields_boundaries_and_saved_frames() {
+    let (root, cases) = fixtures();
+    let mut count = 0;
+    for case in cases {
+        if !case["auxiliary_consumers"].is_array() {
+            continue;
+        }
+        let bytes = image(&root, &case);
+        let state = case["state"].as_u64().unwrap() as u32;
+        let c = super::ClassicReadCompletion::inspect(&bytes, state)
+            .unwrap_or_else(|e| panic!("{} completion: {e}", case["source_sha256"]));
+        assert_eq!(c.selections.len(), 3);
+        let expected = &case["read_completion"];
+        assert_eq!(
+            c.controller_region,
+            expected["controller_region"].as_u64().unwrap() as usize
+        );
+        assert_eq!(
+            c.boundary_region,
+            expected["boundary_region"].as_u64().unwrap() as usize
+        );
+        assert_eq!(
+            c.boundary_end,
+            expected["boundary_end"].as_u64().unwrap() as usize
+        );
+        assert_eq!(
+            c.recovery_region,
+            expected["recovery_region"].as_u64().unwrap() as usize
+        );
+        assert_eq!(
+            c.recovery_end,
+            expected["recovery_end"].as_u64().unwrap() as usize
+        );
+        assert_eq!(
+            c.recovery_state_load,
+            expected["recovery_state_load"].as_u64().unwrap() as usize
+        );
+        assert_eq!(
+            c.recovery_flag_register,
+            u8::try_from(expected["recovery_flag_register"].as_u64().unwrap()).unwrap()
+        );
+        for (s, parent) in c.selections.iter().zip(&c.callers) {
+            assert!(parent.entry < s.site());
+            let mut bad = bytes.clone();
+            bad[s.site() + s.span() - 2] ^= 1;
+            assert!(super::ClassicReadCompletion::inspect(&bad, state).is_err());
+        }
+        let mut bad = bytes.clone();
+        bad[c.recovery_region + 14] ^= 1;
+        assert!(super::ClassicReadCompletion::inspect(&bad, state).is_err());
+        // An unchanged selector cannot authorize a changed controller field.
+        let mut bad = bytes.clone();
+        bad[c.controller_region + 0x20] ^= 1;
+        assert!(super::ClassicReadCompletion::inspect(&bad, state).is_err());
+        assert!(super::ClassicReadCompletion::inspect(&bytes, state + 1).is_err());
+        count += 1;
+    }
+    assert_eq!(count, 4);
+}

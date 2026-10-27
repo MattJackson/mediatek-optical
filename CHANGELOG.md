@@ -2,6 +2,8 @@
 
 ## 1.2.0 — Unreleased
 
+- Bind classic read-completion controller fields, boundary reflection and native ROM recovery dispatch through source instructions, shared state and saved frames. Cover the compiler register and branch-veneer variants without model/hash dispatch.
+
 - Add read-only native speed-policy contracts binding maximum/optimum defaults to the requested-rate clamp through register and address flow. Real source excerpts cover eight default grammars and reject changed clamp branches or maximum bindings; firmware rates are unchanged.
 
 - Add independent DI-recognition and C7-routing contracts with typed native

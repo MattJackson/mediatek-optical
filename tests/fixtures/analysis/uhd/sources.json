@@ -651,6 +651,61 @@
         "file": "43c484dc-aux-callee-192ce8.bin",
         "offset": 1649896,
         "sha256": "0c5dc176978dab2405038d99d3ecca79fba4ae057fe0f296be21ff50309efc0c"
+      },
+      {
+        "file": "43c484dccc37-recovery-0.bin",
+        "offset": 441556,
+        "sha256": "6e7ba5f274b97b2e72667cb16e9e57ee82ec55e0f729195c93dea41966f973e5"
+      },
+      {
+        "file": "43c484dccc37-recovery-1.bin",
+        "offset": 446656,
+        "sha256": "f432991d53e591a11b77112608ed0534698f929a84b40f641e85de2da49fbc7f"
+      },
+      {
+        "file": "43c484dccc37-recovery-2.bin",
+        "offset": 446660,
+        "sha256": "80ce781601b2bd1db8e7f306652ce0aa1caeec9d7557cf4848fe3c9a2b52fc4f"
+      },
+      {
+        "file": "43c484dccc37-recovery-3.bin",
+        "offset": 446664,
+        "sha256": "a7bace220b351d81359f377af22b97ae74951253df5b9f54d4c4f16c002f342f"
+      },
+      {
+        "file": "43c484dccc37-recovery-4.bin",
+        "offset": 446668,
+        "sha256": "f4da5df15fe9446056816d7caeb74c70df9dd7ecfac5ed2ec626081fa1a19b18"
+      },
+      {
+        "file": "43c484dccc37-recovery-5.bin",
+        "offset": 446672,
+        "sha256": "fb3c5ecba7289b7ac32eb59600b58cb933ccda6d31e155b69f55042c5ebbe28c"
+      },
+      {
+        "file": "43c484dccc37-recovery-6.bin",
+        "offset": 446676,
+        "sha256": "a53d5b4e91e526648902bb398a5df30194025cee075d7e6deb977d3c3d3eb893"
+      },
+      {
+        "file": "43c484dccc37-recovery-7.bin",
+        "offset": 446680,
+        "sha256": "91bcf3d97fb2db248f56ae35d3945ecce717facd8b818d992b407f6c451b6fa6"
+      },
+      {
+        "file": "43c484dccc37-recovery-8.bin",
+        "offset": 446684,
+        "sha256": "c131e85bda728ebcb3171f8b17ab9955b0d041ad175348181c3d988d222b521b"
+      },
+      {
+        "file": "43c484dccc37-recovery-9.bin",
+        "offset": 446688,
+        "sha256": "db151102db12d6d2a021407ebd8e076b152fef85ea57a000869b4c2d6a91cf7e"
+      },
+      {
+        "file": "43c484dccc37-recovery-10.bin",
+        "offset": 446692,
+        "sha256": "45dbb7540cf0f0ac684c1c70bf165bbcc4c8e88bbd87c0508430bbaa59ccccfa"
       }
     ],
     "areas": [
@@ -957,7 +1012,30 @@
     "position_entry": 1035312,
     "calibration_entry": 1066392,
     "read_position_entry": 1063236,
-    "position_setup_entry": 1035044
+    "position_setup_entry": 1035044,
+    "read_completion": {
+      "boundaries": [
+        33558356,
+        33558352,
+        33558348
+      ],
+      "boundary_end": 1673190,
+      "boundary_region": 1673036,
+      "controller_end": 223036,
+      "controller_region": 222928,
+      "recovery_caller": {
+        "entry": 441556,
+        "returns": [
+          441582
+        ]
+      },
+      "recovery_end": 441922,
+      "recovery_flag_register": 7,
+      "recovery_region": 441856,
+      "recovery_request_register": 5,
+      "recovery_state_load": 441622,
+      "recovery_state_register": 4
+    }
   },
   {
     "source_sha256": "40eb760e23f100d55e86e9c061c73428d4087ef712294e4dbfcefa3093837a1a",
@@ -1611,6 +1689,61 @@
         "file": "40eb760e-aux-callee-1920b4.bin",
         "offset": 1646772,
         "sha256": "0c5dc176978dab2405038d99d3ecca79fba4ae057fe0f296be21ff50309efc0c"
+      },
+      {
+        "file": "40eb760e23f1-recovery-0.bin",
+        "offset": 441968,
+        "sha256": "ef58eea4fa3772c454030329ba31608d221887e4c93bdec92128c084b6eb1fcd"
+      },
+      {
+        "file": "40eb760e23f1-recovery-1.bin",
+        "offset": 447068,
+        "sha256": "f432991d53e591a11b77112608ed0534698f929a84b40f641e85de2da49fbc7f"
+      },
+      {
+        "file": "40eb760e23f1-recovery-2.bin",
+        "offset": 447072,
+        "sha256": "80ce781601b2bd1db8e7f306652ce0aa1caeec9d7557cf4848fe3c9a2b52fc4f"
+      },
+      {
+        "file": "40eb760e23f1-recovery-3.bin",
+        "offset": 447076,
+        "sha256": "a7bace220b351d81359f377af22b97ae74951253df5b9f54d4c4f16c002f342f"
+      },
+      {
+        "file": "40eb760e23f1-recovery-4.bin",
+        "offset": 447080,
+        "sha256": "17d302527f4c953fd46f099d54dc33001e88181895ce7b0dc2e23425667beb97"
+      },
+      {
+        "file": "40eb760e23f1-recovery-5.bin",
+        "offset": 447084,
+        "sha256": "fb3c5ecba7289b7ac32eb59600b58cb933ccda6d31e155b69f55042c5ebbe28c"
+      },
+      {
+        "file": "40eb760e23f1-recovery-6.bin",
+        "offset": 447088,
+        "sha256": "a53d5b4e91e526648902bb398a5df30194025cee075d7e6deb977d3c3d3eb893"
+      },
+      {
+        "file": "40eb760e23f1-recovery-7.bin",
+        "offset": 447092,
+        "sha256": "91bcf3d97fb2db248f56ae35d3945ecce717facd8b818d992b407f6c451b6fa6"
+      },
+      {
+        "file": "40eb760e23f1-recovery-8.bin",
+        "offset": 447096,
+        "sha256": "67d47bbec6c75b43d53a0280a96828e6d8fa14ac80696c058fa14436fb5b4ae8"
+      },
+      {
+        "file": "40eb760e23f1-recovery-9.bin",
+        "offset": 447100,
+        "sha256": "db151102db12d6d2a021407ebd8e076b152fef85ea57a000869b4c2d6a91cf7e"
+      },
+      {
+        "file": "40eb760e23f1-recovery-10.bin",
+        "offset": 447104,
+        "sha256": "45dbb7540cf0f0ac684c1c70bf165bbcc4c8e88bbd87c0508430bbaa59ccccfa"
       }
     ],
     "areas": [
@@ -1917,7 +2050,30 @@
     "position_entry": 1034580,
     "calibration_entry": 1065660,
     "read_position_entry": 1062504,
-    "position_setup_entry": 1034312
+    "position_setup_entry": 1034312,
+    "read_completion": {
+      "boundaries": [
+        33558356,
+        33558352,
+        33558348
+      ],
+      "boundary_end": 1670066,
+      "boundary_region": 1669912,
+      "controller_end": 223036,
+      "controller_region": 222928,
+      "recovery_caller": {
+        "entry": 441968,
+        "returns": [
+          441994
+        ]
+      },
+      "recovery_end": 442334,
+      "recovery_flag_register": 7,
+      "recovery_region": 442268,
+      "recovery_request_register": 5,
+      "recovery_state_load": 442034,
+      "recovery_state_register": 4
+    }
   },
   {
     "source_sha256": "b093a73656e58ee2a4367b5d92324fd7da3889f632a22b2f1be8802607cd3de4",
@@ -2556,6 +2712,61 @@
         "file": "b093a736-aux-callee-1923c0.bin",
         "offset": 1647552,
         "sha256": "0c5dc176978dab2405038d99d3ecca79fba4ae057fe0f296be21ff50309efc0c"
+      },
+      {
+        "file": "b093a73656e5-recovery-0.bin",
+        "offset": 441700,
+        "sha256": "824e328a6ba70f287b0ec9e86d743b2379ed940a4f16ddf6b3335d3022a57b6f"
+      },
+      {
+        "file": "b093a73656e5-recovery-1.bin",
+        "offset": 446788,
+        "sha256": "610d36bcfe50e0142ba5d50611089b02b9c85681c12540f0455ea7d7ae6b802e"
+      },
+      {
+        "file": "b093a73656e5-recovery-2.bin",
+        "offset": 446792,
+        "sha256": "80ce781601b2bd1db8e7f306652ce0aa1caeec9d7557cf4848fe3c9a2b52fc4f"
+      },
+      {
+        "file": "b093a73656e5-recovery-3.bin",
+        "offset": 446796,
+        "sha256": "a7bace220b351d81359f377af22b97ae74951253df5b9f54d4c4f16c002f342f"
+      },
+      {
+        "file": "b093a73656e5-recovery-4.bin",
+        "offset": 446800,
+        "sha256": "c9981dc8d74bf2d19d485da530941f8d9aee97be6caf6361d901437dc21f315f"
+      },
+      {
+        "file": "b093a73656e5-recovery-5.bin",
+        "offset": 446804,
+        "sha256": "d8eccddb4db920af59c16e6a9370e12f86e2332c9f08e3c091b880677ff425d4"
+      },
+      {
+        "file": "b093a73656e5-recovery-6.bin",
+        "offset": 446808,
+        "sha256": "ed4dc8a95b77dcfdc69f34e84ce73e75ad22437c07b6c77a92bef29b7dd0cb6f"
+      },
+      {
+        "file": "b093a73656e5-recovery-7.bin",
+        "offset": 446812,
+        "sha256": "313056a39af5787e8baf7811597d3e33b8c7e5794fe79529011e986ce0395964"
+      },
+      {
+        "file": "b093a73656e5-recovery-8.bin",
+        "offset": 446816,
+        "sha256": "f0763b1548e43d5bf0d9c4e5aa2d08a324bf8b976d75ce9516016190690253e3"
+      },
+      {
+        "file": "b093a73656e5-recovery-9.bin",
+        "offset": 446820,
+        "sha256": "c074d9c679c00d91a7ab643f908d8ad0cb72ef5d9b239685e63a41699e7b07f8"
+      },
+      {
+        "file": "b093a73656e5-recovery-10.bin",
+        "offset": 446824,
+        "sha256": "402a819abc937d0c5eaa2ea9257aa7a18989fe0add9e418dfeab5cedbde94e1a"
       }
     ],
     "areas": [
@@ -2862,7 +3073,30 @@
     "position_entry": 1036016,
     "calibration_entry": 1066100,
     "read_position_entry": 1062944,
-    "position_setup_entry": 1035748
+    "position_setup_entry": 1035748,
+    "read_completion": {
+      "boundaries": [
+        33558360,
+        33558356,
+        33558352
+      ],
+      "boundary_end": 1670846,
+      "boundary_region": 1670692,
+      "controller_end": 223036,
+      "controller_region": 222928,
+      "recovery_caller": {
+        "entry": 441700,
+        "returns": [
+          441726
+        ]
+      },
+      "recovery_end": 442066,
+      "recovery_flag_register": 7,
+      "recovery_region": 442000,
+      "recovery_request_register": 6,
+      "recovery_state_load": 441766,
+      "recovery_state_register": 5
+    }
   },
   {
     "source_sha256": "0b2cdb82ff520589d4c750fae726571798901bf41e433de0a7164f7d74927d5f",
@@ -3491,6 +3725,61 @@
         "file": "0b2cdb82-aux-callee-1901c0.bin",
         "offset": 1638848,
         "sha256": "0c5dc176978dab2405038d99d3ecca79fba4ae057fe0f296be21ff50309efc0c"
+      },
+      {
+        "file": "0b2cdb82ff52-recovery-0.bin",
+        "offset": 441144,
+        "sha256": "b9fc06e412bd17a4de5d3f83cb79a0ae41688623f901d4d8b1219b59fd0ad201"
+      },
+      {
+        "file": "0b2cdb82ff52-recovery-1.bin",
+        "offset": 446272,
+        "sha256": "f432991d53e591a11b77112608ed0534698f929a84b40f641e85de2da49fbc7f"
+      },
+      {
+        "file": "0b2cdb82ff52-recovery-2.bin",
+        "offset": 446276,
+        "sha256": "80ce781601b2bd1db8e7f306652ce0aa1caeec9d7557cf4848fe3c9a2b52fc4f"
+      },
+      {
+        "file": "0b2cdb82ff52-recovery-3.bin",
+        "offset": 446280,
+        "sha256": "a7bace220b351d81359f377af22b97ae74951253df5b9f54d4c4f16c002f342f"
+      },
+      {
+        "file": "0b2cdb82ff52-recovery-4.bin",
+        "offset": 446284,
+        "sha256": "d433f06019acc93ee415ab10eba59fc61f394edae573afcdf683696d1014e0d3"
+      },
+      {
+        "file": "0b2cdb82ff52-recovery-5.bin",
+        "offset": 446288,
+        "sha256": "7466cca7e5a6767a48a33b3829b0b9ea4a658c32d48e844c927074b53067738d"
+      },
+      {
+        "file": "0b2cdb82ff52-recovery-6.bin",
+        "offset": 446292,
+        "sha256": "fa45f19149c860633710a91014f2897b47bc878a8954d83b18ada03bc76c8635"
+      },
+      {
+        "file": "0b2cdb82ff52-recovery-7.bin",
+        "offset": 446296,
+        "sha256": "b9de2f8c078ddf1c125a50272d0c9ce2d7f6b488b86cb3082526d3bbc7d17b34"
+      },
+      {
+        "file": "0b2cdb82ff52-recovery-8.bin",
+        "offset": 446300,
+        "sha256": "bb49759974835e61af27bca357d9f1962b83cf4d5e246c1dcf11f26dd3947dec"
+      },
+      {
+        "file": "0b2cdb82ff52-recovery-9.bin",
+        "offset": 446304,
+        "sha256": "c074d9c679c00d91a7ab643f908d8ad0cb72ef5d9b239685e63a41699e7b07f8"
+      },
+      {
+        "file": "0b2cdb82ff52-recovery-10.bin",
+        "offset": 446308,
+        "sha256": "2248fa4613aed8f772cdfddc62183f3bbdf81d0b895a54b73830ecf415df407e"
       }
     ],
     "areas": [
@@ -3797,7 +4086,30 @@
     "position_entry": 1029120,
     "calibration_entry": 1060140,
     "read_position_entry": 1056984,
-    "position_setup_entry": 1028852
+    "position_setup_entry": 1028852,
+    "read_completion": {
+      "boundaries": [
+        33558360,
+        33558356,
+        33558352
+      ],
+      "boundary_end": 1662136,
+      "boundary_region": 1661980,
+      "controller_end": 222800,
+      "controller_region": 222692,
+      "recovery_caller": {
+        "entry": 441144,
+        "returns": [
+          441172
+        ]
+      },
+      "recovery_end": 441510,
+      "recovery_flag_register": 7,
+      "recovery_region": 441444,
+      "recovery_request_register": 5,
+      "recovery_state_load": 441212,
+      "recovery_state_register": 4
+    }
   },
   {
     "source_sha256": "648a16d024eea31ef4901f3ac2180cbfffeda1161d70f9096335d8a6097445bc",
