@@ -22,6 +22,7 @@ mod response;
 mod response_expr;
 mod response_return;
 pub use response::{ResponseCommit, ResponseIo};
+mod legacy_di;
 mod media;
 mod switch;
 mod uhd;
@@ -33,6 +34,7 @@ mod vid;
 pub use auth::{AuthCell, AuthCellVariant};
 pub use caller::SavedLink;
 pub use classic_speed::ClassicSpeed;
+pub use legacy_di::LegacyStackDi;
 pub use media::{MediaGate, MediaGateVariant};
 pub use uhd::{C7Selection, UhdArea, UhdAreaContract, UhdAreas, UhdEdge, UhdHandling, UhdLiteral};
 pub use uhd_consumers::{ClassicConsumer, ClassicConsumerKind};
@@ -148,3 +150,6 @@ mod speed_policy_tests;
 
 mod uhd_completion;
 pub use uhd_completion::ClassicReadCompletion;
+
+mod uhd_keys;
+pub use uhd_keys::{UhdKeyPath, UhdKeyWrapper};

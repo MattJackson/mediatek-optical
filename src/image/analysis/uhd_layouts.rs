@@ -110,7 +110,12 @@ pub(super) const DEFINITIONS: &[Definition] = &[
             (0x63c1, 0xffff),
         ],
         handling: UhdHandling::Legacy,
-        selection: None,
+        selection: Some(SelectionDefinition {
+            offset: 12,
+            replay: &[0x2900, 0x6bc1],
+            span: 6,
+            reject_offset: Some(24),
+        }),
     },
     // source c88a69013d557b9c4cf1a4d603c314585f51a258b9747c345184e866eef36306, 0x27196..0x271b4
     Definition {
@@ -134,7 +139,12 @@ pub(super) const DEFINITIONS: &[Definition] = &[
             (0x63c1, 0xffff),
         ],
         handling: UhdHandling::Legacy,
-        selection: None,
+        selection: Some(SelectionDefinition {
+            offset: 12,
+            replay: &[0x2900, 0x6bc1],
+            span: 6,
+            reject_offset: Some(24),
+        }),
     },
     // source 40eb760e23f100d55e86e9c061c73428d4087ef712294e4dbfcefa3093837a1a, 0x32140..0x3216c
     Definition {
@@ -233,7 +243,12 @@ pub(super) const DEFINITIONS: &[Definition] = &[
             (0xe000, 0xf800),
         ],
         handling: UhdHandling::Legacy,
-        selection: None,
+        selection: Some(SelectionDefinition {
+            offset: 6,
+            replay: &[0x43b8],
+            span: 4,
+            reject_offset: Some(194),
+        }),
     },
     // source 40eb760e23f100d55e86e9c061c73428d4087ef712294e4dbfcefa3093837a1a, 0x678c4..0x67900
     Definition {
@@ -873,7 +888,12 @@ pub(super) const DEFINITIONS: &[Definition] = &[
             (0x6398, 0xffff),
         ],
         handling: UhdHandling::Legacy,
-        selection: None,
+        selection: Some(SelectionDefinition {
+            offset: 32,
+            replay: &[0x2900],
+            span: 4,
+            reject_offset: Some(54),
+        }),
     },
     // source 40eb760e23f100d55e86e9c061c73428d4087ef712294e4dbfcefa3093837a1a, 0x10a546..0x10a562
     Definition {
