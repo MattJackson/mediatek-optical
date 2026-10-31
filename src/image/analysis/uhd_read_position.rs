@@ -7,6 +7,8 @@ pub struct ClassicReadPosition {
     pub entry: usize,
     /// Working position word, current layer and cached layer cells.
     pub position: u32,
+    /// Source-bound register holding the native position word pointer.
+    pub position_register: u8,
     /// Native current-layer byte.
     pub layer: u32,
     /// Native cached-layer byte.
@@ -192,6 +194,196 @@ const PATTERN: &[(u16, u16)] = &[
     (0x7010, 0xffff),
     (0xbdf8, 0xffff),
 ];
+// Early saved-position variant, native source dcbf0..dcd64. Bind the
+// complete function, including its additional cached-layer notification tail.
+const SAVED_POSITION_PATTERN: &[(u16, u16)] = &[
+    (0xb5f8, 0xffff),
+    (0x4c00, 0xff00),
+    (0x7821, 0xffff),
+    (0x4a00, 0xff00),
+    (0x9100, 0xffff),
+    (0x7810, 0xffff),
+    (0x21ef, 0xffff),
+    (0x4008, 0xffff),
+    (0x7010, 0xffff),
+    (0x4800, 0xff00),
+    (0x7c00, 0xffff),
+    (0x0780, 0xffff),
+    (0xd570, 0xffff),
+    (0x4800, 0xff00),
+    (0x6a00, 0xffff),
+    (0x4d00, 0xff00),
+    (0x6028, 0xffff),
+    (0xf000, 0xf800),
+    (0xd000, 0xd000),
+    (0x6828, 0xffff),
+    (0x4f00, 0xff00),
+    (0x2800, 0xffff),
+    (0xd067, 0xffff),
+    (0x6828, 0xffff),
+    (0x08c1, 0xffff),
+    (0x4800, 0xff00),
+    (0x6001, 0xffff),
+    (0x6800, 0xffff),
+    (0x6028, 0xffff),
+    (0x7838, 0xffff),
+    (0x21c8, 0xffff),
+    (0x4381, 0xffff),
+    (0x2600, 0xffff),
+    (0x4800, 0xff00),
+    (0x2900, 0xffff),
+    (0xd140, 0xffff),
+    (0x78a9, 0xffff),
+    (0x0989, 0xffff),
+    (0x2901, 0xffff),
+    (0xd10c, 0xffff),
+    (0x7821, 0xffff),
+    (0x2901, 0xffff),
+    (0xd006, 0xffff),
+    (0x7800, 0xffff),
+    (0x2801, 0xffff),
+    (0xd003, 0xffff),
+    (0x6829, 0xffff),
+    (0x4800, 0xff00),
+    (0xf000, 0xf800),
+    (0xd000, 0xd000),
+    (0x6828, 0xffff),
+    (0x4900, 0xff00),
+    (0xe044, 0xffff),
+    (0x2902, 0xffff),
+    (0xd10f, 0xffff),
+    (0x7821, 0xffff),
+    (0x2902, 0xffff),
+    (0xd006, 0xffff),
+    (0x7800, 0xffff),
+    (0x2802, 0xffff),
+    (0xd003, 0xffff),
+    (0x6829, 0xffff),
+    (0x4800, 0xff00),
+    (0xf000, 0xf800),
+    (0xd000, 0xd000),
+    (0x78a8, 0xffff),
+    (0x0680, 0xffff),
+    (0x0e80, 0xffff),
+    (0x70a8, 0xffff),
+    (0x2002, 0xffff),
+    (0xe010, 0xffff),
+    (0x2903, 0xffff),
+    (0x7821, 0xffff),
+    (0xd10f, 0xffff),
+    (0x2903, 0xffff),
+    (0xd006, 0xffff),
+    (0x7800, 0xffff),
+    (0x2803, 0xffff),
+    (0xd003, 0xffff),
+    (0x6829, 0xffff),
+    (0x4800, 0xff00),
+    (0xf000, 0xf800),
+    (0xd000, 0xd000),
+    (0x6828, 0xffff),
+    (0x4900, 0xff00),
+    (0x4048, 0xffff),
+    (0x6028, 0xffff),
+    (0x2003, 0xffff),
+    (0x7020, 0xffff),
+    (0xe008, 0xffff),
+    (0x2900, 0xffff),
+    (0xd005, 0xffff),
+    (0x7800, 0xffff),
+    (0x2800, 0xffff),
+    (0xd002, 0xffff),
+    (0x6829, 0xffff),
+    (0x4800, 0xff00),
+    (0xe024, 0xffff),
+    (0x7026, 0xffff),
+    (0x70ee, 0xffff),
+    (0xe02f, 0xffff),
+    (0x7839, 0xffff),
+    (0x22cc, 0xffff),
+    (0x4011, 0xffff),
+    (0x29c4, 0xffff),
+    (0xd11f, 0xffff),
+    (0x78a9, 0xffff),
+    (0x0689, 0xffff),
+    (0x2900, 0xffff),
+    (0x7821, 0xffff),
+    (0xda10, 0xffff),
+    (0x2900, 0xffff),
+    (0xd106, 0xffff),
+    (0x7800, 0xffff),
+    (0x2800, 0xffff),
+    (0xd103, 0xffff),
+    (0x6829, 0xffff),
+    (0x4800, 0xff00),
+    (0xf000, 0xf800),
+    (0xd000, 0xd000),
+    (0x6828, 0xffff),
+    (0x4900, 0xff00),
+    (0x4048, 0xffff),
+    (0x6028, 0xffff),
+    (0x2001, 0xffff),
+    (0xe7d9, 0xffff),
+    (0xe039, 0xffff),
+    (0xe029, 0xffff),
+    (0x2901, 0xffff),
+    (0xd1df, 0xffff),
+    (0x7800, 0xffff),
+    (0x2801, 0xffff),
+    (0xd1dc, 0xffff),
+    (0x6829, 0xffff),
+    (0x4800, 0xff00),
+    (0xf000, 0xf800),
+    (0xd000, 0xd000),
+    (0xe7d7, 0xffff),
+    (0x7821, 0xffff),
+    (0x2901, 0xffff),
+    (0xd106, 0xffff),
+    (0x7800, 0xffff),
+    (0x2801, 0xffff),
+    (0xd103, 0xffff),
+    (0x6829, 0xffff),
+    (0x4800, 0xff00),
+    (0xf000, 0xf800),
+    (0xd000, 0xd000),
+    (0x7026, 0xffff),
+    (0x7838, 0xffff),
+    (0x22c8, 0xffff),
+    (0x0011, 0xffff),
+    (0x4381, 0xffff),
+    (0xd102, 0xffff),
+    (0x78a8, 0xffff),
+    (0x2822, 0xffff),
+    (0xd305, 0xffff),
+    (0x7838, 0xffff),
+    (0x4382, 0xffff),
+    (0xd009, 0xffff),
+    (0x78a8, 0xffff),
+    (0x281c, 0xffff),
+    (0xd206, 0xffff),
+    (0x4a00, 0xff00),
+    (0x7810, 0xffff),
+    (0x2110, 0xffff),
+    (0x4308, 0xffff),
+    (0x7010, 0xffff),
+    (0x4800, 0xff00),
+    (0x7006, 0xffff),
+    (0x7838, 0xffff),
+    (0x22cc, 0xffff),
+    (0x4010, 0xffff),
+    (0x28c0, 0xffff),
+    (0xd009, 0xffff),
+    (0x7820, 0xffff),
+    (0x9900, 0xffff),
+    (0x4288, 0xffff),
+    (0xd005, 0xffff),
+    (0x7820, 0xffff),
+    (0x4900, 0xff00),
+    (0x0040, 0xffff),
+    (0x5e08, 0xffff),
+    (0xf000, 0xf800),
+    (0xd000, 0xd000),
+    (0xbdf8, 0xffff),
+];
 fn literal(image: &[u8], at: usize) -> Result<u32, Error> {
     let op = u16::from_le_bytes(
         image
@@ -213,75 +405,78 @@ impl ClassicReadPosition {
     /// Bind the whole native routine, state cell, controller operands, first-layer
     /// reflection mask, class stores, range thresholds and balanced return paths.
     pub fn detect(image: &[u8], state: u32) -> Result<Self, Error> {
-        let length = PATTERN.len() * 2;
-        if image.len() < length {
-            return Err(Error::Truncated);
-        }
         let mut found = None;
-        for entry in (0..=image.len() - length).step_by(2) {
-            if !matches(image, entry, PATTERN) {
-                continue;
+        for (pattern, early) in [(PATTERN, false), (SAVED_POSITION_PATTERN, true)] {
+            let length = pattern.len() * 2;
+            if image.len() < length {
+                return Err(Error::Truncated);
             }
-            if literal(image, entry + 0x32)? != state
-                || literal(image, entry + 0xc)? != 0x04082000
-                || literal(image, entry + 0x14)? != 0x04082100
-                || literal(image, entry + 0x62)? != 0x7fffff
-            {
-                return Err(Error::InvalidContract);
-            }
-            let position = literal(image, entry + 0x18)?;
-            let layer = literal(image, entry + 0x3e)?;
-            let cached_layer = literal(image, entry + 0x3c)?;
-            let status = literal(image, entry + 2)?;
-            if [state, position, layer, cached_layer, status]
-                .iter()
-                .any(|p| !(0x01ff0000..0x02010000).contains(p))
-                || position % 4 != 0
-            {
-                return Err(Error::InvalidContract);
-            }
-            let decode = C7Selection {
-                site: entry + 0x40,
-                replay: vec![0x2900],
-                span: 4,
-                accept: entry + 0x44,
-                reject: entry + 0xc6,
-            };
-            let ranges = [
-                C7Selection {
-                    site: entry + 0x12a,
-                    replay: vec![0x4381],
+            for entry in (0..=image.len() - length).step_by(2) {
+                if !matches(image, entry, pattern) {
+                    continue;
+                }
+                if literal(image, entry + if early { 0x28 } else { 0x32 })? != state
+                    || literal(image, entry + if early { 0x12 } else { 0xc })? != 0x04082000
+                    || literal(image, entry + if early { 0x1a } else { 0x14 })? != 0x04082100
+                    || literal(image, entry + if early { 0x66 } else { 0x62 })? != 0x7fffff
+                {
+                    return Err(Error::InvalidContract);
+                }
+                let position = literal(image, entry + if early { 0x1e } else { 0x18 })?;
+                let layer = literal(image, entry + if early { 0x42 } else { 0x3e })?;
+                let cached_layer = literal(image, entry + if early { 2 } else { 0x3c })?;
+                let status = literal(image, entry + if early { 6 } else { 2 })?;
+                if [state, position, layer, cached_layer, status]
+                    .iter()
+                    .any(|p| !(0x01ff0000..0x02010000).contains(p))
+                    || position % 4 != 0
+                {
+                    return Err(Error::InvalidContract);
+                }
+                let decode = C7Selection {
+                    site: entry + if early { 0x44 } else { 0x40 },
+                    replay: vec![0x2900],
                     span: 4,
-                    accept: entry + 0x12e,
-                    reject: entry + 0x134,
-                },
-                C7Selection {
-                    site: entry + 0x136,
-                    replay: vec![0x4382],
-                    span: 4,
-                    accept: entry + 0x14a,
-                    reject: entry + 0x13a,
-                },
-            ];
-            let callers = [
-                SavedLink::bind(image, entry, decode.site)?,
-                SavedLink::bind(image, entry, ranges[0].site)?,
-                SavedLink::bind(image, entry, ranges[1].site)?,
-            ];
-            let contract = Self {
-                entry,
-                position,
-                layer,
-                cached_layer,
-                status,
-                decode,
-                ranges,
-                layer_one: entry + 0x4c,
-                layer_zero: entry + 0xc0,
-                callers,
-            };
-            if found.replace(contract).is_some() {
-                return Err(Error::Ambiguous);
+                    accept: entry + if early { 0x48 } else { 0x44 },
+                    reject: entry + if early { 0xca } else { 0xc6 },
+                };
+                let ranges = [
+                    C7Selection {
+                        site: entry + if early { 0x130 } else { 0x12a },
+                        replay: vec![0x4381],
+                        span: 4,
+                        accept: entry + if early { 0x134 } else { 0x12e },
+                        reject: entry + if early { 0x13a } else { 0x134 },
+                    },
+                    C7Selection {
+                        site: entry + if early { 0x13c } else { 0x136 },
+                        replay: vec![0x4382],
+                        span: 4,
+                        accept: entry + if early { 0x154 } else { 0x14a },
+                        reject: entry + if early { 0x140 } else { 0x13a },
+                    },
+                ];
+                let callers = [
+                    SavedLink::bind(image, entry, decode.site)?,
+                    SavedLink::bind(image, entry, ranges[0].site)?,
+                    SavedLink::bind(image, entry, ranges[1].site)?,
+                ];
+                let contract = Self {
+                    entry,
+                    position,
+                    position_register: if early { 5 } else { 4 },
+                    layer,
+                    cached_layer,
+                    status,
+                    decode,
+                    ranges,
+                    layer_one: entry + if early { 0x50 } else { 0x4c },
+                    layer_zero: entry + if early { 0xc4 } else { 0xc0 },
+                    callers,
+                };
+                if found.replace(contract).is_some() {
+                    return Err(Error::Ambiguous);
+                }
             }
         }
         found.ok_or(Error::UnknownLayout)

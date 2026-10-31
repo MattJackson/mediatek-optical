@@ -377,6 +377,35 @@ fn earliest_auxiliary_targets_bind_native_bodies_instead_of_old_displacements() 
 }
 
 #[test]
+fn earliest_read_position_binds_saved_position_and_both_native_ranges() {
+    let (root, _) = fixtures();
+    let case: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(root.join("earliest-parameter.json")).unwrap())
+            .unwrap();
+    let bytes = image(&root, &case);
+    let c = super::ClassicReadPosition::detect(&bytes, 0x01ff9def).unwrap();
+    assert_eq!(c.entry, 0xdcbf0);
+    assert_eq!(c.position, 0x02000b38);
+    assert_eq!(c.position_register, 5);
+    assert_eq!(c.cached_layer, 0x02000b03);
+    assert_eq!(c.layer, 0x02000b04);
+    assert_eq!(c.status, 0x02000b10);
+    assert_eq!(c.decode.site(), 0xdcc34);
+    assert_eq!(c.decode.accept(), 0xdcc38);
+    assert_eq!(c.decode.reject(), 0xdccba);
+    assert_eq!(c.layer_one, 0xdcc40);
+    assert_eq!(c.layer_zero, 0xdccb4);
+    assert_eq!(c.ranges[0].site(), 0xdcd20);
+    assert_eq!(c.ranges[1].site(), 0xdcd2c);
+    for (at, op) in [(0xdcc38, 0x78a1u16), (0xdcd26, 0x2821), (0xdcd34, 0xd207)] {
+        let mut bad = bytes.clone();
+        bad[at..at + 2].copy_from_slice(&op.to_le_bytes());
+        assert!(super::ClassicReadPosition::detect(&bad, 0x01ff9def).is_err());
+    }
+    assert!(super::ClassicReadPosition::detect(&bytes, 0x01ff9df0).is_err());
+}
+
+#[test]
 fn earliest_calibration_binds_four_rate_index_and_native_default_lookup() {
     let (root, _) = fixtures();
     let case: serde_json::Value =

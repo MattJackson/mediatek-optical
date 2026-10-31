@@ -60,6 +60,11 @@
       "file": "c88a6901-calibration-0dd800.bin",
       "offset": 907264,
       "sha256": "86de465e5da37ee107ff58500611c8aa8d4e1563c08905e967b5358d9e4f30b5"
+    },
+    {
+      "file": "c88a6901-read-position-0dcbf0.bin",
+      "offset": 904176,
+      "sha256": "403b0c2a1e16c15fb54c4e41769ea955ddd355fd2974825238183057a8a85cbd"
     }
   ]
 }
