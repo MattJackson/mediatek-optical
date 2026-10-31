@@ -27,6 +27,7 @@ mod media;
 mod switch;
 mod uhd;
 mod uhd_consumers;
+mod uhd_control_tail;
 mod uhd_di;
 mod uhd_parameter;
 mod vid;
@@ -38,6 +39,7 @@ pub use legacy_di::LegacyStackDi;
 pub use media::{MediaGate, MediaGateVariant};
 pub use uhd::{C7Selection, UhdArea, UhdAreaContract, UhdAreas, UhdEdge, UhdHandling, UhdLiteral};
 pub use uhd_consumers::{ClassicConsumer, ClassicConsumerKind};
+pub use uhd_control_tail::LegacyControlTail;
 pub use uhd_di::ClassicDi;
 pub use uhd_parameter::{ClassicParameter, ClassicParameterVariant};
 pub use vid::{VidGate, VidGateVariant};
@@ -153,3 +155,6 @@ pub use uhd_completion::ClassicReadCompletion;
 
 mod uhd_keys;
 pub use uhd_keys::{UhdKeyPath, UhdKeyWrapper};
+
+mod uhd_reverse;
+pub use uhd_reverse::LegacyReverse;
