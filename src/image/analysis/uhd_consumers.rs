@@ -557,27 +557,48 @@ fn recovery_family(
         (0x9801, 0xffff),
         (0x2100, 0xffff),
     ];
+    // Early source11aa38 keeps the same family/flag guard, but computes its
+    // iteration count before the guard instead of interleaving it with the load.
+    let early = &[
+        (0x4a00, 0xff00),
+        (0x7810, 0xffff),
+        (0x0900, 0xffff),
+        (0x280f, 0xffff),
+        (0xd101, 0xffff),
+        (0x2001, 0xffff),
+        (0xe000, 0xffff),
+        (0x2000, 0xffff),
+        (0x4900, 0xff00),
+        (0x7809, 0xffff),
+        (0x4208, 0xffff),
+        (0xd000, 0xff00),
+    ];
     let mut found = false;
-    for at in (caller.entry..region.saturating_sub(pattern.len() * 2)).step_by(2) {
-        if !matches(image, at, pattern) {
-            continue;
+    for (pattern, flag_offset, branch_offset) in
+        [(pattern.as_slice(), 20, 26), (early.as_slice(), 16, 22)]
+    {
+        for at in (caller.entry..region.saturating_sub(pattern.len() * 2)).step_by(2) {
+            if !matches(image, at, pattern) {
+                continue;
+            }
+            let bypass = conditional(image, at + branch_offset, thumb_asm::Cond::Eq)
+                .ok_or(Error::InvalidContract)?;
+            let exit = thumb_asm::isa::decode_at(image, bypass).ok_or(Error::InvalidContract)?;
+            if literal(image, at) != Some(state)
+                || !literal(image, at + flag_offset)
+                    .is_some_and(|v| (0x01ff0000..0x02010000).contains(&v))
+                || exit.mnemonic != "b"
+                || exit.cond.is_some()
+                || !exit
+                    .branch_target()
+                    .is_some_and(|v| v as usize > region + 80)
+                || bypass <= region
+                || found
+            {
+                return Err(Error::InvalidContract);
+            }
+            found = true;
         }
-        let bypass =
-            conditional(image, at + 26, thumb_asm::Cond::Eq).ok_or(Error::InvalidContract)?;
-        let exit = thumb_asm::isa::decode_at(image, bypass).ok_or(Error::InvalidContract)?;
-        if literal(image, at) != Some(state)
-            || !literal(image, at + 20).is_some_and(|v| (0x01ff0000..0x02010000).contains(&v))
-            || exit.mnemonic != "b"
-            || exit.cond.is_some()
-            || !exit
-                .branch_target()
-                .is_some_and(|v| v as usize > region + 80)
-            || bypass <= region
-            || found
-        {
-            return Err(Error::InvalidContract);
-        }
-        found = true;
     }
     found.then_some(0xf).ok_or(Error::InvalidContract)
 }

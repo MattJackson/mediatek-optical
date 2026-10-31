@@ -377,6 +377,24 @@ fn earliest_auxiliary_targets_bind_native_bodies_instead_of_old_displacements() 
 }
 
 #[test]
+fn earliest_preserved_recovery_requires_its_native_f_family_guard() {
+    use super::{ClassicConsumer, ClassicConsumerKind as K};
+    let (root, _) = fixtures();
+    let case: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(root.join("earliest-parameter.json")).unwrap())
+            .unwrap();
+    let bytes = image(&root, &case);
+    let c = ClassicConsumer::inspect_kind(&bytes, 0x01ff9def, K::ReadBoundary).unwrap();
+    assert_eq!(c.entry_media_family, Some(0xf));
+    assert_eq!(c.region, 0x11aae0);
+    for (at, op) in [(0x11aa3e, 0x280cu16), (0x11aa4e, 0xd06d)] {
+        let mut bad = bytes.clone();
+        bad[at..at + 2].copy_from_slice(&op.to_le_bytes());
+        assert!(ClassicConsumer::inspect_kind(&bad, 0x01ff9def, K::ReadBoundary).is_err());
+    }
+}
+
+#[test]
 fn earliest_completion_binds_literal_pool_split_and_native_recovery_alias() {
     let (root, _) = fixtures();
     let case: serde_json::Value =

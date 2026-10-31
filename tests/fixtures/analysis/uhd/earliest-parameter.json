@@ -75,6 +75,11 @@
       "file": "c88a6901-completion-06e500.bin",
       "offset": 451840,
       "sha256": "dbf1417d12dd9b5349b59e08c11883e0b25526fd1894ea0382277daec2d34318"
+    },
+    {
+      "file": "c88a6901-f-recovery-11a800.bin",
+      "offset": 1157120,
+      "sha256": "dd9869937940210ff5d33cd15c31f944086ead3a499714b840a2bc47608400ac"
     }
   ]
 }
