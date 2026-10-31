@@ -47,6 +47,9 @@ pub struct ClassicConsumer {
     /// Extra native entry restriction, independently bound before the loop.
     /// None means no additional family restriction is asserted here.
     pub entry_media_family: Option<u8>,
+    /// Saved-register media pointer and its dominating native literal load,
+    /// when the selector does not reload the pointer locally.
+    pub state_definition: Option<(u8, usize)>,
 }
 struct Definition {
     kind: ClassicConsumerKind,
@@ -298,6 +301,75 @@ const DEFINITIONS: &[Definition] = &[
     },
 ];
 const ALTERNATIVES: &[Definition] = &[
+    // Early speed/status update shares the C8 equality path, without the later
+    // two post-call flag writes. Preserve its native halfword reset and join.
+    Definition {
+        kind: ClassicConsumerKind::ReadStatus,
+        gate: 6,
+        target: 28,
+        target_accepts: false,
+        pattern: &[
+            (0x4f00, 0xff00),
+            (0x783a, 0xffff),
+            (0x23c8, 0xffff),
+            (0x4393, 0xffff),
+            (0xd108, 0xffff),
+            (0x780a, 0xffff),
+            (0x7800, 0xffff),
+            (0x4282, 0xffff),
+            (0xd104, 0xffff),
+            (0x4800, 0xff00),
+            (0x8006, 0xffff),
+            (0x7808, 0xffff),
+            (0xf000, 0xf800),
+            (0xc000, 0xd001),
+            (0x2100, 0xffff),
+            (0x2001, 0xffff),
+            (0xf000, 0xf800),
+            (0xf800, 0xf800),
+        ],
+    },
+    // Early stored-position transform has a native BLX veneer and falls through
+    // to the independent C4 selector instead of branching around a pool.
+    Definition {
+        kind: ClassicConsumerKind::ReadValue,
+        gate: 6,
+        target: 22,
+        target_accepts: false,
+        pattern: &[
+            (0x4800, 0xff00),
+            (0x7801, 0xffff),
+            (0x20c8, 0xffff),
+            (0x4388, 0xffff),
+            (0xd105, 0xffff),
+            (0x4900, 0xff00),
+            (0x6808, 0xffff),
+            (0xf000, 0xf800),
+            (0xc000, 0xd001),
+            (0x4900, 0xff00),
+            (0x6008, 0xffff),
+            (0x4800, 0xff00),
+            (0x7800, 0xffff),
+            (0x4038, 0xffff),
+            (0x28c4, 0xffff),
+        ],
+    },
+    // Early initialization uses the saved media pointer established by its caller.
+    Definition {
+        kind: ClassicConsumerKind::InitializationBypass,
+        gate: 4,
+        target: 14,
+        target_accepts: true,
+        pattern: &[
+            (0x7839, 0xffff),
+            (0x20c8, 0xffff),
+            (0x4388, 0xffff),
+            (0xd002, 0xffff),
+            (0x2000, 0xffff),
+            (0xf000, 0xf800),
+            (0xf800, 0xf800),
+        ],
+    },
     // Source 84fecc29, 0xec170; register allocation/native continuation variant.
     Definition {
         kind: ClassicConsumerKind::DiMode,
@@ -542,10 +614,27 @@ impl ClassicConsumer {
                 if !matches(image, region, def.pattern) {
                     continue;
                 }
-                if literal(image, region) != Some(state) {
-                    return Err(Error::InvalidContract);
-                }
                 let site = region + def.gate;
+                let caller = SavedLink::detect(image, site)?;
+                let state_definition = if def.kind == ClassicConsumerKind::InitializationBypass
+                    && half(image, region) == Some(0x7839)
+                {
+                    let mut definitions = (caller.entry..region).step_by(2).filter(|&at| {
+                        half(image, at).is_some_and(|op| op & 0xff00 == 0x4f00)
+                            && literal(image, at) == Some(state)
+                    });
+                    let definition = definitions.next().ok_or(Error::InvalidContract)?;
+                    if definitions.next().is_some() {
+                        return Err(Error::Ambiguous);
+                    }
+                    caller.require_register_definition(image, definition, definition + 2, 7)?;
+                    Some((7, definition))
+                } else {
+                    if literal(image, region) != Some(state) {
+                        return Err(Error::InvalidContract);
+                    }
+                    None
+                };
                 let op = half(image, site).ok_or(Error::Truncated)?;
                 if op & 0xffc0 != 0x4380 {
                     return Err(Error::InvalidContract);
@@ -737,67 +826,95 @@ impl ClassicConsumer {
                             return Err(Error::InvalidContract);
                         }
                     }
-                    ClassicConsumerKind::ReadStatus => {
-                        // A pool/return guard can move this block by two bytes.
-                        // Bind its flag cell and native joins instead of adding
-                        // a model-specific alternative displacement.
-                        let pattern = &[
-                            (0x4800, 0xff00),
-                            (0x7801, 0xffff),
-                            (0x2900, 0xffff),
-                            (0xd100, 0xff00),
-                            (0x2101, 0xffff),
-                            (0xe000, 0xf800),
-                        ];
-                        let join = conditional(image, region + 16, thumb_asm::Cond::Ne)
+                    ClassicConsumerKind::ReadValue => {
+                        let position = literal(image, region + 10)
+                            .filter(|v| (0x01ff0000..0x02010000).contains(v))
                             .ok_or(Error::InvalidContract)?;
-                        let tail = thumb_asm::isa::decode_at(image, target + 10)
-                            .ok_or(Error::InvalidContract)?;
-                        let branch_store = matches(image, target, pattern)
-                            && literal(image, target) == literal(image, region + 30)
-                            && tail.mnemonic == "b"
-                            && tail.cond.is_none()
-                            && tail.branch_target().map(|v| v as usize) == Some(region + 32);
-                        let inline_store = matches(
-                            image,
-                            target,
-                            &[
-                                (0x4900, 0xff00),
-                                (0x7808, 0xffff),
-                                (0x2800, 0xffff),
-                                (0xd101, 0xffff),
-                                (0x2001, 0xffff),
-                                (0x7008, 0xffff),
-                            ],
-                        ) && matches(
-                            image,
-                            region + 28,
-                            &[
-                                (0x4800, 0xff00),
-                                (0x2101, 0xffff),
-                                (0x7001, 0xffff),
-                                (0x4800, 0xff00),
-                                (0x7001, 0xffff),
-                                (0xe000, 0xf800),
-                            ],
-                        ) && literal(image, target)
-                            == literal(image, region + 34)
-                            && thumb_asm::isa::decode_at(image, region + 38).is_some_and(|i| {
-                                i.mnemonic == "b"
-                                    && i.cond.is_none()
-                                    && i.branch_target().map(|v| v as usize) == Some(join)
-                            })
-                            && join == target + 12;
-                        if !(region + 0x24..=region + 0x80).contains(&target)
-                            || conditional(image, target + 6, thumb_asm::Cond::Ne) != Some(join)
-                            || !(branch_store || inline_store)
+                        if literal(image, region + 18) != Some(position)
+                            || (half(image, region).is_some_and(|op| op & 0xff00 == 0x4800)
+                                && literal(image, reject) != Some(state))
                         {
                             return Err(Error::InvalidContract);
                         }
                     }
+                    ClassicConsumerKind::ReadStatus => {
+                        if half(image, region).is_some_and(|op| op & 0xff00 == 0x4f00) {
+                            // Both media and unequal-rate branches must reach the
+                            // existing join, and both native rate-update paths
+                            // reset the same halfword cell before calling out.
+                            let reset = literal(image, region + 18)
+                                .filter(|v| (0x01ff0000..0x02010000).contains(v))
+                                .ok_or(Error::InvalidContract)?;
+                            if target != region + 28
+                                || conditional(image, region + 16, thumb_asm::Cond::Ne)
+                                    != Some(target)
+                                || region < 12
+                                || literal(image, region - 12) != Some(reset)
+                                || half(image, region - 10) != Some(0x8006)
+                            {
+                                return Err(Error::InvalidContract);
+                            }
+                        } else {
+                            // A pool/return guard can move this block by two bytes.
+                            // Bind its flag cell and native joins instead of adding
+                            // a model-specific alternative displacement.
+                            let pattern = &[
+                                (0x4800, 0xff00),
+                                (0x7801, 0xffff),
+                                (0x2900, 0xffff),
+                                (0xd100, 0xff00),
+                                (0x2101, 0xffff),
+                                (0xe000, 0xf800),
+                            ];
+                            let join = conditional(image, region + 16, thumb_asm::Cond::Ne)
+                                .ok_or(Error::InvalidContract)?;
+                            let tail = thumb_asm::isa::decode_at(image, target + 10)
+                                .ok_or(Error::InvalidContract)?;
+                            let branch_store = matches(image, target, pattern)
+                                && literal(image, target) == literal(image, region + 30)
+                                && tail.mnemonic == "b"
+                                && tail.cond.is_none()
+                                && tail.branch_target().map(|v| v as usize) == Some(region + 32);
+                            let inline_store = matches(
+                                image,
+                                target,
+                                &[
+                                    (0x4900, 0xff00),
+                                    (0x7808, 0xffff),
+                                    (0x2800, 0xffff),
+                                    (0xd101, 0xffff),
+                                    (0x2001, 0xffff),
+                                    (0x7008, 0xffff),
+                                ],
+                            ) && matches(
+                                image,
+                                region + 28,
+                                &[
+                                    (0x4800, 0xff00),
+                                    (0x2101, 0xffff),
+                                    (0x7001, 0xffff),
+                                    (0x4800, 0xff00),
+                                    (0x7001, 0xffff),
+                                    (0xe000, 0xf800),
+                                ],
+                            ) && literal(image, target)
+                                == literal(image, region + 34)
+                                && thumb_asm::isa::decode_at(image, region + 38).is_some_and(|i| {
+                                    i.mnemonic == "b"
+                                        && i.cond.is_none()
+                                        && i.branch_target().map(|v| v as usize) == Some(join)
+                                })
+                                && join == target + 12;
+                            if !(region + 0x24..=region + 0x80).contains(&target)
+                                || conditional(image, target + 6, thumb_asm::Cond::Ne) != Some(join)
+                                || !(branch_store || inline_store)
+                            {
+                                return Err(Error::InvalidContract);
+                            }
+                        }
+                    }
                     _ => {}
                 }
-                let caller = SavedLink::detect(image, site)?;
                 let entry_media_family = if def.kind == ClassicConsumerKind::ReadBoundary {
                     Some(recovery_family(image, state, &caller, region)?)
                 } else {
@@ -835,6 +952,7 @@ impl ClassicConsumer {
                     caller,
                     relocated_load,
                     entry_media_family,
+                    state_definition,
                 };
                 if hit.replace(bound).is_some() {
                     return Err(Error::Ambiguous);

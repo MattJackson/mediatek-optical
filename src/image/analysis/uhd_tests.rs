@@ -342,10 +342,29 @@ fn earliest_auxiliary_targets_bind_native_bodies_instead_of_old_displacements() 
         (K::DiMode, 0xe2c0e, 0xe2c36),
         (K::MediaDefaults, 0x69268, 0x69278),
         (K::ReadControl, 0xded5a, 0xded78),
+        (K::InitializationBypass, 0x7eee0, 0x7eeda),
+        (K::ReadValue, 0xb9224, 0xb9230),
+        (K::ReadStatus, 0x14428e, 0x1442a0),
     ] {
-        let c = ClassicConsumer::inspect_kind(&bytes, 0x01ff9def, kind).unwrap();
+        let c = ClassicConsumer::inspect_kind(&bytes, 0x01ff9def, kind)
+            .unwrap_or_else(|e| panic!("{kind:?}: {e:?}"));
         assert_eq!(c.selection.accept(), accept);
         assert_eq!(c.selection.reject(), reject);
+        if kind == K::InitializationBypass {
+            assert_eq!(c.state_definition, Some((7, 0x7eea2)));
+            let mut bad = bytes.clone();
+            bad[0x7eea2..0x7eea4].copy_from_slice(&0x4eb9u16.to_le_bytes());
+            assert!(ClassicConsumer::inspect_kind(&bad, 0x01ff9def, kind).is_err());
+            let mut bad = bytes.clone();
+            bad[0x7eec2..0x7eec4].copy_from_slice(&0x2700u16.to_le_bytes());
+            assert!(ClassicConsumer::inspect_kind(&bad, 0x01ff9def, kind).is_err());
+        }
+        if matches!(kind, K::ReadValue | K::ReadStatus) {
+            let mut bad = bytes.clone();
+            // Redirect just one load, breaking its cross-path cell identity.
+            bad[c.region + 18] ^= 1;
+            assert!(ClassicConsumer::inspect_kind(&bad, 0x01ff9def, kind).is_err());
+        }
         let mut bad = bytes.clone();
         bad[c.selection.site()
             + if matches!(kind, K::DiMode | K::ReadControl) {

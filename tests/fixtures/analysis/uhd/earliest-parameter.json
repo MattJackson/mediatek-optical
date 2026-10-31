@@ -40,6 +40,21 @@
       "file": "c88a6901-auxiliary-0dec00.bin",
       "offset": 912384,
       "sha256": "92ea59b3f913600de3e7f74ed8e6ec9ea8188c8e2ff5ae076201d6796de75040"
+    },
+    {
+      "file": "c88a6901-auxiliary-07ee00.bin",
+      "offset": 519680,
+      "sha256": "706111e7883ef92e02c9efa4c7fe20d1d96b419ce97dd7e858069d99d8b6c16d"
+    },
+    {
+      "file": "c88a6901-auxiliary-0b8800.bin",
+      "offset": 755712,
+      "sha256": "cf76a57760a61034382d2bd99ef6073aea6fe22b4d92f596bb6bf620b929a765"
+    },
+    {
+      "file": "c88a6901-auxiliary-143300.bin",
+      "offset": 1323776,
+      "sha256": "e8a8c653763614fea2ea3bb218a1e26da74b1c5b7d8a07648f324ac3beed2dd9"
     }
   ]
 }
