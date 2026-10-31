@@ -329,6 +329,37 @@ fn stack20_speed_policy_binds_native_fixed_six_defaults_and_request_clamp() {
 }
 
 #[test]
+fn earliest_parameter_binds_four_native_rates_and_runtime_coefficients() {
+    let (root, _) = fixtures();
+    let case: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(root.join("earliest-parameter.json")).unwrap())
+            .unwrap();
+    let bytes = image(&root, &case);
+    let state = 0x01ff9def;
+    let c = super::ClassicParameter::detect(&bytes, state).unwrap();
+    assert_eq!(c.entry, 0xde3f2);
+    assert_eq!(c.rate_count, 4);
+    assert_eq!(c.rates, 0x1541bc);
+    assert_eq!(c.oem_coefficients, c.rates + 0x56);
+    assert_eq!(c.coefficients, 0x01ff7910);
+    assert!(c.coefficients_are_runtime);
+    let gate = c.selection.unwrap();
+    assert_eq!(gate.site(), 0xde44a);
+    assert_eq!(gate.accept(), 0xde44e);
+    assert_eq!(gate.reject(), 0xde454);
+    assert!(super::ClassicParameter::detect(&bytes, state + 1).is_err());
+    let mut bad = bytes.clone();
+    bad[0xde404..0xde406].copy_from_slice(&0x2405u16.to_le_bytes());
+    assert!(super::ClassicParameter::detect(&bad, state).is_err());
+    let mut bad = bytes;
+    let site = 0xde44e;
+    let op = u16::from_le_bytes(bad[site..site + 2].try_into().unwrap());
+    let pool = ((site + 4) & !3) + usize::from(op & 255) * 4;
+    bad[pool..pool + 4].copy_from_slice(&0x04200000u32.to_le_bytes());
+    assert!(super::ClassicParameter::detect(&bad, state).is_err());
+}
+
+#[test]
 fn classic_parameter_profiles_preserve_state_independent_lookups_and_bind_media_tables() {
     let (root, cases) = fixtures();
     let mut media = 0;

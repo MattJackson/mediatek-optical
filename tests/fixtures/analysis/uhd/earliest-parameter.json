@@ -1,0 +1,15 @@
+{
+  "source_sha256": "c88a69013d557b9c4cf1a4d603c314585f51a258b9747c345184e866eef36306",
+  "parts": [
+    {
+      "file": "c88a6901-parameter-0de300.bin",
+      "offset": 910080,
+      "sha256": "fef2edea5451e222606d5d2ff219d0a483cab10fc56f23baf52e46108d6ec31b"
+    },
+    {
+      "file": "c88a6901-parameter-154180.bin",
+      "offset": 1393024,
+      "sha256": "a18bf5645707cd1512d3840de957e4df78c7832b9d44ff0e2476ad32083d4993"
+    }
+  ]
+}

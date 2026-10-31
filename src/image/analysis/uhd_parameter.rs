@@ -21,9 +21,15 @@ pub struct ClassicParameter {
     pub entry: usize,
     /// Common native halfword lookup after the optional selection gate.
     pub lookup: usize,
-    /// Native six-entry rate list used for C7 input selection.
+    /// Native default rate list used by the unmodified C7 input selection.
     pub rates: usize,
-    /// Native C7 coefficient table (the C8 table when media-selected).
+    /// Number of entries in that source-bound default list.
+    pub rate_count: u8,
+    /// The native high-layer table is runtime RAM, not data held in this image.
+    /// Recognition does not infer its contents or certify its producer.
+    pub coefficients_are_runtime: bool,
+    /// Native high-layer coefficient table, or the common table in a
+    /// state-independent getter. No new UHD calibration data is inferred.
     pub coefficients: usize,
     /// Native alternative used by OEM C7 in a media-selected implementation.
     pub oem_coefficients: usize,
@@ -35,6 +41,10 @@ pub struct ClassicParameter {
 struct Definition {
     variant: ClassicParameterVariant,
     frame: usize,
+    rate_count: u8,
+    oem_bias: usize,
+    target_bytes: usize,
+    target_runtime: bool,
     pattern: &'static [(u16, u16)],
     setter_state: usize,
     rates: usize,
@@ -49,6 +59,10 @@ const DEFINITIONS: &[Definition] = &[
     Definition {
         variant: ClassicParameterVariant::MediaSelected,
         frame: 0,
+        rate_count: 6,
+        oem_bias: 0x82,
+        target_bytes: 16,
+        target_runtime: false,
         setter_state: 116,
         rates: 24,
         oem_table: 104,
@@ -126,6 +140,10 @@ const DEFINITIONS: &[Definition] = &[
     Definition {
         variant: ClassicParameterVariant::StateIndependent,
         frame: 0,
+        rate_count: 6,
+        oem_bias: 0x82,
+        target_bytes: 12,
+        target_runtime: false,
         setter_state: 48,
         rates: 6,
         oem_table: 36,
@@ -170,6 +188,10 @@ const DEFINITIONS: &[Definition] = &[
     Definition {
         variant: ClassicParameterVariant::StateIndependent,
         frame: 4,
+        rate_count: 6,
+        oem_bias: 0x82,
+        target_bytes: 12,
+        target_runtime: false,
         setter_state: 56,
         rates: 0,
         oem_table: 44,
@@ -213,12 +235,103 @@ const DEFINITIONS: &[Definition] = &[
             (0x403d, 0xffff),
         ],
     },
+    // Early source c88a6901, 0xde3f2. Four default rates and a native
+    // RAM high-layer coefficient table; no RAM contents are transplanted.
+    Definition {
+        variant: ClassicParameterVariant::MediaSelected,
+        frame: 0,
+        rate_count: 4,
+        oem_bias: 0x56,
+        target_bytes: 8,
+        target_runtime: true,
+        setter_state: 110,
+        rates: 14,
+        oem_table: 98,
+        target_table: 92,
+        target_bias: 0,
+        gate: 88,
+        lookup: 104,
+        pattern: &[
+            (0xb5f8, 0xffff),
+            (0x4d00, 0xff00),
+            (0x2200, 0xffff),
+            (0x782c, 0xffff),
+            (0x21c8, 0xffff),
+            (0x000b, 0xffff),
+            (0x4e00, 0xff00),
+            (0x4f00, 0xff00),
+            (0x43a3, 0xffff),
+            (0x2404, 0xffff),
+            (0x782b, 0xffff),
+            (0x21c8, 0xffff),
+            (0x4399, 0xffff),
+            (0xd101, 0xffff),
+            (0x5cb1, 0xffff),
+            (0xe000, 0xffff),
+            (0x5cb9, 0xffff),
+            (0x4281, 0xffff),
+            (0xd204, 0xffff),
+            (0x1c52, 0xffff),
+            (0x0612, 0xffff),
+            (0x0e12, 0xffff),
+            (0x42a2, 0xffff),
+            (0xd3f1, 0xffff),
+            (0x42a2, 0xffff),
+            (0xd307, 0xffff),
+            (0x0023, 0xffff),
+            (0x0001, 0xffff),
+            (0x4800, 0xff00),
+            (0xf000, 0xf800),
+            (0xd000, 0xd000),
+            (0x1e64, 0xffff),
+            (0x0622, 0xffff),
+            (0x0e12, 0xffff),
+            (0x7829, 0xffff),
+            (0x23cc, 0xffff),
+            (0x0018, 0xffff),
+            (0x4388, 0xffff),
+            (0xd102, 0xffff),
+            (0x4900, 0xff00),
+            (0x0050, 0xffff),
+            (0xe009, 0xffff),
+            (0x7828, 0xffff),
+            (0x4018, 0xffff),
+            (0x28c8, 0xffff),
+            (0xd102, 0xffff),
+            (0x4900, 0xff00),
+            (0x0050, 0xffff),
+            (0xe002, 0xffff),
+            (0x4900, 0xff00),
+            (0x0050, 0xffff),
+            (0x3156, 0xffff),
+            (0x5a08, 0xffff),
+            (0xbdf8, 0xffff),
+            (0xb5f8, 0xffff),
+            (0x4e00, 0xff00),
+            (0x000c, 0xffff),
+            (0x7835, 0xffff),
+            (0x27cc, 0xffff),
+            (0x403d, 0xffff),
+        ],
+    },
 ];
 fn flash_range(image: &[u8], at: usize, length: usize) -> Result<usize, Error> {
     if at == 0 || at.checked_add(length).map_or(true, |end| end > image.len()) {
         return Err(Error::InvalidContract);
     }
     Ok(at)
+}
+fn native_range(image: &[u8], at: usize, length: usize, runtime: bool) -> Result<usize, Error> {
+    if runtime
+        && (0x01ff0000..0x02010000).contains(&at)
+        && at.checked_add(length).is_some_and(|end| end <= 0x02010000)
+    {
+        Ok(at)
+    } else if !runtime {
+        flash_range(image, at, length)
+    } else {
+        Err(Error::InvalidContract)
+    }
 }
 impl ClassicParameter {
     /// Select a complete code grammar and require its adjacent setter to use
@@ -247,24 +360,22 @@ impl ClassicParameter {
                 if rates != oem {
                     return Err(Error::InvalidContract);
                 }
-                flash_range(image, rates, 6)?;
+                flash_range(image, rates, usize::from(def.rate_count))?;
                 let oem_coefficients = flash_range(
                     image,
-                    oem.checked_add(0x82).ok_or(Error::InvalidContract)?,
-                    12,
+                    oem.checked_add(def.oem_bias)
+                        .ok_or(Error::InvalidContract)?,
+                    usize::from(def.rate_count) * 2,
                 )?;
                 let table = literal_value(image, entry + def.target_table)
                     .ok_or(Error::InvalidContract)? as usize;
-                let coefficients = flash_range(
+                let coefficients = native_range(
                     image,
                     table
                         .checked_add(def.target_bias)
                         .ok_or(Error::InvalidContract)?,
-                    if def.variant == ClassicParameterVariant::MediaSelected {
-                        16
-                    } else {
-                        12
-                    },
+                    def.target_bytes,
+                    def.target_runtime,
                 )?;
                 if coefficients % 2 != 0 {
                     return Err(Error::InvalidContract);
@@ -276,7 +387,7 @@ impl ClassicParameter {
                     }
                     let reject = conditional(image, site + 2, thumb_asm::Cond::Ne)
                         .ok_or(Error::InvalidContract)?;
-                    if reject != entry + 0x68 {
+                    if reject != entry + def.oem_table {
                         return Err(Error::InvalidContract);
                     }
                     Some(C7Selection {
@@ -294,6 +405,8 @@ impl ClassicParameter {
                     entry,
                     lookup: entry + def.lookup,
                     rates,
+                    rate_count: def.rate_count,
+                    coefficients_are_runtime: def.target_runtime,
                     coefficients,
                     oem_coefficients,
                     selection,
