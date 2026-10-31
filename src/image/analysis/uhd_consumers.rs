@@ -383,6 +383,54 @@ const ALTERNATIVES: &[Definition] = &[
             (0x7008, 0xffff),
         ],
     },
+    // Early c88a6901, 0xe2c02: state in R2, native mode byte in R0.
+    Definition {
+        kind: ClassicConsumerKind::DiMode,
+        gate: 6,
+        target: 52,
+        target_accepts: false,
+        pattern: &[
+            (0x4a00, 0xff00),
+            (0x7810, 0xffff),
+            (0x21c8, 0xffff),
+            (0x4381, 0xffff),
+            (0x4800, 0xff00),
+            (0xd113, 0xffff),
+            (0x7812, 0xffff),
+            (0x21cc, 0xffff),
+            (0x4391, 0xffff),
+            (0xd101, 0xffff),
+            (0x2115, 0xffff),
+            (0xe000, 0xffff),
+            (0x211c, 0xffff),
+            (0x7001, 0xffff),
+            (0xf000, 0xf800),
+            (0xc000, 0xd001),
+        ],
+    },
+    // Early c88a6901, 0x6925e: compact R0 mode store followed by native return.
+    Definition {
+        kind: ClassicConsumerKind::MediaDefaults,
+        gate: 6,
+        target: 26,
+        target_accepts: false,
+        pattern: &[
+            (0x4f00, 0xff00),
+            (0x7838, 0xffff),
+            (0x26c8, 0xffff),
+            (0x4386, 0xffff),
+            (0xd107, 0xffff),
+            (0x7839, 0xffff),
+            (0x20cc, 0xffff),
+            (0x4388, 0xffff),
+            (0xd101, 0xffff),
+            (0x2015, 0xffff),
+            (0xe000, 0xffff),
+            (0x201c, 0xffff),
+            (0x7010, 0xffff),
+            (0xbdf0, 0xffff),
+        ],
+    },
 ];
 fn recovery_family(
     image: &[u8],
@@ -496,7 +544,10 @@ impl ClassicConsumer {
                 .ok_or(Error::InvalidContract)?;
                 if (!matches!(
                     def.kind,
-                    ClassicConsumerKind::ReadStatus | ClassicConsumerKind::MediaDefaults
+                    ClassicConsumerKind::ReadStatus
+                        | ClassicConsumerKind::MediaDefaults
+                        | ClassicConsumerKind::Control18
+                        | ClassicConsumerKind::ParameterClass
                 ) && target != region + def.target)
                     || target + 4 > image.len()
                 {
@@ -530,6 +581,47 @@ impl ClassicConsumer {
                 };
                 // Positive branch semantics beyond the local selector grammar.
                 match def.kind {
+                    ClassicConsumerKind::Control18 => {
+                        // Native callback/refresh instructions may move the
+                        // reject block. Bind the controller-register update,
+                        // its opposite low-bit update and the common join.
+                        let direct = matches(
+                            image,
+                            target,
+                            &[
+                                (0x6820, 0xffff),
+                                (0x0880, 0xffff),
+                                (0x0080, 0xffff),
+                                (0x1c40, 0xffff),
+                                (0x6020, 0xffff),
+                            ],
+                        );
+                        let r0_base = matches(
+                            image,
+                            target,
+                            &[
+                                (0x6801, 0xffff),
+                                (0x0889, 0xffff),
+                                (0x0089, 0xffff),
+                                (0x1c49, 0xffff),
+                                (0x6001, 0xffff),
+                            ],
+                        );
+                        let join = thumb_asm::isa::decode_at(image, target.saturating_sub(2))
+                            .ok_or(Error::InvalidContract)?;
+                        if !(region + def.pattern.len() * 2..region + 0x400).contains(&target)
+                            || !match half(image, accept) {
+                                Some(0x69a1) => direct,
+                                Some(0x6981) => r0_base,
+                                _ => false,
+                            }
+                            || join.mnemonic != "b"
+                            || join.cond.is_some()
+                            || join.branch_target().map(|p| p as usize) != Some(target + 10)
+                        {
+                            return Err(Error::InvalidContract);
+                        }
+                    }
                     ClassicConsumerKind::MediaDefaults => {
                         let branch = |at| -> Option<usize> {
                             let ins = thumb_asm::isa::decode_at(image, at)?;
@@ -539,21 +631,27 @@ impl ClassicConsumer {
                             ins.branch_target().map(|v| v as usize)
                         };
                         let store = branch(region + 20).ok_or(Error::InvalidContract)?;
-                        if branch(region + 24) != Some(store)
-                            || half(image, store) != Some(0x7011)
-                            || !(region + 26..region + 0x400).contains(&store)
-                        {
-                            return Err(Error::InvalidContract);
-                        }
-                        let mut join = reject;
-                        for _ in 0..3 {
-                            if join == store + 2 {
-                                break;
+                        let compact = half(image, store) == Some(0x7010)
+                            && store == region + 24
+                            && reject == store + 2
+                            && half(image, reject) == Some(0xbdf0);
+                        if !compact {
+                            if branch(region + 24) != Some(store)
+                                || half(image, store) != Some(0x7011)
+                                || !(region + 26..region + 0x400).contains(&store)
+                            {
+                                return Err(Error::InvalidContract);
                             }
-                            join = branch(join).ok_or(Error::InvalidContract)?;
-                        }
-                        if join != store + 2 {
-                            return Err(Error::InvalidContract);
+                            let mut join = reject;
+                            for _ in 0..3 {
+                                if join == store + 2 {
+                                    break;
+                                }
+                                join = branch(join).ok_or(Error::InvalidContract)?;
+                            }
+                            if join != store + 2 {
+                                return Err(Error::InvalidContract);
+                            }
                         }
                     }
                     ClassicConsumerKind::ReadControl => {
@@ -589,7 +687,8 @@ impl ClassicConsumer {
                         }
                     }
                     ClassicConsumerKind::ParameterClass => {
-                        if half(image, accept) != Some(0x20b1)
+                        if !(region + def.pattern.len() * 2..region + 0x400).contains(&accept)
+                            || half(image, accept) != Some(0x20b1)
                             || !half(image, accept + 2).is_some_and(|v| v & 0xf800 == 0xf000)
                             || half(image, accept + 6) != Some(0x2002)
                         {
