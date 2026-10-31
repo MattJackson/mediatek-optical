@@ -79,7 +79,8 @@ impl LegacyStackDi {
     pub fn detect(image: &[u8]) -> Result<Self, Error> {
         let areas = UhdAreas::inspect(image);
         let di = areas.area(UhdArea::DiscInformation)?;
-        if di.selects_c7() != Some(false) || half(image, di.site()) != Some(0xab10) {
+        let stack_op = half(image, di.site()).ok_or(Error::Truncated)?;
+        if di.selects_c7() != Some(false) || !matches!(stack_op, 0xab08 | 0xab10) {
             return Err(Error::UnknownLayout);
         }
         let load = half(image, di.site() + 2).ok_or(Error::Truncated)?;
@@ -90,9 +91,10 @@ impl LegacyStackDi {
         if !matches!(identifier_offset, 8 | 16) {
             return Err(Error::UnknownLayout);
         }
-        let state = areas.state_address()?;
+        let stack_block = ((stack_op & 255) * 4) as u8;
+        let state = areas.media_state_address()?;
         let validation = [
-            (0xab10, 0xffff),
+            (stack_op, 0xffff),
             (byte_load(0, 3, identifier_offset + 1), 0xffff),
             (0x0680, 0xffff),
             (0x0f81, 0xffff),
@@ -113,7 +115,7 @@ impl LegacyStackDi {
                 image,
                 identifier,
                 &[
-                    (0xab10, 0xffff),
+                    (stack_op, 0xffff),
                     (load, 0xffff),
                     (0x2857, 0xffff),
                     (0xd100, 0xff00),
@@ -128,7 +130,7 @@ impl LegacyStackDi {
             image,
             recordable,
             &[
-                (0xab10, 0xffff),
+                (stack_op, 0xffff),
                 (load, 0xffff),
                 (0x2852, 0xffff),
                 (0xd100, 0xff00),
@@ -145,7 +147,7 @@ impl LegacyStackDi {
                         image,
                         at,
                         &[
-                            (0xab10, 0xffff),
+                            (stack_op, 0xffff),
                             (byte_load(0, 3, identifier_offset - 4), 0xffff),
                             (0x2842, 0xffff),
                             (0xd100, 0xff00),
@@ -175,11 +177,29 @@ impl LegacyStackDi {
         // native diagnostic/error block; no failure path is forced successful.
         literal(image, bad_prefix, 0)?;
         literal(image, prevalidation + 16, 0)?;
-        if branch(image, bad_prefix + 2)? != branch(image, prevalidation + 18)? {
+        if stack_block == 32 {
+            // This compiler emits separate diagnostic blocks. Both invoke the
+            // same native logger and clear the same live state through R7.
+            let a = decode_at(image, bad_prefix + 2).ok_or(Error::Truncated)?;
+            let b = decode_at(image, prevalidation + 18).ok_or(Error::Truncated)?;
+            if a.mnemonic != "bl"
+                || b.mnemonic != "bl"
+                || a.branch_target() != b.branch_target()
+                || !matches(image, bad_prefix + 6, &[(0x2000, 0xffff), (0x7038, 0xffff)])
+                || !matches(
+                    image,
+                    prevalidation + 22,
+                    &[(0x2000, 0xffff), (0x7038, 0xffff)],
+                )
+            {
+                return Err(Error::InvalidContract);
+            }
+        } else if branch(image, bad_prefix + 2)? != branch(image, prevalidation + 18)? {
             return Err(Error::InvalidContract);
         }
         let caller = SavedLink::detect(image, prevalidation)?;
-        if prefix < caller.entry() || caller.stack_bytes() < 64 + usize::from(identifier_offset) + 4
+        if prefix < caller.entry()
+            || caller.stack_bytes() < usize::from(stack_block) + usize::from(identifier_offset) + 4
         {
             return Err(Error::InvalidContract);
         }
@@ -188,7 +208,7 @@ impl LegacyStackDi {
             image,
             format,
             &[
-                (0xab10, 0xffff),
+                (stack_op, 0xffff),
                 (byte_load(3, 3, identifier_offset + 3), 0xffff),
                 (0x4800, 0xff00),
             ],
@@ -219,7 +239,7 @@ impl LegacyStackDi {
             image,
             layers,
             &[
-                (0xab10, 0xffff),
+                (stack_op, 0xffff),
                 (byte_load(0, 3, identifier_offset + 2), 0xffff),
                 (0x21f3, 0xffff),
                 (0x0900, 0xffff),
@@ -265,8 +285,14 @@ impl LegacyStackDi {
                 store_edges.push(cursor);
                 cursor += 2;
             }
-            if count != 4 && conditional(image, edge, Cond::Ne) != Some(cursor) {
-                return Err(Error::InvalidContract);
+            if count != 4 {
+                let next = conditional(image, edge, Cond::Ne).ok_or(Error::InvalidContract)?;
+                // The preceding unconditional store-join skips any literal
+                // island. Bind the next comparison at the actual BNE target.
+                if next < cursor || next > cursor + 0x200 {
+                    return Err(Error::InvalidContract);
+                }
+                cursor = next;
             }
         }
         let layer_store = cursor;
@@ -285,7 +311,7 @@ impl LegacyStackDi {
                     (0x4800, 0xff00),
                     (0x2100, 0xffff),
                     (0x7001, 0xffff),
-                    (0xab10, 0xffff),
+                    (stack_op, 0xffff),
                     (byte_load(1, 3, identifier_offset + 1), 0xffff),
                 ],
             )
@@ -314,7 +340,7 @@ impl LegacyStackDi {
             layer_store,
             after_layers,
             state,
-            stack_block: 64,
+            stack_block,
             identifier_offset,
             state_register,
             caller,

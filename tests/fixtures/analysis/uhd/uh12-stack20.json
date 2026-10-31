@@ -32,6 +32,16 @@
         "file": "84fecc29-stack20-0ec600.bin",
         "offset": 968192,
         "sha256": "c95a23d8314c278e86fb6c669b449bb032013b6cb10e0888869de159a5fdf203"
+      },
+      {
+        "file": "84fecc29-stack20-frame-0eb600.bin",
+        "offset": 964096,
+        "sha256": "eeffda6f3349d985b43465eb868c22975effb09d50485368b425d00518de5114"
+      },
+      {
+        "file": "84fecc29-stack20-frame-161a00.bin",
+        "offset": 1448448,
+        "sha256": "6971a1dedabf547efdb074a5c412959d8b6901b9164df3b1e50fae22fe94e4a2"
       }
     ]
   },
@@ -68,6 +78,16 @@
         "file": "d98c2e11-stack20-0ec600.bin",
         "offset": 968192,
         "sha256": "b1bc3a789a3aca9523ef34e4438fd522ce84c731b7aaa668bb54253584829033"
+      },
+      {
+        "file": "d98c2e11-stack20-frame-0eb600.bin",
+        "offset": 964096,
+        "sha256": "74337da5000d28674ee9b43e5f25fc5281dcd6fb76f86a870e40cad231a718e9"
+      },
+      {
+        "file": "d98c2e11-stack20-frame-161a00.bin",
+        "offset": 1448448,
+        "sha256": "02b82eaec0041f8ab6d457272ba838e8dcad5aa0b3d9c9190ba0be89505f2c4f"
       }
     ]
   }

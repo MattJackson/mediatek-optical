@@ -584,3 +584,25 @@ fn stack20_di_admission_is_identified_as_legacy_without_a_generic_detour() {
             .is_err());
     }
 }
+
+#[test]
+fn stack20_di_binds_native_validation_frame_and_noncontiguous_layers() {
+    let (root, _) = fixtures();
+    let cases: Vec<serde_json::Value> =
+        serde_json::from_slice(&std::fs::read(root.join("uh12-stack20.json")).unwrap()).unwrap();
+    for case in cases {
+        let bytes = image(&root, &case);
+        let di = super::LegacyStackDi::detect(&bytes).unwrap();
+        assert_eq!(di.stack_block, 32);
+        assert_eq!(di.identifier_offset, 16);
+        assert_eq!(di.state_register, Some(7));
+        assert_eq!(di.caller.stack_bytes(), 72);
+        assert!(di.layer_store > di.layers + 80);
+        let mut bad = bytes.clone();
+        bad[di.layers + 4] ^= 1; // The native normalization mask is part of the contract.
+        assert!(super::LegacyStackDi::detect(&bad).is_err());
+        let mut bad = bytes;
+        bad[di.prevalidation + 8] ^= 1;
+        assert!(super::LegacyStackDi::detect(&bad).is_err());
+    }
+}
