@@ -28,7 +28,9 @@ mod switch;
 mod uhd;
 mod uhd_consumers;
 mod uhd_control_tail;
+mod uhd_density;
 mod uhd_di;
+mod uhd_identity;
 mod uhd_parameter;
 mod vid;
 
@@ -40,7 +42,9 @@ pub use media::{MediaGate, MediaGateVariant};
 pub use uhd::{C7Selection, UhdArea, UhdAreaContract, UhdAreas, UhdEdge, UhdHandling, UhdLiteral};
 pub use uhd_consumers::{ClassicConsumer, ClassicConsumerKind};
 pub use uhd_control_tail::LegacyControlTail;
+pub use uhd_density::{LegacyDensityTarget, SLIM_UHD_DENSITY_TARGETS};
 pub use uhd_di::ClassicDi;
+pub use uhd_identity::{IdentityResetCall, LegacyIdentityReset};
 pub use uhd_parameter::{ClassicParameter, ClassicParameterVariant};
 pub use vid::{VidGate, VidGateVariant};
 
