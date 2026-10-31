@@ -76,6 +76,7 @@ pub fn inspect_mode_three_wrapper(
     let minimum = match program.variant {
         super::ProgramLoopVariant::Compact => 2016,
         super::ProgramLoopVariant::Wide => 2060,
+        super::ProgramLoopVariant::WideWithoutPrelude => 2088,
     };
     if copied_bytes < minimum
         || copied_bytes > 0x10000
@@ -114,6 +115,42 @@ mod tests {
         image[0x17c44e..0x17c44e + wrapper.len()].copy_from_slice(wrapper);
         image[0x17000..0x17000 + program.len()].copy_from_slice(program);
         image
+    }
+
+    #[test]
+    fn native_wrapper_without_extra_loop_prelude_keeps_all_argument_bindings() {
+        let mut image = vec![0; 0x200000];
+        let wrapper = include_bytes!("../../../tests/fixtures/analysis/wh16-wrapper.bin");
+        let program = include_bytes!("../../../tests/fixtures/analysis/wh16-program.bin");
+        image[0x13cd76..0x13cd76 + wrapper.len()].copy_from_slice(wrapper);
+        image[0x1a000..0x1a000 + program.len()].copy_from_slice(program);
+        let proof = inspect_mode_three_wrapper(&image, 0, 0x13cd76).unwrap();
+        assert_eq!(
+            proof.program.variant,
+            super::super::ProgramLoopVariant::WideWithoutPrelude
+        );
+        assert_eq!(proof.loop_address, 0x1a000);
+        assert_eq!(proof.copied_bytes, 0x1bfc);
+        assert_eq!(proof.program.destination_cell, 0x02000c68);
+        assert_eq!(proof.program.source_offset_cell, 0x02000c70);
+        assert_eq!(proof.program.remaining_cell, 0x02000c74);
+        assert_eq!(proof.copy_helper, 0xa127a);
+        assert_eq!(proof.activate_helper, 0xa1242);
+        // The new loop shape does not relax the wrapper's stores or copied
+        // pointer, geometry source, or code-copy extent.
+        for address in [
+            0x13ce9e, 0x13cea2, 0x13cea6, 0x13d074, 0x13d094, 0x13d098, 0x13d09c, 0x13d0a0,
+        ] {
+            let mut changed = image.clone();
+            changed[address] ^= 1;
+            assert!(
+                inspect_mode_three_wrapper(&changed, 0, 0x13cd76).is_none(),
+                "{address:#x}"
+            );
+        }
+        let mut truncated_copy = image;
+        truncated_copy[0x13d090..0x13d094].copy_from_slice(&2087u32.to_le_bytes());
+        assert!(inspect_mode_three_wrapper(&truncated_copy, 0, 0x13cd76).is_none());
     }
 
     #[test]

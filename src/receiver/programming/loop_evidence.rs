@@ -1,6 +1,9 @@
 //! Complete programming-loop matching with role-checked RAM literal relocation.
 use core::ops::Range;
 
+#[path = "loop_without_prelude.rs"]
+mod without_prelude;
+
 /// Complete instruction forms, independent of model names and RAM relocation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ProgramLoopVariant {
@@ -8,6 +11,8 @@ pub enum ProgramLoopVariant {
     Compact,
     /// Wider loop with the first reserved span starting at 0x1c8000.
     Wide,
+    /// Same reserved spans as Wide, without its alternate-controller prelude.
+    WideWithoutPrelude,
 }
 
 /// Evidence for the native mode-three programming loop and raw page copy.
@@ -38,16 +43,32 @@ const RAM_WORDS: [usize; 5] = [0x348, 0x350, 0x358, 0x7c4, 0x7cc];
 const STATUS_WORDS: [usize; 3] = [0x35c, 0x360, 0x7dc];
 const WIDE_RAM_WORDS: [usize; 5] = [0x374, 0x37c, 0x384, 0x7f0, 0x7f8];
 const WIDE_STATUS_WORDS: [usize; 3] = [0x388, 0x38c, 0x808];
+const NO_PRELUDE_RAM_WORDS: [usize; 5] = [0x358, 0x360, 0x368, 0x7d4, 0x7dc];
+const NO_PRELUDE_STATUS_WORDS: [usize; 3] = [0x36c, 0x370, 0x7ec];
 
 /// Select one complete known programming-loop form, rejecting ambiguity.
 pub fn inspect_program_loop(bytes: &[u8]) -> Option<ProgramLoopEvidence> {
     match (
         inspect_compact_program_loop(bytes),
         inspect_wide_program_loop(bytes),
+        inspect_wide_without_prelude(bytes),
     ) {
-        (Some(proof), None) | (None, Some(proof)) => Some(proof),
+        (Some(proof), None, None) | (None, Some(proof), None) | (None, None, Some(proof)) => {
+            Some(proof)
+        }
         _ => None,
     }
+}
+
+fn inspect_wide_without_prelude(bytes: &[u8]) -> Option<ProgramLoopEvidence> {
+    inspect(
+        bytes,
+        without_prelude::WIDE_WITHOUT_PRELUDE,
+        &NO_PRELUDE_RAM_WORDS,
+        &NO_PRELUDE_STATUS_WORDS,
+        ProgramLoopVariant::WideWithoutPrelude,
+        0x1c8000,
+    )
 }
 
 /// Match all instructions, branch operands, hardware literals and skip constants
@@ -136,6 +157,60 @@ mod tests {
 
     const HELD: &[u8] = include_bytes!("../../../tests/fixtures/analysis/uh12-program.bin");
     const WIDE: &[u8] = include_bytes!("../../../tests/fixtures/analysis/bp55-program.bin");
+    const NO_PRELUDE: &[u8] = include_bytes!("../../../tests/fixtures/analysis/wh16-program.bin");
+
+    #[test]
+    fn wide_loop_without_prelude_binds_complete_native_code_and_reserved_spans() {
+        let proof = inspect_program_loop(NO_PRELUDE).unwrap();
+        assert_eq!(proof.variant, ProgramLoopVariant::WideWithoutPrelude);
+        assert_eq!(proof.destination_cell, 0x02000c68);
+        assert_eq!(proof.source_offset_cell, 0x02000c70);
+        assert_eq!(proof.remaining_cell, 0x02000c74);
+        assert_eq!(proof.staging_cell, 0x02000c3c);
+        assert_eq!(proof.copy_pointer_cell, 0x02000c90);
+        assert_eq!(proof.flash_status_cell, 0x01ffc2f8);
+        assert_eq!(
+            proof.preserving_boot_spans,
+            [0x10000..0x1c8000, 0x1ec000..0x1f0000]
+        );
+        for reserved in
+            core::iter::once(crate::layout::BOOT_AREA).chain(crate::layout::DRIVE_WRITTEN)
+        {
+            assert!(proof
+                .preserving_boot_spans
+                .iter()
+                .all(|span| span.end <= reserved.start || span.start >= reserved.end()));
+        }
+        assert!(inspect_compact_program_loop(NO_PRELUDE).is_none());
+        assert!(inspect_wide_program_loop(NO_PRELUDE).is_none());
+        // Every instruction, branch destination and hardware/skip constant is
+        // fixed, including code after the page helper's embedded literal pool.
+        for at in (0..NO_PRELUDE.len()).step_by(2) {
+            if NO_PRELUDE_RAM_WORDS
+                .iter()
+                .chain(&NO_PRELUDE_STATUS_WORDS)
+                .any(|&p| (p..p + 4).contains(&at))
+            {
+                continue;
+            }
+            let mut changed = NO_PRELUDE.to_vec();
+            changed[at] ^= 1;
+            assert!(inspect_program_loop(&changed).is_none(), "{at:#x}");
+        }
+        for at in NO_PRELUDE_RAM_WORDS {
+            let alias = if at == NO_PRELUDE_RAM_WORDS[0] {
+                proof.source_offset_cell
+            } else {
+                proof.destination_cell
+            };
+            for bad in [0x02000c69u32, 0x04011000, alias] {
+                let mut changed = NO_PRELUDE.to_vec();
+                changed[at..at + 4].copy_from_slice(&bad.to_le_bytes());
+                assert!(inspect_program_loop(&changed).is_none(), "{at:#x}/{bad:#x}");
+            }
+        }
+        assert!(inspect_program_loop(&NO_PRELUDE[..NO_PRELUDE.len() - 1]).is_none());
+    }
 
     #[test]
     fn wide_form_has_distinct_skip_and_role_checked_relocations() {
