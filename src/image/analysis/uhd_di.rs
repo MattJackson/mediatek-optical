@@ -98,7 +98,10 @@ impl ClassicDi {
         };
         let format = target(image, di.site() + 26)?;
         if format <= di.site()
-            || format > di.site() + 0x100
+            // Some register-allocation variants place a literal island between
+            // the O admission and the shared format switch. Follow the bound
+            // native branch across it; the switch/layers/frame are checked below.
+            || format > di.site() + 0x200
             || !matches(
                 image,
                 format,

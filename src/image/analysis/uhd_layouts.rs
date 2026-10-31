@@ -2,6 +2,30 @@
 //! searches instructions and binds literals/continuations, never hashes or models.
 use super::{Definition, SelectionDefinition, UhdArea, UhdHandling};
 pub(super) const DEFINITIONS: &[Definition] = &[
+    // UH12NS30 native O admission: DI block is SP+0x20, state is [R7].
+    // This identifies a legacy parser; it authorizes no conversion detour.
+    Definition {
+        area: UhdArea::DiscInformation,
+        name: "classic_stack20_state_r7",
+        pattern: &[
+            (0xab08, 0xffff),
+            (0x7c18, 0xffff),
+            (0x284f, 0xffff),
+            (0xd100, 0xff00),
+            (0x7cd8, 0xffff),
+            (0x21c0, 0xffff),
+            (0x2800, 0xffff),
+            (0xd000, 0xff00),
+            (0x2801, 0xffff),
+            (0xd000, 0xff00),
+            (0x2802, 0xffff),
+            (0xd100, 0xff00),
+            (0x7039, 0xffff),
+            (0xe000, 0xf800),
+        ],
+        handling: UhdHandling::Legacy,
+        selection: None,
+    },
     // source 40eb760e23f100d55e86e9c061c73428d4087ef712294e4dbfcefa3093837a1a, 0x36472..0x3648e
     Definition {
         area: UhdArea::ControlBit,

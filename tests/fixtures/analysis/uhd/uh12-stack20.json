@@ -1,0 +1,74 @@
+[
+  {
+    "source_sha256": "84fecc2930d63cd4da8aa4759f63550d1eb1a642343d29adf1e370a2a861347e",
+    "site": 968242,
+    "parts": [
+      {
+        "file": "84fecc29-stack20-02ce00.bin",
+        "offset": 183808,
+        "sha256": "a5e20cdc177fb786b0ef4b6d62661fc2fa0ef10fca1f5648d065c1533c233433"
+      },
+      {
+        "file": "84fecc29-stack20-030f00.bin",
+        "offset": 200448,
+        "sha256": "427c69416935f4c0e4e4e987035c7822faf4fb9262036292ba5816a6d0e5303e"
+      },
+      {
+        "file": "84fecc29-stack20-0dfc00.bin",
+        "offset": 916480,
+        "sha256": "6345e8b25fd5e9ffd6cda068962dc194c248355972f413cb0a57461c58958ce2"
+      },
+      {
+        "file": "84fecc29-stack20-0dfd00.bin",
+        "offset": 916736,
+        "sha256": "2ad132156682e2ea8f7471a35e603b36aba8c32f3b0ccd1188d917d82193f063"
+      },
+      {
+        "file": "84fecc29-stack20-0e0000.bin",
+        "offset": 917504,
+        "sha256": "149312955933f3122bc295f5c39148738074e92595d02103e3c010fc94712e88"
+      },
+      {
+        "file": "84fecc29-stack20-0ec600.bin",
+        "offset": 968192,
+        "sha256": "c95a23d8314c278e86fb6c669b449bb032013b6cb10e0888869de159a5fdf203"
+      }
+    ]
+  },
+  {
+    "source_sha256": "d98c2e11f400cf54133289369f19064ccabc72c69ef189f9129fc19b2d700cc8",
+    "site": 968242,
+    "parts": [
+      {
+        "file": "d98c2e11-stack20-02ce00.bin",
+        "offset": 183808,
+        "sha256": "2bd2c39a025cd5aa88f0a70afb66ca2216fbebe9b3856a8226847adc7de0e339"
+      },
+      {
+        "file": "d98c2e11-stack20-030f00.bin",
+        "offset": 200448,
+        "sha256": "427c69416935f4c0e4e4e987035c7822faf4fb9262036292ba5816a6d0e5303e"
+      },
+      {
+        "file": "d98c2e11-stack20-0dfc00.bin",
+        "offset": 916480,
+        "sha256": "e505df48f7baf5e1fd412bb5fb05927b9d7ed9e67146bd0e64d68e0881b400d0"
+      },
+      {
+        "file": "d98c2e11-stack20-0dfd00.bin",
+        "offset": 916736,
+        "sha256": "7ad6c1c2fa6dff9bf5945f1d7b4ba4a83f0d29f8e835da437fd5f7486ff479ae"
+      },
+      {
+        "file": "d98c2e11-stack20-0e0000.bin",
+        "offset": 917504,
+        "sha256": "122c6f7f6290657f955a09fb5b0ec3870453399a7529464c97d364fe927dd46d"
+      },
+      {
+        "file": "d98c2e11-stack20-0ec600.bin",
+        "offset": 968192,
+        "sha256": "b1bc3a789a3aca9523ef34e4438fd522ce84c731b7aaa668bb54253584829033"
+      }
+    ]
+  }
+]

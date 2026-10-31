@@ -529,3 +529,58 @@ fn read_completion_binds_native_fields_boundaries_and_saved_frames() {
     }
     assert_eq!(count, 4);
 }
+
+#[test]
+fn classic_di_follows_format_branch_across_native_literal_island() {
+    let (root, _) = fixtures();
+    let case: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(root.join("46b41f15-di-island.json")).unwrap())
+            .unwrap();
+    let bytes = image(&root, &case);
+    let di = super::ClassicDi::detect(&bytes).unwrap();
+    assert_eq!(di.prevalidation, 0x10c546);
+    assert_eq!(di.format, 0x10c6ba);
+    assert_eq!(di.state, 0x01ff9ddc);
+    assert_eq!(di.one_register, 0);
+    // The longer branch does not relax the destination's switch contract.
+    let mut bad = bytes.clone();
+    bad[di.format + 6] ^= 1;
+    assert!(super::ClassicDi::detect(&bad).is_err());
+    let mut bad = bytes;
+    bad[di.layers + 26] ^= 8;
+    assert!(super::ClassicDi::detect(&bad).is_err());
+}
+
+#[test]
+fn stack20_di_admission_is_identified_as_legacy_without_a_generic_detour() {
+    let (root, _) = fixtures();
+    let cases: Vec<serde_json::Value> =
+        serde_json::from_slice(&std::fs::read(root.join("uh12-stack20.json")).unwrap()).unwrap();
+    assert_eq!(cases.len(), 2);
+    for case in cases {
+        let bytes = image(&root, &case);
+        let areas = UhdAreas::inspect(&bytes);
+        let di = areas.area(UhdArea::DiscInformation).unwrap();
+        assert_eq!(di.site(), case["site"].as_u64().unwrap() as usize);
+        assert_eq!(di.variant(), "classic_stack20_state_r7");
+        assert_eq!(di.selects_c7(), Some(false));
+        assert!(di.selection().is_none());
+        assert_eq!(areas.media_state_address().unwrap(), 0x01ff9d61);
+        assert!(areas.state_address().is_err()); // Native defaults remain unrecognized.
+                                                 // A missing optional hardware policy does not permit routing roles to
+                                                 // disagree about the live state address.
+        let load = areas.area(UhdArea::ControlBit).unwrap().literals()[0].instruction;
+        let op = u16::from_le_bytes(bytes[load..load + 2].try_into().unwrap());
+        let pool = ((load + 4) & !3) + usize::from(op & 255) * 4;
+        let mut disagreement = bytes.clone();
+        disagreement[pool..pool + 4].copy_from_slice(&0x01ff9d62u32.to_le_bytes());
+        assert!(UhdAreas::inspect(&disagreement)
+            .media_state_address()
+            .is_err());
+        let mut bad = bytes;
+        bad[di.site() + 4] = b'U';
+        assert!(UhdAreas::inspect(&bad)
+            .area(UhdArea::DiscInformation)
+            .is_err());
+    }
+}

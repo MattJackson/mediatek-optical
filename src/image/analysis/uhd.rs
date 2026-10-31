@@ -410,10 +410,21 @@ impl UhdAreas {
     /// Bind the common media-state cell across all directly loading roles.
     /// DI recognition uses its caller's live pointer; it does not establish a new cell.
     pub fn state_address(&self) -> Result<u32, Error> {
+        let state = self.media_state_address()?;
+        let defaults = self.area(UhdArea::HardwareDefaults)?;
+        if defaults.literals.first().map(|v| v.value) != Some(state) {
+            return Err(Error::InvalidContract);
+        }
+        Ok(state)
+    }
+
+    /// Bind the five directly loading media-routing roles. This does not
+    /// recognize or authorize changes to a hardware-defaults policy.
+    pub fn media_state_address(&self) -> Result<u32, Error> {
         let mut state = None;
         for area in UhdArea::ALL
             .into_iter()
-            .filter(|a| *a != UhdArea::DiscInformation)
+            .filter(|a| !matches!(a, UhdArea::DiscInformation | UhdArea::HardwareDefaults))
         {
             let contract = self.area(area)?;
             let value = contract
