@@ -10,6 +10,8 @@ pub struct ClassicCalibration {
     /// Original table literal, before the native address adjustment. A detour
     /// is emitted only for the media-selected +0x58 implementation.
     pub original_base: u32,
+    /// Signed native adjustment between the literal base and OEM coefficients.
+    pub base_adjustment: i16,
     /// Native C8 coefficients; absent for state-independent getter layouts.
     pub c7_coefficients: Option<u32>,
 }
@@ -260,6 +262,51 @@ const PATTERN: &[(u16, u16)] = &[
     (0xd000, 0xd000),
     (0xbdf8, 0xffff),
 ];
+// Early four-rate native startup. Includes all index thresholds, the rate
+// store and the saved R6 doubled-index producer; addresses are provenance only.
+const FOUR_RATE_PREFIX: &[(u16, u16)] = &[
+    (0xb5f8, 0xffff),
+    (0x2500, 0xffff),
+    (0x2803, 0xffff),
+    (0xd801, 0xffff),
+    (0x2400, 0xffff),
+    (0xe008, 0xffff),
+    (0x2804, 0xffff),
+    (0xd801, 0xffff),
+    (0x2401, 0xffff),
+    (0xe004, 0xffff),
+    (0x2806, 0xffff),
+    (0xd801, 0xffff),
+    (0x2402, 0xffff),
+    (0xe000, 0xffff),
+    (0x2403, 0xffff),
+    (0x4e00, 0xff00),
+    (0x7831, 0xffff),
+    (0x4288, 0xffff),
+    (0xd900, 0xffff),
+    (0x2501, 0xffff),
+    (0x2808, 0xffff),
+    (0xd301, 0xffff),
+    (0x2002, 0xffff),
+    (0xe000, 0xffff),
+    (0x2001, 0xffff),
+    (0xf000, 0xf800),
+    (0xd000, 0xd000),
+    (0x4800, 0xff00),
+    (0x385e, 0xffff),
+    (0x5d00, 0xffff),
+    (0x0037, 0xffff),
+    (0x7030, 0xffff),
+    (0x4900, 0xff00),
+    (0x2002, 0xffff),
+    (0x7008, 0xffff),
+    (0x4a00, 0xff00),
+    (0x69d0, 0xffff),
+    (0x4900, 0xff00),
+    (0x0066, 0xffff),
+    (0x3910, 0xffff),
+    (0x5b89, 0xffff),
+];
 fn literal(image: &[u8], at: usize) -> Result<u32, Error> {
     let op = u16::from_le_bytes(
         image
@@ -309,6 +356,7 @@ impl ClassicCalibration {
                 caller: SavedLink::bind(image, entry, site)?,
                 site,
                 original_base,
+                base_adjustment: 0x58,
                 c7_coefficients,
             };
             if result.replace(bound).is_some() {
@@ -362,11 +410,67 @@ impl ClassicCalibration {
                         caller,
                         site,
                         original_base,
+                        base_adjustment: -0xc,
                         c7_coefficients: None,
                     })
                     .is_some()
                 {
                     return Err(Error::Ambiguous);
+                }
+            }
+        }
+        if parameter.rate_count == 4 && parameter.coefficients_are_runtime {
+            for entry in (0..image.len().saturating_sub(0x300)).step_by(2) {
+                if !matches(image, entry, FOUR_RATE_PREFIX) {
+                    continue;
+                }
+                if literal(image, entry + 0x36)?.checked_sub(0x5e)
+                    != u32::try_from(parameter.rates).ok()
+                    || literal(image, entry + 0x4a)?.checked_sub(0x10)
+                        != u32::try_from(parameter.rates + 0x4e).ok()
+                {
+                    return Err(Error::InvalidContract);
+                }
+                for site in (entry + 0x100..entry + 0x300).step_by(2) {
+                    if !matches(
+                        image,
+                        site,
+                        &[
+                            (0x4800, 0xff00),
+                            (0x3808, 0xffff),
+                            (0x5b80, 0xffff),
+                            (0xf000, 0xf800),
+                            (0xd000, 0xd000),
+                            (0x4a00, 0xff00),
+                            (0x6b10, 0xffff),
+                        ],
+                    ) {
+                        continue;
+                    }
+                    let original_base = literal(image, site)?;
+                    if original_base.checked_sub(8)
+                        != u32::try_from(parameter.oem_coefficients).ok()
+                        || literal(image, entry + 0x36)? != original_base
+                    {
+                        return Err(Error::InvalidContract);
+                    }
+                    let caller = SavedLink::bind(image, entry, site)?;
+                    caller.require_register_definition(image, entry + 0x4c, entry + 0x4e, 6)?;
+                    if result
+                        .replace(Self {
+                            caller,
+                            site,
+                            original_base,
+                            base_adjustment: -8,
+                            c7_coefficients: Some(
+                                u32::try_from(parameter.coefficients)
+                                    .map_err(|_| Error::InvalidContract)?,
+                            ),
+                        })
+                        .is_some()
+                    {
+                        return Err(Error::Ambiguous);
+                    }
                 }
             }
         }

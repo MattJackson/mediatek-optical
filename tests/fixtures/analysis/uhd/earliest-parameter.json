@@ -55,6 +55,11 @@
       "file": "c88a6901-auxiliary-143300.bin",
       "offset": 1323776,
       "sha256": "e8a8c653763614fea2ea3bb218a1e26da74b1c5b7d8a07648f324ac3beed2dd9"
+    },
+    {
+      "file": "c88a6901-calibration-0dd800.bin",
+      "offset": 907264,
+      "sha256": "86de465e5da37ee107ff58500611c8aa8d4e1563c08905e967b5358d9e4f30b5"
     }
   ]
 }

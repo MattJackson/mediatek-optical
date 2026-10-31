@@ -377,6 +377,26 @@ fn earliest_auxiliary_targets_bind_native_bodies_instead_of_old_displacements() 
 }
 
 #[test]
+fn earliest_calibration_binds_four_rate_index_and_native_default_lookup() {
+    let (root, _) = fixtures();
+    let case: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(root.join("earliest-parameter.json")).unwrap())
+            .unwrap();
+    let bytes = image(&root, &case);
+    let c = super::ClassicCalibration::detect(&bytes, 0x01ff9def).unwrap();
+    assert_eq!(c.caller.entry(), 0xdd814);
+    assert_eq!(c.site, 0xdd998);
+    assert_eq!(c.original_base, 0x15421a);
+    assert_eq!(c.base_adjustment, -8);
+    assert_eq!(c.c7_coefficients, Some(0x01ff7910));
+    for (at, op) in [(0xdd828, 0x2808u16), (0xdd860, 0x0067), (0xdd99a, 0x380c)] {
+        let mut bad = bytes.clone();
+        bad[at..at + 2].copy_from_slice(&op.to_le_bytes());
+        assert!(super::ClassicCalibration::detect(&bad, 0x01ff9def).is_err());
+    }
+}
+
+#[test]
 fn earliest_parameter_binds_four_native_rates_and_runtime_coefficients() {
     let (root, _) = fixtures();
     let case: serde_json::Value =
