@@ -11,7 +11,8 @@ pub struct ClassicReadCompletion {
     pub recovery_region: usize,
     /// Continuation after native read-entry result assignment.
     pub recovery_end: usize,
-    /// Source-bound state-pointer load before the recovery dispatch.
+    /// Source-bound state-pointer definition before the recovery dispatch.
+    /// This can be a proven copy of a saved pointer, rather than a literal load.
     pub recovery_state_load: usize,
     /// Native state-pointer and request-pointer registers.
     pub recovery_state_register: u8,
@@ -434,6 +435,169 @@ const RECOVERY_R0: &[(u16, u16)] = &[
     (0x2800, 0xffff),
     (0xd1bd, 0xffff),
 ];
+// Early native source 273f8..27424; instruction lookup, never address dispatch.
+const EARLY_CONTROLLER_HEAD: &[(u16, u16)] = &[
+    (0x4b00, 0xff00),
+    (0x781e, 0xffff),
+    (0x25c8, 0xffff),
+    (0x0028, 0xffff),
+    (0x43b0, 0xffff),
+    (0x260f, 0xffff),
+    (0x2777, 0xffff),
+    (0x023f, 0xffff),
+    (0x0236, 0xffff),
+    (0x2800, 0xffff),
+    (0x6810, 0xffff),
+    (0xd100, 0xff00),
+    (0x43b8, 0xffff),
+    (0x2713, 0xffff),
+    (0x027f, 0xffff),
+    (0x19c0, 0xffff),
+    (0x6010, 0xffff),
+    (0x6808, 0xffff),
+    (0x43b0, 0xffff),
+    (0x2203, 0xffff),
+    (0x0252, 0xffff),
+    (0xe000, 0xf800),
+];
+// Early native source 274d0..2750e; instruction lookup, never address dispatch.
+const EARLY_CONTROLLER_TAIL: &[(u16, u16)] = &[
+    (0x43b8, 0xffff),
+    (0x2705, 0xffff),
+    (0x02bf, 0xffff),
+    (0x19c0, 0xffff),
+    (0x6010, 0xffff),
+    (0x6808, 0xffff),
+    (0x43b0, 0xffff),
+    (0x2207, 0xffff),
+    (0x0212, 0xffff),
+    (0x1880, 0xffff),
+    (0x6008, 0xffff),
+    (0x4800, 0xff00),
+    (0x6b81, 0xffff),
+    (0x4a00, 0xff00),
+    (0x4011, 0xffff),
+    (0x6381, 0xffff),
+    (0x7819, 0xffff),
+    (0x002a, 0xffff),
+    (0x438a, 0xffff),
+    (0x2101, 0xffff),
+    (0x2603, 0xffff),
+    (0x02b6, 0xffff),
+    (0x0289, 0xffff),
+    (0x2a00, 0xffff),
+    (0x6b02, 0xffff),
+    (0xd101, 0xffff),
+    (0x43b2, 0xffff),
+    (0xe001, 0xffff),
+    (0x43b2, 0xffff),
+    (0x1852, 0xffff),
+    (0x6302, 0xffff),
+];
+// Early native source 143fb6..144036; instruction lookup, never address dispatch.
+const EARLY_BOUNDARY: &[(u16, u16)] = &[
+    (0x4800, 0xff00),
+    (0x7801, 0xffff),
+    (0x20c8, 0xffff),
+    (0x4388, 0xffff),
+    (0xd144, 0xffff),
+    (0x4a00, 0xff00),
+    (0x9909, 0xffff),
+    (0x6810, 0xffff),
+    (0x1c40, 0xffff),
+    (0x4281, 0xffff),
+    (0xd10b, 0xffff),
+    (0x4800, 0xff00),
+    (0x7800, 0xffff),
+    (0x2800, 0xffff),
+    (0xd103, 0xffff),
+    (0x4800, 0xff00),
+    (0x7800, 0xffff),
+    (0x2800, 0xffff),
+    (0xd160, 0xffff),
+    (0x6810, 0xffff),
+    (0x2103, 0xffff),
+    (0x0689, 0xffff),
+    (0xe010, 0xffff),
+    (0x4a00, 0xff00),
+    (0x9909, 0xffff),
+    (0x6810, 0xffff),
+    (0x1c40, 0xffff),
+    (0x4281, 0xffff),
+    (0xd10e, 0xffff),
+    (0x4800, 0xff00),
+    (0x7800, 0xffff),
+    (0x2800, 0xffff),
+    (0xd103, 0xffff),
+    (0x4800, 0xff00),
+    (0x7800, 0xffff),
+    (0x2800, 0xffff),
+    (0xd1ec, 0xffff),
+    (0x6810, 0xffff),
+    (0x2101, 0xffff),
+    (0x06c9, 0xffff),
+    (0x1a08, 0xffff),
+    (0x1e40, 0xffff),
+    (0x9009, 0xffff),
+    (0xe011, 0xffff),
+    (0x4a00, 0xff00),
+    (0x9909, 0xffff),
+    (0x6810, 0xffff),
+    (0x1c40, 0xffff),
+    (0x4281, 0xffff),
+    (0xd10d, 0xffff),
+    (0x4800, 0xff00),
+    (0x7800, 0xffff),
+    (0x2800, 0xffff),
+    (0xd103, 0xffff),
+    (0x4800, 0xff00),
+    (0x7800, 0xffff),
+    (0x2800, 0xffff),
+    (0xd1d7, 0xffff),
+    (0x6810, 0xffff),
+    (0x2101, 0xffff),
+    (0x0689, 0xffff),
+    (0xe7e9, 0xffff),
+    (0x4900, 0xff00),
+    (0x6088, 0xffff),
+];
+// Early native source 6e63c..6e680; instruction lookup, never address dispatch.
+const EARLY_RECOVERY: &[(u16, u16)] = &[
+    (0x780a, 0xffff),
+    (0x0992, 0xffff),
+    (0x2a03, 0xffff),
+    (0xd15f, 0xffff),
+    (0x000f, 0xffff),
+    (0x7809, 0xffff),
+    (0x0949, 0xffff),
+    (0x2907, 0xffff),
+    (0xd110, 0xffff),
+    (0x7839, 0xffff),
+    (0x0689, 0xffff),
+    (0xd403, 0xffff),
+    (0x7839, 0xffff),
+    (0x0909, 0xffff),
+    (0x2905, 0xffff),
+    (0xd105, 0xffff),
+    (0x4b00, 0xff00),
+    (0x6819, 0xffff),
+    (0x2201, 0xffff),
+    (0x0312, 0xffff),
+    (0x4391, 0xffff),
+    (0x6019, 0xffff),
+    (0x73a8, 0xffff),
+    (0xf000, 0xf800),
+    (0xc000, 0xd001),
+    (0xe003, 0xffff),
+    (0x7ae8, 0xffff),
+    (0x73ac, 0xffff),
+    (0xf000, 0xf800),
+    (0xc000, 0xd001),
+    (0x7028, 0xffff),
+    (0x7828, 0xffff),
+    (0x2800, 0xffff),
+    (0xd1ac, 0xffff),
+];
 fn literal(image: &[u8], at: usize) -> Option<u32> {
     let op = half(image, at)?;
     if op & 0xf800 != 0x4800 {
@@ -460,19 +624,52 @@ impl ClassicReadCompletion {
     /// Match the complete native store/calculation bodies, both branch edges,
     /// shared media cell and balanced saved frames. No hardware values change.
     pub fn inspect(image: &[u8], state: u32) -> Result<Self, Error> {
-        let controller_region = locate(image, CONTROLLER, state)?;
+        let (controller_region, controller_specs) = match locate(image, CONTROLLER, state) {
+            Ok(at) => (
+                at,
+                [
+                    (at + 0x12, at + 0x18, at + 0x2c, 6),
+                    (at + 0x5c, at + 0x62, at + 0x66, 6),
+                ],
+            ),
+            Err(Error::UnknownLayout) => {
+                let at = locate(image, EARLY_CONTROLLER_HEAD, state)?;
+                let reject = conditional(image, at + 22, thumb_asm::Cond::Ne)
+                    .ok_or(Error::InvalidContract)?;
+                let join =
+                    thumb_asm::isa::decode_at(image, at + 42).ok_or(Error::InvalidContract)?;
+                if !(at + 44..at + 0x400).contains(&reject)
+                    || !matches(image, reject, EARLY_CONTROLLER_TAIL)
+                    || join.mnemonic != "b"
+                    || join.cond.is_some()
+                    || join.branch_target().map(|v| v as usize) != Some(reject + 18)
+                    || literal(image, reject + 22) != Some(0x04208240)
+                {
+                    return Err(Error::InvalidContract);
+                }
+                (
+                    at,
+                    [
+                        (at + 18, at + 24, reject, 6),
+                        (reject + 46, reject + 52, reject + 56, 6),
+                    ],
+                )
+            }
+            Err(e) => return Err(e),
+        };
         let mut recovery = None;
-        for (pattern, state_register, request_register, shift) in [
-            (RECOVERY, 4u8, 5u8, 0),
-            (RECOVERY_R5, 5u8, 6u8, 0),
-            (RECOVERY_R0, 0u8, 6u8, 2),
+        for (pattern, state_register, request_register, shift, alias) in [
+            (RECOVERY, 4u8, 5u8, 0, false),
+            (RECOVERY_R5, 5u8, 6u8, 0, false),
+            (RECOVERY_R0, 0u8, 6u8, 2, false),
+            (EARLY_RECOVERY, 1u8, 5u8, 2, true),
         ] {
             for at in (0..image.len().saturating_sub(pattern.len() * 2)).step_by(2) {
                 if !matches(image, at, pattern) {
                     continue;
                 }
                 let parent = SavedLink::detect(image, at)?;
-                let producers: Vec<_> = (parent.entry..at)
+                let mut producers: Vec<_> = (parent.entry..at)
                     .step_by(2)
                     .filter_map(|site| {
                         let op = half(image, site)?;
@@ -502,6 +699,31 @@ impl ClassicReadCompletion {
                         (value == state).then_some((site, end))
                     })
                     .collect();
+                if alias {
+                    for copy in (parent.entry..at).step_by(2) {
+                        if half(image, copy) != Some(0x0031) {
+                            continue;
+                        }
+                        for load in (parent.entry..copy).step_by(2) {
+                            if half(image, load).is_some_and(|v| v & 0xff00 == 0x4e00)
+                                && literal(image, load).and_then(|v| v.checked_sub(5))
+                                    == Some(state)
+                                && half(image, load + 2) == Some(0x1f76)
+                                && SavedLink::require_live_definition(
+                                    image,
+                                    parent.entry,
+                                    copy,
+                                    load,
+                                    load + 4,
+                                    6,
+                                )
+                                .is_ok()
+                            {
+                                producers.push((copy, copy + 2));
+                            }
+                        }
+                    }
+                }
                 let producers: Vec<_> = producers
                     .into_iter()
                     .filter(|(site, end)| {
@@ -519,7 +741,9 @@ impl ClassicReadCompletion {
                     producers[0].1,
                     state_register,
                 )?;
-                if conditional(image, at + 14, thumb_asm::Cond::Ne) != Some(at + 50 + shift) {
+                if conditional(image, at + if alias { 16 } else { 14 }, thumb_asm::Cond::Ne)
+                    != Some(at + 50 + shift)
+                {
                     return Err(Error::InvalidContract);
                 }
                 let join = thumb_asm::isa::decode_at(image, at + 48 + shift)
@@ -527,11 +751,16 @@ impl ClassicReadCompletion {
                 if join.mnemonic != "b"
                     || join.cond.is_some()
                     || join.branch_target().map(|p| p as usize) != Some(at + 58 + shift)
-                    || thumb_asm::decode_bl(image, at + 54 + shift).is_none()
+                    || if alias {
+                        !thumb_asm::isa::decode_at(image, at + 54 + shift)
+                            .is_some_and(|ins| ins.mnemonic == "blx" && ins.is_call())
+                    } else {
+                        thumb_asm::decode_bl(image, at + 54 + shift).is_none()
+                    }
                 {
                     return Err(Error::InvalidContract);
                 }
-                if shift == 2 && literal(image, at + 16) != Some(state) {
+                if shift == 2 && !alias && literal(image, at + 16) != Some(state) {
                     return Err(Error::InvalidContract);
                 }
                 if recovery
@@ -568,14 +797,18 @@ impl ClassicReadCompletion {
             return Err(Error::InvalidContract);
         }
         let mut boundary = None;
-        for (pattern, offsets) in [
-            (BOUNDARY, [10, 54, 104]),
-            (BOUNDARY_VENEER, [10, 56, 106]),
-            (BOUNDARY_STACK12, [10, 52, 102]),
+        for (pattern, offsets, direct_reject) in [
+            (BOUNDARY, [10, 54, 104], false),
+            (BOUNDARY_VENEER, [10, 56, 106], false),
+            (BOUNDARY_STACK12, [10, 52, 102], false),
+            (EARLY_BOUNDARY, [10, 46, 88], true),
         ] {
             match locate(image, pattern, state) {
                 Ok(at) => {
-                    if boundary.replace((at, pattern.len() * 2, offsets)).is_some() {
+                    if boundary
+                        .replace((at, pattern.len() * 2, offsets, direct_reject))
+                        .is_some()
+                    {
                         return Err(Error::Ambiguous);
                     }
                 }
@@ -583,7 +816,8 @@ impl ClassicReadCompletion {
                 Err(e) => return Err(e),
             }
         }
-        let (boundary_region, boundary_length, offsets) = boundary.ok_or(Error::UnknownLayout)?;
+        let (boundary_region, boundary_length, offsets, direct_reject) =
+            boundary.ok_or(Error::UnknownLayout)?;
         let boundaries = offsets
             .map(|offset| literal(image, boundary_region + offset))
             .map(|v| v.ok_or(Error::InvalidContract));
@@ -600,18 +834,8 @@ impl ClassicReadCompletion {
         let boundary_reject = conditional(image, boundary_region + 8, thumb_asm::Cond::Ne)
             .ok_or(Error::InvalidContract)?;
         let specs = [
-            (
-                controller_region + 0x12,
-                controller_region + 0x18,
-                controller_region + 0x2c,
-                6,
-            ),
-            (
-                controller_region + 0x5c,
-                controller_region + 0x62,
-                controller_region + 0x66,
-                6,
-            ),
+            controller_specs[0],
+            controller_specs[1],
             (
                 boundary_region + 6,
                 boundary_region + 10,
@@ -639,7 +863,20 @@ impl ClassicReadCompletion {
         }
         // The boundary rejection skips the reflected-position block; its guard
         // may be a branch veneer but must remain inside the matched parent.
-        if half(image, boundary_reject).map(|op| op & 0xf800) != Some(0xe000) {
+        if half(image, boundary_reject).map(|op| op & 0xf800) != Some(0xe000)
+            && !(literal(image, boundary_reject) == Some(state)
+                && matches(
+                    image,
+                    boundary_reject + 2,
+                    &[
+                        (0x7800, 0xffff),
+                        (0x4038, 0xffff),
+                        (0x28c4, 0xffff),
+                        (0xd100, 0xff00),
+                    ],
+                )
+                && direct_reject)
+        {
             return Err(Error::InvalidContract);
         }
         Ok(Self {

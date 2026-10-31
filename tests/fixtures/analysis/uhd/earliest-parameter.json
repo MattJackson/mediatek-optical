@@ -65,6 +65,16 @@
       "file": "c88a6901-read-position-0dcbf0.bin",
       "offset": 904176,
       "sha256": "403b0c2a1e16c15fb54c4e41769ea955ddd355fd2974825238183057a8a85cbd"
+    },
+    {
+      "file": "c88a6901-completion-027000.bin",
+      "offset": 159744,
+      "sha256": "f9538b6b0ed103abbf880f60a4d730b3f8ac285d6e385faf739ddf700a11e9b8"
+    },
+    {
+      "file": "c88a6901-completion-06e500.bin",
+      "offset": 451840,
+      "sha256": "dbf1417d12dd9b5349b59e08c11883e0b25526fd1894ea0382277daec2d34318"
     }
   ]
 }

@@ -377,6 +377,36 @@ fn earliest_auxiliary_targets_bind_native_bodies_instead_of_old_displacements() 
 }
 
 #[test]
+fn earliest_completion_binds_literal_pool_split_and_native_recovery_alias() {
+    let (root, _) = fixtures();
+    let case: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(root.join("earliest-parameter.json")).unwrap())
+            .unwrap();
+    let bytes = image(&root, &case);
+    let c = super::ClassicReadCompletion::inspect(&bytes, 0x01ff9def).unwrap();
+    assert_eq!(c.controller_region, 0x273f8);
+    assert_eq!(c.boundary_region, 0x143fb6);
+    assert_eq!(c.boundary_end, 0x144036);
+    assert_eq!(c.boundaries, [0x02000d9c, 0x02000d98, 0x02000d94]);
+    assert_eq!(c.recovery_region, 0x6e63c);
+    assert_eq!(c.recovery_state_register, 1);
+    assert_eq!(c.recovery_state_load, 0x6e5e8);
+    assert_eq!(c.recovery_request_register, 5);
+    assert_eq!(c.recovery_flag_register, 4);
+    for (at, op) in [
+        (0x2740e, 0xd15eu16),
+        (0x27422, 0xe05d),
+        (0x6e5e8, 0x0039),
+        (0x6e552, 0x1f36),
+        (0x143fbe, 0xd145),
+    ] {
+        let mut bad = bytes.clone();
+        bad[at..at + 2].copy_from_slice(&op.to_le_bytes());
+        assert!(super::ClassicReadCompletion::inspect(&bad, 0x01ff9def).is_err());
+    }
+}
+
+#[test]
 fn earliest_read_position_binds_saved_position_and_both_native_ranges() {
     let (root, _) = fixtures();
     let case: serde_json::Value =
