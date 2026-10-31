@@ -1,0 +1,170 @@
+[
+  {
+    "source_sha256": "a344e289e0b1f34bd1a5ae66f0498df9f1a485ad1416f93592e40db2fb5409c7",
+    "source_path": "dump/mediatek/MT1959/HL-DT-ST_BP50NB40_NB50/GENERAL/1.02/main/a344e289e0b1f34bd1a5ae66f0498df9f1a485ad1416f93592e40db2fb5409c7.bin",
+    "state": 33529349,
+    "region": 914540,
+    "state_definition": 914466,
+    "parts": [
+      {
+        "file": "a344e289-older-di-mode.bin",
+        "offset": 914284,
+        "sha256": "0491f2cae8ed663cd423c5652dc0cb5da59b6bae70fbf1550edaa1439854ab61"
+      }
+    ]
+  },
+  {
+    "source_sha256": "e64c4ca5244594d0b7943cbedf71a9cced2ae7c3d9b98624aa84d7e3130bac8a",
+    "source_path": "dump/mediatek/MT1959/HL-DT-ST_BP55EB40_NB50/GENERAL/1.02/main/e64c4ca5244594d0b7943cbedf71a9cced2ae7c3d9b98624aa84d7e3130bac8a.bin",
+    "state": 33529349,
+    "region": 914564,
+    "state_definition": 914490,
+    "parts": [
+      {
+        "file": "e64c4ca5-older-di-mode.bin",
+        "offset": 914308,
+        "sha256": "6956c2c1e7437308504300d9da18f044c2d2beac7c1ba3916584b7c1c8f12ca5"
+      }
+    ]
+  },
+  {
+    "source_sha256": "c4d995f031fe757d9823f7410f81c88ce7ba26e14b77e766792bff2e53a8b90f",
+    "source_path": "dump/mediatek/MT1959/HL-DT-ST_BU40N_MT1959_BU5_BU3/0_/BN12/main/c4d995f031fe757d9823f7410f81c88ce7ba26e14b77e766792bff2e53a8b90f.bin",
+    "state": 33529348,
+    "region": 916222,
+    "state_definition": 916148,
+    "parts": [
+      {
+        "file": "c4d995f0-older-di-mode.bin",
+        "offset": 915964,
+        "sha256": "8a4d0e9bb905fb71e0944bbd1366fc29fb52cf45d4809e1afc706fccc06e87ac"
+      }
+    ]
+  },
+  {
+    "source_sha256": "961acab180c9a62966c54f24f3b5fa7e335941057c15613a876f4fceca010b70",
+    "source_path": "oem/mediatek/MT1959/HL-DT-ST_BP50NB40_NB50/GENERAL/1.01/main/961acab180c9a62966c54f24f3b5fa7e335941057c15613a876f4fceca010b70.bin",
+    "state": 33529349,
+    "region": 914068,
+    "state_definition": 913994,
+    "parts": [
+      {
+        "file": "961acab1-older-di-mode.bin",
+        "offset": 913812,
+        "sha256": "be77d67e3e8e81c764025fdf03e325fe01675c8abb9523b978895ebf41a3822d"
+      }
+    ]
+  },
+  {
+    "source_sha256": "3cdbdacace5c6ed3d505bbbff65350274c5775ab871c42d130082fcf0ab56050",
+    "source_path": "oem/mediatek/MT1959/HL-DT-ST_BP50NB40_NB50/GENERAL/1.03/main/3cdbdacace5c6ed3d505bbbff65350274c5775ab871c42d130082fcf0ab56050.bin",
+    "state": 33529349,
+    "region": 915132,
+    "state_definition": 915058,
+    "parts": [
+      {
+        "file": "3cdbdaca-older-di-mode.bin",
+        "offset": 914876,
+        "sha256": "ae5f90324ecf7d33fe617da5cccec388abee4f26454a9831a31c0719da798a7a"
+      }
+    ]
+  },
+  {
+    "source_sha256": "92bb22b2c8999bbcde4e02d785b711063cb414f40bdbe16fac862643b298610d",
+    "source_path": "oem/mediatek/MT1959/HL-DT-ST_BP50NB40_NB50/GENERAL/INTM/main/92bb22b2c8999bbcde4e02d785b711063cb414f40bdbe16fac862643b298610d.bin",
+    "state": 33529349,
+    "region": 914560,
+    "state_definition": 914486,
+    "parts": [
+      {
+        "file": "92bb22b2-older-di-mode.bin",
+        "offset": 914304,
+        "sha256": "07a6f7d186b1bc4b268185244b0f2ac02f007f70680a931394d537f99ed5f5fa"
+      }
+    ]
+  },
+  {
+    "source_sha256": "e60a4ce02a588d15faa2a89f1d97d80c22dd2306cf62f0219515a6e9ca5ddff9",
+    "source_path": "oem/mediatek/MT1959/HL-DT-ST_BP55EB40_NB50/GENERAL/1.01/main/e60a4ce02a588d15faa2a89f1d97d80c22dd2306cf62f0219515a6e9ca5ddff9.bin",
+    "state": 33529349,
+    "region": 914068,
+    "state_definition": 913994,
+    "parts": [
+      {
+        "file": "e60a4ce0-older-di-mode.bin",
+        "offset": 913812,
+        "sha256": "be77d67e3e8e81c764025fdf03e325fe01675c8abb9523b978895ebf41a3822d"
+      }
+    ]
+  },
+  {
+    "source_sha256": "5c01c1fda59f3db130bd14aa64fe97d4010376798716b16792dbffd59c488a95",
+    "source_path": "oem/mediatek/MT1959/HL-DT-ST_BU40N_MT1959_BU5_BU3/0_/BN11/main/5c01c1fda59f3db130bd14aa64fe97d4010376798716b16792dbffd59c488a95.bin",
+    "state": 33529348,
+    "region": 915770,
+    "state_definition": 915696,
+    "parts": [
+      {
+        "file": "5c01c1fd-older-di-mode.bin",
+        "offset": 915512,
+        "sha256": "4eea71f0fe478928ac0930c5e63a3bf7cedb36c0bcbacfbad6422e0b27e14504"
+      }
+    ]
+  },
+  {
+    "source_sha256": "3d3badd67d471b380e5566e747b42f7775abff7dd9fbbc2d0d21920a937b34d7",
+    "source_path": "oem/mediatek/MT1959/HL-DT-ST_BU40N_MT1959_BU5_BU3/0_/BN12/main/3d3badd67d471b380e5566e747b42f7775abff7dd9fbbc2d0d21920a937b34d7.bin",
+    "state": 33529348,
+    "region": 916202,
+    "state_definition": 916128,
+    "parts": [
+      {
+        "file": "3d3badd6-older-di-mode.bin",
+        "offset": 915944,
+        "sha256": "c436fe6a235066929b79ae6e0f78922dbb30afe6b93a9c0860156ef1cbc1117d"
+      }
+    ]
+  },
+  {
+    "source_sha256": "78f75561d474d09a4b3bd31ce346395600e2ed5d23431f6bfa02a500ccaee7d4",
+    "source_path": "oem/mediatek/MT1959/HL-DT-ST_BU40N_MT1959_BU5_BU3/CB04/CB04/main/78f75561d474d09a4b3bd31ce346395600e2ed5d23431f6bfa02a500ccaee7d4.bin",
+    "state": 33529349,
+    "region": 914204,
+    "state_definition": 914130,
+    "parts": [
+      {
+        "file": "78f75561-older-di-mode.bin",
+        "offset": 913948,
+        "sha256": "e67a7568bf34d3c58190c43d6c57da42800c31ac3e49abafe6a6212c1f4ce775"
+      }
+    ]
+  },
+  {
+    "source_sha256": "bea3a823370a985afe37ce6a6aad4b67ef7af15307f622aaac1f76bc7a1dbb5c",
+    "source_path": "oem/mediatek/MT1959/HL-DT-ST_WP50NB40_NB50/GENERAL/1.01/main/bea3a823370a985afe37ce6a6aad4b67ef7af15307f622aaac1f76bc7a1dbb5c.bin",
+    "state": 33529349,
+    "region": 914068,
+    "state_definition": 913994,
+    "parts": [
+      {
+        "file": "bea3a823-older-di-mode.bin",
+        "offset": 913812,
+        "sha256": "be77d67e3e8e81c764025fdf03e325fe01675c8abb9523b978895ebf41a3822d"
+      }
+    ]
+  },
+  {
+    "source_sha256": "263994abefb0b5a757d7b7b677b4e24dffb537ff124a81ad54426948a83265f1",
+    "source_path": "oem/mediatek/MT1959/HL-DT-ST_WP50NB40_NB50/GENERAL/1.03/main/263994abefb0b5a757d7b7b677b4e24dffb537ff124a81ad54426948a83265f1.bin",
+    "state": 33529349,
+    "region": 915132,
+    "state_definition": 915058,
+    "parts": [
+      {
+        "file": "263994ab-older-di-mode.bin",
+        "offset": 914876,
+        "sha256": "5e06fc8259dcfd4c1596de53d40d1caf11b2e006ac3fc70e547bf36854859e59"
+      }
+    ]
+  }
+]

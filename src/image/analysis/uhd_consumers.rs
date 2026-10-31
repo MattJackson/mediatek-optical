@@ -455,6 +455,31 @@ const ALTERNATIVES: &[Definition] = &[
             (0x7008, 0xffff),
         ],
     },
+    // Older slim stack-DI parser: R7 is defined in the saved-link caller,
+    // not reloaded next to the selector. The mode programming call is BLX.
+    Definition {
+        kind: ClassicConsumerKind::DiMode,
+        gate: 4,
+        target: 52,
+        target_accepts: false,
+        pattern: &[
+            (0x7838, 0xffff),
+            (0x21c8, 0xffff),
+            (0x4381, 0xffff),
+            (0x4800, 0xff00),
+            (0xd114, 0xffff),
+            (0x783a, 0xffff),
+            (0x21cc, 0xffff),
+            (0x4391, 0xffff),
+            (0xd101, 0xffff),
+            (0x2115, 0xffff),
+            (0xe000, 0xffff),
+            (0x211c, 0xffff),
+            (0x7001, 0xffff),
+            (0xf000, 0xf800),
+            (0xc000, 0xd001),
+        ],
+    },
     // Early c88a6901, 0xe2c02: state in R2, native mode byte in R0.
     Definition {
         kind: ClassicConsumerKind::DiMode,
@@ -637,8 +662,10 @@ impl ClassicConsumer {
                 }
                 let site = region + def.gate;
                 let caller = SavedLink::detect(image, site)?;
-                let state_definition = if def.kind == ClassicConsumerKind::InitializationBypass
-                    && half(image, region) == Some(0x7839)
+                let state_definition = if (def.kind == ClassicConsumerKind::InitializationBypass
+                    && half(image, region) == Some(0x7839))
+                    || (def.kind == ClassicConsumerKind::DiMode
+                        && half(image, region) == Some(0x7838))
                 {
                     let mut definitions = (caller.entry..region).step_by(2).filter(|&at| {
                         half(image, at).is_some_and(|op| op & 0xff00 == 0x4f00)

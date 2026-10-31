@@ -936,3 +936,46 @@ fn stack20_di_binds_native_validation_frame_and_noncontiguous_layers() {
         assert!(super::LegacyStackDi::detect(&bad).is_err());
     }
 }
+
+#[test]
+fn older_oem_di_mode_binds_saved_r7_and_native_blx() {
+    use super::{ClassicConsumer, ClassicConsumerKind as K};
+    let (root, _) = fixtures();
+    let cases: Vec<serde_json::Value> =
+        serde_json::from_slice(&std::fs::read(root.join("older-oem-di-mode.json")).unwrap())
+            .unwrap();
+    assert_eq!(cases.len(), 12);
+    for case in cases {
+        let bytes = image(&root, &case);
+        let state = case["state"].as_u64().unwrap() as u32;
+        let region = case["region"].as_u64().unwrap() as usize;
+        let definition = case["state_definition"].as_u64().unwrap() as usize;
+        let c = ClassicConsumer::inspect_kind(&bytes, state, K::DiMode)
+            .unwrap_or_else(|e| panic!("{}: {e}", case["source_sha256"]));
+        assert_eq!(c.region, region);
+        assert_eq!(c.selection.site(), region + 4);
+        assert_eq!(c.selection.accept(), region + 10);
+        assert_eq!(c.selection.reject(), region + 52);
+        assert_eq!(c.state_definition, Some((7, definition)));
+        assert!(c
+            .relocated_load
+            .is_some_and(|(reg, value)| reg == 0 && value >> 16 == 0x01ff));
+        assert!(ClassicConsumer::inspect_kind(&bytes, state + 1, K::DiMode).is_err());
+        // Change the defining literal, selector edge, dense mode and call ISA.
+        let op = u16::from_le_bytes(bytes[definition..definition + 2].try_into().unwrap());
+        let pool = ((definition + 4) & !3) + usize::from(op & 255) * 4;
+        for at in [pool, region + 8, region + 22, region + 28] {
+            let mut bad = bytes.clone();
+            bad[at] ^= 1;
+            assert!(
+                ClassicConsumer::inspect_kind(&bad, state, K::DiMode).is_err(),
+                "{} mutation {at:x}",
+                case["source_sha256"]
+            );
+        }
+        // Clobber the saved media pointer after its definition.
+        let mut bad = bytes;
+        bad[definition + 2..definition + 4].copy_from_slice(&0x2700u16.to_le_bytes());
+        assert!(ClassicConsumer::inspect_kind(&bad, state, K::DiMode).is_err());
+    }
+}
