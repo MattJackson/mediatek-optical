@@ -42,8 +42,24 @@
         "file": "84fecc29-stack20-frame-161a00.bin",
         "offset": 1448448,
         "sha256": "6971a1dedabf547efdb074a5c412959d8b6901b9164df3b1e50fae22fe94e4a2"
+      },
+      {
+        "file": "84fecc29-parameter-0e7500.bin",
+        "offset": 947456,
+        "sha256": "7ee8ff3ca2a2576f3b69eae9bead0d8585ee93557b8850864d3c83b983ca6ac3"
+      },
+      {
+        "file": "84fecc29-parameter-173f40.bin",
+        "offset": 1523520,
+        "sha256": "9682a904f0d0cbbe819885b51d1c1dc794c4180dfed18d4b307d3cb7dd489760"
+      },
+      {
+        "file": "84fecc29-calibration-0e6900.bin",
+        "offset": 944384,
+        "sha256": "d26c51a10c5e8227b295f2b21b504a5bc5e85a1dcd5a6b76687dbbb42003053b"
       }
-    ]
+    ],
+    "parameter_rates": 1523530
   },
   {
     "source_sha256": "d98c2e11f400cf54133289369f19064ccabc72c69ef189f9129fc19b2d700cc8",
@@ -88,7 +104,23 @@
         "file": "d98c2e11-stack20-frame-161a00.bin",
         "offset": 1448448,
         "sha256": "02b82eaec0041f8ab6d457272ba838e8dcad5aa0b3d9c9190ba0be89505f2c4f"
+      },
+      {
+        "file": "d98c2e11-parameter-0e7500.bin",
+        "offset": 947456,
+        "sha256": "96fb0192b212be90752fea1f812c8a4584c679a8bc18b53a3569f3a20cfc0439"
+      },
+      {
+        "file": "d98c2e11-parameter-173f40.bin",
+        "offset": 1523520,
+        "sha256": "36a8b2a84dfba1b9f861bfb51cdda1a810ef65e8480838a371036b6e4b2c5fb2"
+      },
+      {
+        "file": "d98c2e11-calibration-0e6900.bin",
+        "offset": 944384,
+        "sha256": "572af2474c9d7e42a6ddb12fc18bee95ea4f2169acdb4b87b0d06c4a65fa1b99"
       }
-    ]
+    ],
+    "parameter_rates": 1523594
   }
 ]

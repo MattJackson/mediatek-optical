@@ -7,7 +7,8 @@ pub struct ClassicCalibration {
     pub caller: SavedLink,
     /// First displaced LDR/ADDS/LDRH instruction.
     pub site: usize,
-    /// Original table base, before the native +0x58 adjustment.
+    /// Original table literal, before the native address adjustment. A detour
+    /// is emitted only for the media-selected +0x58 implementation.
     pub original_base: u32,
     /// Native C8 coefficients; absent for state-independent getter layouts.
     pub c7_coefficients: Option<u32>,
@@ -312,6 +313,61 @@ impl ClassicCalibration {
             };
             if result.replace(bound).is_some() {
                 return Err(Error::Ambiguous);
+            }
+        }
+        // This native startup variant uses the same state-independent getter
+        // table. Bind its threshold/index producer, rate store, coefficient
+        // lookup and saved-frame flow; no C7 replacement is required.
+        if parameter.variant == ClassicParameterVariant::StateIndependent {
+            for entry in (0..image.len().saturating_sub(0x1a0)).step_by(2) {
+                if !matches(image, entry, &PATTERN[..37])
+                    || !matches(
+                        image,
+                        entry + 0x4a,
+                        &[(0x388e, 0xffff), (0x5d00, 0xffff), (0x7008, 0xffff)],
+                    )
+                    || !matches(
+                        image,
+                        entry + 0x5e,
+                        &[
+                            (0x4900, 0xff00),
+                            (0x0066, 0xffff),
+                            (0x3918, 0xffff),
+                            (0x5b89, 0xffff),
+                        ],
+                    )
+                    || !matches(
+                        image,
+                        entry + 0x198,
+                        &[(0x4800, 0xff00), (0x380c, 0xffff), (0x5b80, 0xffff)],
+                    )
+                {
+                    continue;
+                }
+                let site = entry + 0x198;
+                let original_base = literal(image, site)?;
+                if literal(image, entry + 0x46)?.checked_sub(0x8e)
+                    != u32::try_from(parameter.rates).ok()
+                    || original_base.checked_sub(0xc)
+                        != u32::try_from(parameter.oem_coefficients).ok()
+                    || literal(image, entry + 0x5e)?.checked_sub(0x18)
+                        != u32::try_from(parameter.rates + 0x76).ok()
+                {
+                    return Err(Error::InvalidContract);
+                }
+                let caller = SavedLink::bind(image, entry, site)?;
+                caller.require_register_definition(image, entry + 0x60, entry + 0x62, 6)?;
+                if result
+                    .replace(Self {
+                        caller,
+                        site,
+                        original_base,
+                        c7_coefficients: None,
+                    })
+                    .is_some()
+                {
+                    return Err(Error::Ambiguous);
+                }
             }
         }
         result.ok_or(Error::UnknownLayout)

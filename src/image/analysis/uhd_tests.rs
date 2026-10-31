@@ -192,6 +192,43 @@ fn uhd_contracts_corpus_matches_inventory_without_chip_or_model_selection() {
 }
 
 #[test]
+fn stack20_parameter_getter_is_state_independent_and_uses_its_native_table() {
+    let (root, _) = fixtures();
+    let cases: Vec<serde_json::Value> =
+        serde_json::from_slice(&std::fs::read(root.join("uh12-stack20.json")).unwrap()).unwrap();
+    for case in cases {
+        let bytes = image(&root, &case);
+        let p = super::ClassicParameter::detect(&bytes, 0x01ff9d61).unwrap();
+        assert_eq!(p.variant, super::ClassicParameterVariant::StateIndependent);
+        assert_eq!(p.entry, 0xe755a);
+        assert_eq!(p.lookup, 0xe758c);
+        assert_eq!(p.rates, case["parameter_rates"].as_u64().unwrap() as usize);
+        assert_eq!(p.coefficients, p.rates + 0x82);
+        assert_eq!(p.coefficients, p.oem_coefficients);
+        assert!(p.selection.is_none());
+        let calibration = super::ClassicCalibration::detect(&bytes, 0x01ff9d61).unwrap();
+        assert_eq!(calibration.site, 0xe6b70);
+        assert_eq!(calibration.original_base as usize - 0xc, p.coefficients);
+        assert!(calibration.c7_coefficients.is_none());
+        let mut bad = bytes.clone();
+        bad[0xe6a38..0xe6a3a].copy_from_slice(&0x00a6u16.to_le_bytes());
+        assert!(super::ClassicCalibration::detect(&bad, 0x01ff9d61).is_err());
+        assert!(super::ClassicParameter::detect(&bytes, 0x01ff9d62).is_err());
+        let mut bad = bytes.clone();
+        // Increasing the native six-entry limit can index outside this table.
+        bad[0xe7560..0xe7562].copy_from_slice(&0x2407u16.to_le_bytes());
+        assert!(super::ClassicParameter::detect(&bad, 0x01ff9d61).is_err());
+        let mut bad = bytes;
+        // A table outside the image cannot establish native coefficients.
+        let site = 0xe7586;
+        let op = u16::from_le_bytes(bad[site..site + 2].try_into().unwrap());
+        let pool = ((site + 4) & !3) + usize::from(op & 255) * 4;
+        bad[pool..pool + 4].copy_from_slice(&0x02000000u32.to_le_bytes());
+        assert!(super::ClassicParameter::detect(&bad, 0x01ff9d61).is_err());
+    }
+}
+
+#[test]
 fn classic_parameter_profiles_preserve_state_independent_lookups_and_bind_media_tables() {
     let (root, cases) = fixtures();
     let mut media = 0;

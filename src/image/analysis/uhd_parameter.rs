@@ -34,6 +34,7 @@ pub struct ClassicParameter {
 }
 struct Definition {
     variant: ClassicParameterVariant,
+    frame: usize,
     pattern: &'static [(u16, u16)],
     setter_state: usize,
     rates: usize,
@@ -47,6 +48,7 @@ const DEFINITIONS: &[Definition] = &[
     // source 40eb760e, 0x104e00..0x104e7e; addresses are provenance only.
     Definition {
         variant: ClassicParameterVariant::MediaSelected,
+        frame: 0,
         setter_state: 116,
         rates: 24,
         oem_table: 104,
@@ -123,6 +125,7 @@ const DEFINITIONS: &[Definition] = &[
     // source 0b2cdb82, 0x103870..0x1038aa; addresses are provenance only.
     Definition {
         variant: ClassicParameterVariant::StateIndependent,
+        frame: 0,
         setter_state: 48,
         rates: 6,
         oem_table: 36,
@@ -154,6 +157,54 @@ const DEFINITIONS: &[Definition] = &[
             (0x3182, 0xffff),
             (0x5a08, 0xffff),
             (0xbd30, 0xffff),
+            (0xb5f8, 0xffff),
+            (0x4e00, 0xff00),
+            (0x000c, 0xffff),
+            (0x7835, 0xffff),
+            (0x27cc, 0xffff),
+            (0x403d, 0xffff),
+        ],
+    },
+    // UH12 native getter loads its table before saving LR. Its entire lookup
+    // is state-independent; only the adjacent setter reads the media cell.
+    Definition {
+        variant: ClassicParameterVariant::StateIndependent,
+        frame: 4,
+        setter_state: 56,
+        rates: 0,
+        oem_table: 44,
+        target_table: 44,
+        target_bias: 130,
+        gate: 44,
+        lookup: 50,
+        pattern: &[
+            (0x4b00, 0xff00),
+            (0x2200, 0xffff),
+            (0xb510, 0xffff),
+            (0x2406, 0xffff),
+            (0x5c99, 0xffff),
+            (0x4281, 0xffff),
+            (0xd204, 0xffff),
+            (0x1c52, 0xffff),
+            (0x0612, 0xffff),
+            (0x0e12, 0xffff),
+            (0x42a2, 0xffff),
+            (0xd3f7, 0xffff),
+            (0x42a2, 0xffff),
+            (0xd307, 0xffff),
+            (0x0023, 0xffff),
+            (0x0001, 0xffff),
+            (0x4800, 0xff00),
+            (0xf000, 0xf800),
+            (0xd000, 0xd000),
+            (0x1e64, 0xffff),
+            (0x0622, 0xffff),
+            (0x0e12, 0xffff),
+            (0x4900, 0xff00),
+            (0x0050, 0xffff),
+            (0x3182, 0xffff),
+            (0x5a08, 0xffff),
+            (0xbd10, 0xffff),
             (0xb5f8, 0xffff),
             (0x4e00, 0xff00),
             (0x000c, 0xffff),
@@ -246,7 +297,7 @@ impl ClassicParameter {
                     coefficients,
                     oem_coefficients,
                     selection,
-                    caller: SavedLink::bind(image, entry, site)?,
+                    caller: SavedLink::bind(image, entry + def.frame, site)?,
                 };
                 if found.replace(proof).is_some() {
                     return Err(Error::Ambiguous);
