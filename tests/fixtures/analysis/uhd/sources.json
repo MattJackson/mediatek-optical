@@ -706,6 +706,11 @@
         "file": "43c484dccc37-recovery-10.bin",
         "offset": 446692,
         "sha256": "45dbb7540cf0f0ac684c1c70bf165bbcc4c8e88bbd87c0508430bbaa59ccccfa"
+      },
+      {
+        "file": "43c484dc-w-recovery-flag.bin",
+        "offset": 1390260,
+        "sha256": "299d4464c75a8eb9f3023fe63e033099dc1512c9c0bb5db57ca60e9b0e1de00a"
       }
     ],
     "areas": [
@@ -1744,6 +1749,11 @@
         "file": "40eb760e23f1-recovery-10.bin",
         "offset": 447104,
         "sha256": "45dbb7540cf0f0ac684c1c70bf165bbcc4c8e88bbd87c0508430bbaa59ccccfa"
+      },
+      {
+        "file": "40eb760e-w-recovery-flag.bin",
+        "offset": 1389336,
+        "sha256": "299d4464c75a8eb9f3023fe63e033099dc1512c9c0bb5db57ca60e9b0e1de00a"
       }
     ],
     "areas": [
@@ -2767,6 +2777,11 @@
         "file": "b093a73656e5-recovery-10.bin",
         "offset": 446824,
         "sha256": "402a819abc937d0c5eaa2ea9257aa7a18989fe0add9e418dfeab5cedbde94e1a"
+      },
+      {
+        "file": "b093a736-w-recovery-flag.bin",
+        "offset": 1390004,
+        "sha256": "0a732d476d750a928ed6337efb10c2eabf22ea046779461dbed7a042da6194eb"
       }
     ],
     "areas": [
@@ -3780,6 +3795,11 @@
         "file": "0b2cdb82ff52-recovery-10.bin",
         "offset": 446308,
         "sha256": "2248fa4613aed8f772cdfddc62183f3bbdf81d0b895a54b73830ecf415df407e"
+      },
+      {
+        "file": "0b2cdb82-w-recovery-flag.bin",
+        "offset": 1381576,
+        "sha256": "0a732d476d750a928ed6337efb10c2eabf22ea046779461dbed7a042da6194eb"
       }
     ],
     "areas": [

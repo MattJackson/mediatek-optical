@@ -11,7 +11,8 @@ pub enum ClassicConsumerKind {
     Control18,
     /// DI initialization mode selection before the native programming call.
     DiMode,
-    /// Native read-boundary position reflection.
+    /// Native W/rewritable-family read-recovery reflection. Its parent has an
+    /// independent F-family entry gate; this is not a C-family ROM selector.
     ReadBoundary,
     /// Native read-controller mode bits and position-field programming.
     ReadControl,
@@ -43,6 +44,9 @@ pub struct ClassicConsumer {
     pub caller: SavedLink,
     /// PC-relative load displaced with the selector, re-emitted as a literal.
     pub relocated_load: Option<(u8, u32)>,
+    /// Extra native entry restriction, independently bound before the loop.
+    /// None means no additional family restriction is asserted here.
+    pub entry_media_family: Option<u8>,
 }
 struct Definition {
     kind: ClassicConsumerKind,
@@ -380,6 +384,58 @@ const ALTERNATIVES: &[Definition] = &[
         ],
     },
 ];
+fn recovery_family(
+    image: &[u8],
+    state: u32,
+    caller: &SavedLink,
+    region: usize,
+) -> Result<u8, Error> {
+    // Source40eb15304e..153068: reload the same state, select media>>4==F,
+    // AND the resulting boolean with the native recovery flag, and bypass the
+    // entire loop otherwise. Later calls may change state; we do not claim
+    // immutability or global unreachability of this preserved native workflow.
+    let pattern = &[
+        (0x4a00, 0xff00),
+        (0x0140, 0xffff),
+        (0x9001, 0xffff),
+        (0x7810, 0xffff),
+        (0x0900, 0xffff),
+        (0x280f, 0xffff),
+        (0xd101, 0xffff),
+        (0x2001, 0xffff),
+        (0xe000, 0xffff),
+        (0x2000, 0xffff),
+        (0x4900, 0xff00),
+        (0x7809, 0xffff),
+        (0x4208, 0xffff),
+        (0xd000, 0xff00),
+        (0x9801, 0xffff),
+        (0x2100, 0xffff),
+    ];
+    let mut found = false;
+    for at in (caller.entry..region.saturating_sub(pattern.len() * 2)).step_by(2) {
+        if !matches(image, at, pattern) {
+            continue;
+        }
+        let bypass =
+            conditional(image, at + 26, thumb_asm::Cond::Eq).ok_or(Error::InvalidContract)?;
+        let exit = thumb_asm::isa::decode_at(image, bypass).ok_or(Error::InvalidContract)?;
+        if literal(image, at) != Some(state)
+            || !literal(image, at + 20).is_some_and(|v| (0x01ff0000..0x02010000).contains(&v))
+            || exit.mnemonic != "b"
+            || exit.cond.is_some()
+            || !exit
+                .branch_target()
+                .is_some_and(|v| v as usize > region + 80)
+            || bypass <= region
+            || found
+        {
+            return Err(Error::InvalidContract);
+        }
+        found = true;
+    }
+    found.then_some(0xf).ok_or(Error::InvalidContract)
+}
 fn literal(image: &[u8], at: usize) -> Option<u32> {
     let op = half(image, at)?;
     (op & 0xf800 == 0x4800).then_some(())?;
@@ -608,6 +664,11 @@ impl ClassicConsumer {
                     _ => {}
                 }
                 let caller = SavedLink::detect(image, site)?;
+                let entry_media_family = if def.kind == ClassicConsumerKind::ReadBoundary {
+                    Some(recovery_family(image, state, &caller, region)?)
+                } else {
+                    None
+                };
                 if def.kind == ClassicConsumerKind::MediaDefaults {
                     let at = caller.entry + 16;
                     if half(image, at).map(|v| v & 0xff00) != Some(0x4a00)
@@ -639,6 +700,7 @@ impl ClassicConsumer {
                     },
                     caller,
                     relocated_load,
+                    entry_media_family,
                 };
                 if hit.replace(bound).is_some() {
                     return Err(Error::Ambiguous);
@@ -650,12 +712,31 @@ impl ClassicConsumer {
     /// Bind every required auxiliary gate to a common media-state cell, native
     /// control flow and a balanced caller. Unknown or duplicate roles refuse.
     pub fn inspect(image: &[u8], state: u32) -> Result<Vec<Self>, Error> {
+        Self::inspect_group(image, state, true)
+    }
+    /// Bind the complete C-family ROM auxiliary group. The optional F-family
+    /// recovery loop is independently checked when present and preserved. Its
+    /// absence does not imply an absent ROM implementation.
+    pub fn inspect_rom(image: &[u8], state: u32) -> Result<Vec<Self>, Error> {
+        Self::inspect_group(image, state, false)
+    }
+    fn inspect_group(image: &[u8], state: u32, include_recovery: bool) -> Result<Vec<Self>, Error> {
         if !(0x01ff0000..0x02010000).contains(&state) {
             return Err(Error::InvalidContract);
         }
         let mut result = Vec::new();
         for def in DEFINITIONS {
-            result.push(Self::inspect_kind(image, state, def.kind)?);
+            let contract = Self::inspect_kind(image, state, def.kind);
+            if !include_recovery && def.kind == ClassicConsumerKind::ReadBoundary {
+                match contract {
+                    Ok(c) if c.entry_media_family == Some(0xf) => {}
+                    Err(Error::UnknownLayout) => {}
+                    Err(e) => return Err(e),
+                    _ => return Err(Error::InvalidContract),
+                }
+            } else {
+                result.push(contract?);
+            }
         }
         let initializer = result
             .iter()

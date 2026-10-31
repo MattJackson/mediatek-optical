@@ -92,6 +92,26 @@
         "file": "84fecc29-completion-064000.bin",
         "offset": 409600,
         "sha256": "0ab5bf50e64c32b9003942948864f07b7f4d93dacacb073a65b813549d8627ba"
+      },
+      {
+        "file": "84fecc29-rom-auxiliary-02c400.bin",
+        "offset": 181248,
+        "sha256": "30531156716f9533628dd28d0e70eb839e35610a1a1c051a4415b02bc7d85610"
+      },
+      {
+        "file": "84fecc29-rom-auxiliary-042000.bin",
+        "offset": 270336,
+        "sha256": "ed191963f4d30f0d425b332839fbf46a7082dbd31882b23c6b32ec3d0b31d3cc"
+      },
+      {
+        "file": "84fecc29-rom-auxiliary-071800.bin",
+        "offset": 464896,
+        "sha256": "677b2bdd9939dfb578a2fb37576fe7dc5653414a46eebf1687dec0b1c571a16d"
+      },
+      {
+        "file": "84fecc29-rom-auxiliary-0e8000.bin",
+        "offset": 950272,
+        "sha256": "4b43e057bc65844b9f75b631563f8a19ffa054865c6d32f3792ab87a8d56735b"
       }
     ],
     "parameter_rates": 1523530,
@@ -190,6 +210,26 @@
         "file": "d98c2e11-completion-064000.bin",
         "offset": 409600,
         "sha256": "fef542baf1baa701911637389dfb7e1b8ba334ff38849aa566eb0e6074f6f440"
+      },
+      {
+        "file": "d98c2e11-rom-auxiliary-02c400.bin",
+        "offset": 181248,
+        "sha256": "75349646ff5c2e34b3d59201c87dd196fa8bde937da7a203a50d12ef2314e3dc"
+      },
+      {
+        "file": "d98c2e11-rom-auxiliary-042000.bin",
+        "offset": 270336,
+        "sha256": "d5c6467d48d724d7ec4e2b2d31fa08b0d0168ea62a0a43f763c165295b808ce2"
+      },
+      {
+        "file": "d98c2e11-rom-auxiliary-071800.bin",
+        "offset": 464896,
+        "sha256": "6f62291408f68bc4518c476b82bd9e8ca5190130eaccba120774e864121b8663"
+      },
+      {
+        "file": "d98c2e11-rom-auxiliary-0e8000.bin",
+        "offset": 950272,
+        "sha256": "b3dde7e3a1d505a1b6c5bcfa7e2577d0cd7d2252ed603439062e2335c013131e"
       }
     ],
     "parameter_rates": 1523594,

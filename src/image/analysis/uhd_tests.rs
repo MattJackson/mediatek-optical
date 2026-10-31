@@ -264,6 +264,25 @@ fn stack20_auxiliary_variants_bind_native_registers_and_continuations() {
         serde_json::from_slice(&std::fs::read(root.join("uh12-stack20.json")).unwrap()).unwrap();
     for case in cases {
         let bytes = image(&root, &case);
+        for kind in [
+            K::MediaDefaults,
+            K::ReadControl,
+            K::DiMode,
+            K::InitializationBypass,
+            K::Control18,
+            K::Mode23,
+            K::ParameterClass,
+            K::RequestArgument,
+            K::ReadValue,
+            K::ReadStatus,
+        ] {
+            ClassicConsumer::inspect_kind(&bytes, 0x01ff9d61, kind)
+                .unwrap_or_else(|e| panic!("{} {kind:?}: {e}", case["source_sha256"]));
+        }
+        let rom = ClassicConsumer::inspect_rom(&bytes, 0x01ff9d61)
+            .unwrap_or_else(|e| panic!("{} ROM: {e}", case["source_sha256"]));
+        assert_eq!(rom.len(), 10);
+        assert!(rom.iter().all(|c| c.kind != K::ReadBoundary));
         let status = case["read_status_region"].as_u64().unwrap() as usize;
         for (kind, region, accept, reject) in [
             (K::DiMode, 0xec170, 0xec17c, 0xec1c0),
@@ -367,6 +386,18 @@ fn classic_auxiliary_gates_bind_shared_state_native_edges_and_saved_callers() {
         let contracts = super::ClassicConsumer::inspect(&bytes, state)
             .unwrap_or_else(|e| panic!("{} consumers: {e}", case["source_sha256"]));
         assert_eq!(contracts.len(), 11);
+        let rom = super::ClassicConsumer::inspect_rom(&bytes, state).unwrap();
+        assert_eq!(rom.len(), 10);
+        assert!(rom.iter().all(|c| c.entry_media_family.is_none()));
+        let recovery = contracts
+            .iter()
+            .find(|c| c.kind == super::ClassicConsumerKind::ReadBoundary)
+            .unwrap();
+        assert_eq!(recovery.entry_media_family, Some(0xf));
+        let mut wrong_family = bytes.clone();
+        wrong_family[recovery.caller.entry() + 0x4c..recovery.caller.entry() + 0x4e]
+            .copy_from_slice(&0x280eu16.to_le_bytes());
+        assert!(super::ClassicConsumer::inspect_rom(&wrong_family, state).is_err());
         for contract in &contracts {
             let expected = expected
                 .iter()
