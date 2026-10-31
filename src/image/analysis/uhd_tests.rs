@@ -229,6 +229,32 @@ fn stack20_parameter_getter_is_state_independent_and_uses_its_native_table() {
 }
 
 #[test]
+fn stack20_speed_policy_binds_native_fixed_six_defaults_and_request_clamp() {
+    let (root, _) = fixtures();
+    let cases: Vec<serde_json::Value> =
+        serde_json::from_slice(&std::fs::read(root.join("uh12-stack20.json")).unwrap()).unwrap();
+    for case in cases {
+        let bytes = image(&root, &case);
+        let p = super::NativeSpeedPolicy::detect(&bytes).unwrap();
+        assert_eq!(p.variant, "classic_default6");
+        assert_eq!(p.entry, 0x60bb6);
+        assert_eq!(p.media_cell, 0x01ff9d61);
+        assert_eq!(p.maximum_cell, 0x01ff9d63);
+        assert_eq!(p.clamp.entry, 0x63b2e);
+        assert_eq!(p.clamp.compare, 0x63b38);
+        assert_eq!(p.clamp.after_clamp, 0x63b3e);
+        assert_eq!(p.clamp.request_register, 4);
+        let mut bad = bytes.clone();
+        // A different member offset is not the maximum written by defaults.
+        bad[0x63b36..0x63b38].copy_from_slice(&0x7981u16.to_le_bytes());
+        assert!(super::NativeSpeedPolicy::detect(&bad).is_err());
+        let mut bad = bytes;
+        bad[0x63b3a..0x63b3c].copy_from_slice(&0xd800u16.to_le_bytes());
+        assert!(super::NativeSpeedPolicy::detect(&bad).is_err());
+    }
+}
+
+#[test]
 fn classic_parameter_profiles_preserve_state_independent_lookups_and_bind_media_tables() {
     let (root, cases) = fixtures();
     let mut media = 0;
@@ -603,9 +629,14 @@ fn stack20_di_admission_is_identified_as_legacy_without_a_generic_detour() {
         assert_eq!(di.selects_c7(), Some(false));
         assert!(di.selection().is_none());
         assert_eq!(areas.media_state_address().unwrap(), 0x01ff9d61);
-        assert!(areas.state_address().is_err()); // Native defaults remain unrecognized.
-                                                 // A missing optional hardware policy does not permit routing roles to
-                                                 // disagree about the live state address.
+        assert_eq!(areas.state_address().unwrap(), 0x01ff9d61);
+        let mut unknown_defaults = bytes.clone();
+        unknown_defaults[0x60bc0..0x60bc2].copy_from_slice(&0x2505u16.to_le_bytes());
+        let unknown_defaults = UhdAreas::inspect(&unknown_defaults);
+        assert!(unknown_defaults.state_address().is_err());
+        assert_eq!(unknown_defaults.media_state_address().unwrap(), 0x01ff9d61);
+        // A missing optional hardware policy does not permit routing roles to
+        // disagree about the live state address.
         let load = areas.area(UhdArea::ControlBit).unwrap().literals()[0].instruction;
         let op = u16::from_le_bytes(bytes[load..load + 2].try_into().unwrap());
         let pool = ((load + 4) & !3) + usize::from(op & 255) * 4;
