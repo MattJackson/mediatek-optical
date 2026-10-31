@@ -319,6 +319,121 @@ const RECOVERY_R5: &[(u16, u16)] = &[
     (0x2800, 0xffff),
     (0xd100, 0xff00),
 ];
+// Source 84fecc29, 0x16729c; native compiler layout.
+const BOUNDARY_STACK12: &[(u16, u16)] = &[
+    (0x4800, 0xff00),
+    (0x7801, 0xffff),
+    (0x20c8, 0xffff),
+    (0x4388, 0xffff),
+    (0xd17a, 0xffff),
+    (0x4800, 0xff00),
+    (0x9a0c, 0xffff),
+    (0x6801, 0xffff),
+    (0x1c49, 0xffff),
+    (0x428a, 0xffff),
+    (0xd10e, 0xffff),
+    (0x7829, 0xffff),
+    (0x2900, 0xffff),
+    (0xd107, 0xffff),
+    (0x4900, 0xff00),
+    (0x7809, 0xffff),
+    (0x2900, 0xffff),
+    (0xd003, 0xffff),
+    (0x4900, 0xff00),
+    (0x7809, 0xffff),
+    (0x2900, 0xffff),
+    (0xd16a, 0xffff),
+    (0x6801, 0xffff),
+    (0x2203, 0xffff),
+    (0x0692, 0xffff),
+    (0xe013, 0xffff),
+    (0x4b00, 0xff00),
+    (0x9a0c, 0xffff),
+    (0x6819, 0xffff),
+    (0x1c49, 0xffff),
+    (0x428a, 0xffff),
+    (0xd112, 0xffff),
+    (0x7829, 0xffff),
+    (0x2900, 0xffff),
+    (0xd107, 0xffff),
+    (0x4900, 0xff00),
+    (0x7809, 0xffff),
+    (0x2900, 0xffff),
+    (0xd003, 0xffff),
+    (0x4900, 0xff00),
+    (0x7809, 0xffff),
+    (0x2900, 0xffff),
+    (0xd1e9, 0xffff),
+    (0x6819, 0xffff),
+    (0x2201, 0xffff),
+    (0x06d2, 0xffff),
+    (0x1a51, 0xffff),
+    (0x1e49, 0xffff),
+    (0x910c, 0xffff),
+    (0xe015, 0xffff),
+    (0xe286, 0xffff),
+    (0x4b00, 0xff00),
+    (0x9a0c, 0xffff),
+    (0x6819, 0xffff),
+    (0x1c49, 0xffff),
+    (0x428a, 0xffff),
+    (0xd111, 0xffff),
+    (0x7829, 0xffff),
+    (0x2900, 0xffff),
+    (0xd107, 0xffff),
+    (0x4900, 0xff00),
+    (0x7809, 0xffff),
+    (0x2900, 0xffff),
+    (0xd003, 0xffff),
+    (0x4900, 0xff00),
+    (0x7809, 0xffff),
+    (0x2900, 0xffff),
+    (0xd1d0, 0xffff),
+    (0x6819, 0xffff),
+    (0x2201, 0xffff),
+    (0x0692, 0xffff),
+    (0xe7e5, 0xffff),
+    (0x4a00, 0xff00),
+    (0x3240, 0xffff),
+    (0x6091, 0xffff),
+];
+// Source 84fecc29, 0x64da2; native compiler layout.
+const RECOVERY_R0: &[(u16, u16)] = &[
+    (0x7802, 0xffff),
+    (0x0992, 0xffff),
+    (0x2a03, 0xffff),
+    (0xd15e, 0xffff),
+    (0x7800, 0xffff),
+    (0x0940, 0xffff),
+    (0x2807, 0xffff),
+    (0xd111, 0xffff),
+    (0x4d00, 0xff00),
+    (0x7828, 0xffff),
+    (0x0680, 0xffff),
+    (0xd403, 0xffff),
+    (0x7828, 0xffff),
+    (0x0900, 0xffff),
+    (0x2805, 0xffff),
+    (0xd105, 0xffff),
+    (0x4a00, 0xff00),
+    (0x6810, 0xffff),
+    (0x2101, 0xffff),
+    (0x0309, 0xffff),
+    (0x4388, 0xffff),
+    (0x6010, 0xffff),
+    (0x73b7, 0xffff),
+    (0xf000, 0xf800),
+    (0xd000, 0xd000),
+    (0xe003, 0xffff),
+    (0x7af0, 0xffff),
+    (0x73b5, 0xffff),
+    (0xf000, 0xf800),
+    (0xd000, 0xd000),
+    (0x7030, 0xffff),
+    (0x7830, 0xffff),
+    (0x2800, 0xffff),
+    (0xd1bd, 0xffff),
+];
 fn literal(image: &[u8], at: usize) -> Option<u32> {
     let op = half(image, at)?;
     if op & 0xf800 != 0x4800 {
@@ -347,9 +462,11 @@ impl ClassicReadCompletion {
     pub fn inspect(image: &[u8], state: u32) -> Result<Self, Error> {
         let controller_region = locate(image, CONTROLLER, state)?;
         let mut recovery = None;
-        for (pattern, state_register, request_register) in
-            [(RECOVERY, 4u8, 5u8), (RECOVERY_R5, 5u8, 6u8)]
-        {
+        for (pattern, state_register, request_register, shift) in [
+            (RECOVERY, 4u8, 5u8, 0),
+            (RECOVERY_R5, 5u8, 6u8, 0),
+            (RECOVERY_R0, 0u8, 6u8, 2),
+        ] {
             for at in (0..image.len().saturating_sub(pattern.len() * 2)).step_by(2) {
                 if !matches(image, at, pattern) {
                     continue;
@@ -385,25 +502,36 @@ impl ClassicReadCompletion {
                         (value == state).then_some((site, end))
                     })
                     .collect();
+                let producers: Vec<_> = producers
+                    .into_iter()
+                    .filter(|(site, end)| {
+                        parent
+                            .require_argument_definition(image, *site, *end, state_register)
+                            .is_ok()
+                    })
+                    .collect();
                 if producers.len() != 1 {
                     return Err(Error::InvalidContract);
                 }
-                parent.require_register_definition(
+                parent.require_argument_definition(
                     image,
                     producers[0].0,
                     producers[0].1,
                     state_register,
                 )?;
-                if conditional(image, at + 14, thumb_asm::Cond::Ne) != Some(at + 50) {
+                if conditional(image, at + 14, thumb_asm::Cond::Ne) != Some(at + 50 + shift) {
                     return Err(Error::InvalidContract);
                 }
-                let join =
-                    thumb_asm::isa::decode_at(image, at + 48).ok_or(Error::InvalidContract)?;
+                let join = thumb_asm::isa::decode_at(image, at + 48 + shift)
+                    .ok_or(Error::InvalidContract)?;
                 if join.mnemonic != "b"
                     || join.cond.is_some()
-                    || join.branch_target().map(|p| p as usize) != Some(at + 58)
-                    || thumb_asm::decode_bl(image, at + 54).is_none()
+                    || join.branch_target().map(|p| p as usize) != Some(at + 58 + shift)
+                    || thumb_asm::decode_bl(image, at + 54 + shift).is_none()
                 {
+                    return Err(Error::InvalidContract);
+                }
+                if shift == 2 && literal(image, at + 16) != Some(state) {
                     return Err(Error::InvalidContract);
                 }
                 if recovery
@@ -413,6 +541,7 @@ impl ClassicReadCompletion {
                         producers[0].0,
                         state_register,
                         request_register,
+                        at + 52 + shift,
                         parent,
                     ))
                     .is_some()
@@ -427,35 +556,37 @@ impl ClassicReadCompletion {
             recovery_state_load,
             recovery_state_register,
             recovery_request_register,
+            recovery_flag_store,
             recovery_caller,
         ) = recovery.ok_or(Error::UnknownLayout)?;
         let recovery_flag_register =
-            (half(image, recovery_region + 52).ok_or(Error::Truncated)? & 7) as u8;
+            (half(image, recovery_flag_store).ok_or(Error::Truncated)? & 7) as u8;
         if recovery_flag_register < 4
             || recovery_flag_register == recovery_state_register
             || recovery_flag_register == recovery_request_register
         {
             return Err(Error::InvalidContract);
         }
-        let (boundary_region, boundary_length) = match locate(image, BOUNDARY, state) {
-            Ok(at) => (at, BOUNDARY.len() * 2),
-            Err(Error::UnknownLayout) => (
-                locate(image, BOUNDARY_VENEER, state)?,
-                BOUNDARY_VENEER.len() * 2,
-            ),
-            Err(e) => return Err(e),
-        };
-        let shift = if boundary_length == BOUNDARY.len() * 2 {
-            0
-        } else {
-            2
-        };
-        let boundaries = [
-            literal(image, boundary_region + 10),
-            literal(image, boundary_region + 54 + shift),
-            literal(image, boundary_region + 104 + shift),
-        ]
-        .map(|v| v.ok_or(Error::InvalidContract));
+        let mut boundary = None;
+        for (pattern, offsets) in [
+            (BOUNDARY, [10, 54, 104]),
+            (BOUNDARY_VENEER, [10, 56, 106]),
+            (BOUNDARY_STACK12, [10, 52, 102]),
+        ] {
+            match locate(image, pattern, state) {
+                Ok(at) => {
+                    if boundary.replace((at, pattern.len() * 2, offsets)).is_some() {
+                        return Err(Error::Ambiguous);
+                    }
+                }
+                Err(Error::UnknownLayout) => {}
+                Err(e) => return Err(e),
+            }
+        }
+        let (boundary_region, boundary_length, offsets) = boundary.ok_or(Error::UnknownLayout)?;
+        let boundaries = offsets
+            .map(|offset| literal(image, boundary_region + offset))
+            .map(|v| v.ok_or(Error::InvalidContract));
         let boundaries = [boundaries[0]?, boundaries[1]?, boundaries[2]?];
         if boundaries
             .iter()

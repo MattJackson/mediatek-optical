@@ -229,6 +229,61 @@ fn stack20_parameter_getter_is_state_independent_and_uses_its_native_table() {
 }
 
 #[test]
+fn stack20_completion_binds_native_recovery_and_stack12_reflection() {
+    let (root, _) = fixtures();
+    let cases: Vec<serde_json::Value> =
+        serde_json::from_slice(&std::fs::read(root.join("uh12-stack20.json")).unwrap()).unwrap();
+    for case in cases {
+        let bytes = image(&root, &case);
+        let c = super::ClassicReadCompletion::inspect(&bytes, 0x01ff9d61)
+            .unwrap_or_else(|e| panic!("{}: {e}", case["source_sha256"]));
+        assert_eq!(c.recovery_state_register, 0);
+        assert_eq!(c.recovery_request_register, 6);
+        assert_eq!(c.recovery_flag_register, 5);
+        assert_eq!(c.boundaries, [0x02000f4c, 0x02000f48, 0x02000f44]);
+        assert!(super::ClassicReadCompletion::inspect(&bytes, 0x01ff9d62).is_err());
+        let mut bad = bytes.clone();
+        // The native subtype path must reload the same media-state pointer.
+        let at = c.recovery_region + 16;
+        let op = u16::from_le_bytes(bad[at..at + 2].try_into().unwrap());
+        let pool = ((at + 4) & !3) + usize::from(op & 255) * 4;
+        bad[pool..pool + 4].copy_from_slice(&0x01ff9d62u32.to_le_bytes());
+        assert!(super::ClassicReadCompletion::inspect(&bad, 0x01ff9d61).is_err());
+        let mut bad = bytes;
+        bad[c.boundary_region + 12..c.boundary_region + 14]
+            .copy_from_slice(&0x9a0bu16.to_le_bytes());
+        assert!(super::ClassicReadCompletion::inspect(&bad, 0x01ff9d61).is_err());
+    }
+}
+
+#[test]
+fn stack20_auxiliary_variants_bind_native_registers_and_continuations() {
+    use super::{ClassicConsumer, ClassicConsumerKind as K};
+    let (root, _) = fixtures();
+    let cases: Vec<serde_json::Value> =
+        serde_json::from_slice(&std::fs::read(root.join("uh12-stack20.json")).unwrap()).unwrap();
+    for case in cases {
+        let bytes = image(&root, &case);
+        let status = case["read_status_region"].as_u64().unwrap() as usize;
+        for (kind, region, accept, reject) in [
+            (K::DiMode, 0xec170, 0xec17c, 0xec1c0),
+            (K::Control18, 0x306da, 0x306e4, 0x3070e),
+            (K::ReadStatus, status, status + 10, status + 40),
+        ] {
+            let c = ClassicConsumer::inspect_kind(&bytes, 0x01ff9d61, kind)
+                .unwrap_or_else(|e| panic!("{} {kind:?}: {e}", case["source_sha256"]));
+            assert_eq!(c.region, region);
+            assert_eq!(c.selection.accept(), accept);
+            assert_eq!(c.selection.reject(), reject);
+            assert!(ClassicConsumer::inspect_kind(&bytes, 0x01ff9d62, kind).is_err());
+            let mut bad = bytes.clone();
+            bad[c.selection.site() + if kind == K::DiMode { 4 } else { 2 }] ^= 1;
+            assert!(ClassicConsumer::inspect_kind(&bad, 0x01ff9d61, kind).is_err());
+        }
+    }
+}
+
+#[test]
 fn stack20_speed_policy_binds_native_fixed_six_defaults_and_request_clamp() {
     let (root, _) = fixtures();
     let cases: Vec<serde_json::Value> =

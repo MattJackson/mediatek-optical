@@ -67,9 +67,35 @@
         "file": "84fecc29-speed-063b00.bin",
         "offset": 408320,
         "sha256": "3f015a8070d1a98f6776322e259aebf78ee0280ddef64e45768cd6e390ace77e"
+      },
+      {
+        "file": "84fecc29-auxiliary-030000.bin",
+        "offset": 196608,
+        "sha256": "a7ce6015a3f54a5de23791e2e4ff4a9711e54c610d00cce544b9aab6a9fe54f4"
+      },
+      {
+        "file": "84fecc29-auxiliary-0eb600.bin",
+        "offset": 964096,
+        "sha256": "38eab5a0c8c10eb672f48941d26ec27618fac7be9aaf9a33b0dbbd4335e3bc7c"
+      },
+      {
+        "file": "84fecc29-auxiliary-166600.bin",
+        "offset": 1467904,
+        "sha256": "e7f331205c0e27d0f03ab3cc9c5637d02d215681299821d203e9e523be3be458"
+      },
+      {
+        "file": "84fecc29-completion-031000.bin",
+        "offset": 200704,
+        "sha256": "1850e498314c324edfc2262c62aa40494c8164424b8661af20f566cfaeb4d660"
+      },
+      {
+        "file": "84fecc29-completion-064000.bin",
+        "offset": 409600,
+        "sha256": "0ab5bf50e64c32b9003942948864f07b7f4d93dacacb073a65b813549d8627ba"
       }
     ],
-    "parameter_rates": 1523530
+    "parameter_rates": 1523530,
+    "read_status_region": 1471902
   },
   {
     "source_sha256": "d98c2e11f400cf54133289369f19064ccabc72c69ef189f9129fc19b2d700cc8",
@@ -139,8 +165,34 @@
         "file": "d98c2e11-speed-063b00.bin",
         "offset": 408320,
         "sha256": "14ed8970604df6f436135bb7c87c937b6ac440c7cae60d5753415ee77a4690d0"
+      },
+      {
+        "file": "d98c2e11-auxiliary-030000.bin",
+        "offset": 196608,
+        "sha256": "fe9a45c491288413df4cda3b7681bf0ce9635c388a45cb369d7dbf42047c7ee3"
+      },
+      {
+        "file": "d98c2e11-auxiliary-0eb600.bin",
+        "offset": 964096,
+        "sha256": "38eab5a0c8c10eb672f48941d26ec27618fac7be9aaf9a33b0dbbd4335e3bc7c"
+      },
+      {
+        "file": "d98c2e11-auxiliary-166600.bin",
+        "offset": 1467904,
+        "sha256": "5202c180ff10a73dfd6dbf41cd6f67c0045d04aa8782982ba18be06076f8c465"
+      },
+      {
+        "file": "d98c2e11-completion-031000.bin",
+        "offset": 200704,
+        "sha256": "1850e498314c324edfc2262c62aa40494c8164424b8661af20f566cfaeb4d660"
+      },
+      {
+        "file": "d98c2e11-completion-064000.bin",
+        "offset": 409600,
+        "sha256": "fef542baf1baa701911637389dfb7e1b8ba334ff38849aa566eb0e6074f6f440"
       }
     ],
-    "parameter_rates": 1523594
+    "parameter_rates": 1523594,
+    "read_status_region": 1471966
   }
 ]

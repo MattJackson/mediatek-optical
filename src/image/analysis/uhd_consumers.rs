@@ -293,6 +293,93 @@ const DEFINITIONS: &[Definition] = &[
         ],
     },
 ];
+const ALTERNATIVES: &[Definition] = &[
+    // Source 84fecc29, 0xec170; register allocation/native continuation variant.
+    Definition {
+        kind: ClassicConsumerKind::DiMode,
+        gate: 6,
+        target: 80,
+        target_accepts: false,
+        pattern: &[
+            (0x4f00, 0xff00),
+            (0x7838, 0xffff),
+            (0x21c8, 0xffff),
+            (0x4381, 0xffff),
+            (0x4800, 0xff00),
+            (0xd121, 0xffff),
+            (0x783a, 0xffff),
+            (0x21cc, 0xffff),
+            (0x4391, 0xffff),
+            (0xd101, 0xffff),
+            (0x2115, 0xffff),
+            (0xe000, 0xffff),
+            (0x211c, 0xffff),
+            (0x7001, 0xffff),
+            (0xf000, 0xf800),
+            (0xd000, 0xd000),
+        ],
+    },
+    // Source 84fecc29, 0x306da; register allocation/native continuation variant.
+    Definition {
+        kind: ClassicConsumerKind::Control18,
+        gate: 6,
+        target: 52,
+        target_accepts: false,
+        pattern: &[
+            (0x4900, 0xff00),
+            (0x780a, 0xffff),
+            (0x21c8, 0xffff),
+            (0x4391, 0xffff),
+            (0xd114, 0xffff),
+            (0x6981, 0xffff),
+            (0x2203, 0xffff),
+            (0x0212, 0xffff),
+            (0x4391, 0xffff),
+            (0x31ff, 0xffff),
+            (0x1c49, 0xffff),
+            (0x6181, 0xffff),
+            (0x6801, 0xffff),
+            (0x2203, 0xffff),
+            (0x4311, 0xffff),
+            (0x6001, 0xffff),
+        ],
+    },
+    // Source 84fecc29, 0x16759e; native inline flag store after the read call.
+    Definition {
+        kind: ClassicConsumerKind::ReadStatus,
+        gate: 6,
+        target: 40,
+        target_accepts: false,
+        pattern: &[
+            (0x4800, 0xff00),
+            (0x7800, 0xffff),
+            (0x23c8, 0xffff),
+            (0x4383, 0xffff),
+            (0xd10e, 0xffff),
+            (0x7808, 0xffff),
+            (0x7812, 0xffff),
+            (0x4290, 0xffff),
+            (0xd110, 0xffff),
+            (0x4800, 0xff00),
+            (0x8006, 0xffff),
+            (0x7808, 0xffff),
+            (0xf000, 0xf800),
+            (0xc000, 0xd001),
+            (0x4800, 0xff00),
+            (0x2101, 0xffff),
+            (0x7001, 0xffff),
+            (0x4800, 0xff00),
+            (0x7001, 0xffff),
+            (0xe005, 0xffff),
+            (0x4900, 0xff00),
+            (0x7808, 0xffff),
+            (0x2800, 0xffff),
+            (0xd101, 0xffff),
+            (0x2001, 0xffff),
+            (0x7008, 0xffff),
+        ],
+    },
+];
 fn literal(image: &[u8], at: usize) -> Option<u32> {
     let op = half(image, at)?;
     (op & 0xf800 == 0x4800).then_some(())?;
@@ -302,19 +389,26 @@ fn literal(image: &[u8], at: usize) -> Option<u32> {
     ))
 }
 impl ClassicConsumer {
-    /// Bind every required auxiliary gate to a common media-state cell, native
-    /// control flow and a balanced caller. Unknown or duplicate roles refuse.
-    pub fn inspect(image: &[u8], state: u32) -> Result<Vec<Self>, Error> {
+    /// Inspect one semantic role independently. Complete conversion callers
+    /// still use `inspect`, which requires every role and their cross-links.
+    pub fn inspect_kind(
+        image: &[u8],
+        state: u32,
+        kind: ClassicConsumerKind,
+    ) -> Result<Self, Error> {
         if !(0x01ff0000..0x02010000).contains(&state) {
             return Err(Error::InvalidContract);
         }
-        let mut result = Vec::new();
-        for def in DEFINITIONS {
+        let mut hit = None;
+        for def in DEFINITIONS
+            .iter()
+            .chain(ALTERNATIVES)
+            .filter(|d| d.kind == kind)
+        {
             let length = def.pattern.len() * 2;
             if image.len() < length {
                 return Err(Error::Truncated);
             }
-            let mut hit = None;
             for region in (0..=image.len() - length).step_by(2) {
                 if !matches(image, region, def.pattern) {
                     continue;
@@ -469,13 +563,44 @@ impl ClassicConsumer {
                             .ok_or(Error::InvalidContract)?;
                         let tail = thumb_asm::isa::decode_at(image, target + 10)
                             .ok_or(Error::InvalidContract)?;
+                        let branch_store = matches(image, target, pattern)
+                            && literal(image, target) == literal(image, region + 30)
+                            && tail.mnemonic == "b"
+                            && tail.cond.is_none()
+                            && tail.branch_target().map(|v| v as usize) == Some(region + 32);
+                        let inline_store = matches(
+                            image,
+                            target,
+                            &[
+                                (0x4900, 0xff00),
+                                (0x7808, 0xffff),
+                                (0x2800, 0xffff),
+                                (0xd101, 0xffff),
+                                (0x2001, 0xffff),
+                                (0x7008, 0xffff),
+                            ],
+                        ) && matches(
+                            image,
+                            region + 28,
+                            &[
+                                (0x4800, 0xff00),
+                                (0x2101, 0xffff),
+                                (0x7001, 0xffff),
+                                (0x4800, 0xff00),
+                                (0x7001, 0xffff),
+                                (0xe000, 0xf800),
+                            ],
+                        ) && literal(image, target)
+                            == literal(image, region + 34)
+                            && thumb_asm::isa::decode_at(image, region + 38).is_some_and(|i| {
+                                i.mnemonic == "b"
+                                    && i.cond.is_none()
+                                    && i.branch_target().map(|v| v as usize) == Some(join)
+                            })
+                            && join == target + 12;
                         if !(region + 0x24..=region + 0x80).contains(&target)
-                            || !matches(image, target, pattern)
-                            || literal(image, target) != literal(image, region + 30)
                             || conditional(image, target + 6, thumb_asm::Cond::Ne) != Some(join)
-                            || tail.mnemonic != "b"
-                            || tail.cond.is_some()
-                            || tail.branch_target().map(|v| v as usize) != Some(region + 32)
+                            || !(branch_store || inline_store)
                         {
                             return Err(Error::InvalidContract);
                         }
@@ -519,7 +644,18 @@ impl ClassicConsumer {
                     return Err(Error::Ambiguous);
                 }
             }
-            result.push(hit.ok_or(Error::UnknownLayout)?);
+        }
+        hit.ok_or(Error::UnknownLayout)
+    }
+    /// Bind every required auxiliary gate to a common media-state cell, native
+    /// control flow and a balanced caller. Unknown or duplicate roles refuse.
+    pub fn inspect(image: &[u8], state: u32) -> Result<Vec<Self>, Error> {
+        if !(0x01ff0000..0x02010000).contains(&state) {
+            return Err(Error::InvalidContract);
+        }
+        let mut result = Vec::new();
+        for def in DEFINITIONS {
+            result.push(Self::inspect_kind(image, state, def.kind)?);
         }
         let initializer = result
             .iter()
