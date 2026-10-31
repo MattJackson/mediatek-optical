@@ -737,6 +737,16 @@ impl ClassicConsumer {
                     {
                         return Err(Error::InvalidContract);
                     }
+                    if half(image, region) == Some(0x7838) {
+                        let join = thumb_asm::isa::decode_at(image, target + 2)
+                            .ok_or(Error::InvalidContract)?;
+                        if join.mnemonic != "b"
+                            || join.cond.is_some()
+                            || join.branch_target().map(|v| v as usize) != Some(region + 24)
+                        {
+                            return Err(Error::InvalidContract);
+                        }
+                    }
                     Some((0, value))
                 } else {
                     None

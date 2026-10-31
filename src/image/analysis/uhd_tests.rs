@@ -964,7 +964,7 @@ fn older_oem_di_mode_binds_saved_r7_and_native_blx() {
         // Change the defining literal, selector edge, dense mode and call ISA.
         let op = u16::from_le_bytes(bytes[definition..definition + 2].try_into().unwrap());
         let pool = ((definition + 4) & !3) + usize::from(op & 255) * 4;
-        for at in [pool, region + 8, region + 22, region + 28] {
+        for at in [pool, region + 8, region + 22, region + 28, region + 54] {
             let mut bad = bytes.clone();
             bad[at] ^= 1;
             assert!(
