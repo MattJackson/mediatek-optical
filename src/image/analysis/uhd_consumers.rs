@@ -431,6 +431,31 @@ const ALTERNATIVES: &[Definition] = &[
             (0xbdf0, 0xffff),
         ],
     },
+    // Early c88a6901, 0xded4e: R2 controller base, R0 live word, native9-bit field.
+    Definition {
+        kind: ClassicConsumerKind::ReadControl,
+        gate: 6,
+        target: 42,
+        target_accepts: false,
+        pattern: &[
+            (0x4b00, 0xff00),
+            (0x7819, 0xffff),
+            (0x20c8, 0xffff),
+            (0x4388, 0xffff),
+            (0x6990, 0xffff),
+            (0xd10e, 0xffff),
+            (0x2101, 0xffff),
+            (0x4308, 0xffff),
+            (0x6190, 0xffff),
+            (0x69d0, 0xffff),
+            (0x0a40, 0xffff),
+            (0x0240, 0xffff),
+            (0x61d0, 0xffff),
+            (0x6a90, 0xffff),
+            (0x4308, 0xffff),
+            (0x6290, 0xffff),
+        ],
+    },
 ];
 fn recovery_family(
     image: &[u8],
@@ -667,6 +692,16 @@ impl ClassicConsumer {
                                     (0x4391, 0xffff),
                                     (0x6181, 0xffff),
                                 ],
+                            ) && !matches(
+                                image,
+                                region - 10,
+                                &[
+                                    (0x4a00, 0xff00),
+                                    (0x6990, 0xffff),
+                                    (0x2112, 0xffff),
+                                    (0x4388, 0xffff),
+                                    (0x6190, 0xffff),
+                                ],
                             )
                         {
                             return Err(Error::InvalidContract);
@@ -783,7 +818,7 @@ impl ClassicConsumer {
                     selection: C7Selection {
                         site,
                         replay: if def.kind == ClassicConsumerKind::ReadControl {
-                            vec![op, 0x6981]
+                            vec![op, half(image, site + 2).ok_or(Error::Truncated)?]
                         } else {
                             vec![op]
                         },

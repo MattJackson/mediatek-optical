@@ -35,6 +35,11 @@
       "file": "c88a6901-auxiliary-069100.bin",
       "offset": 430336,
       "sha256": "8cfc0405ace6f7bf02ea315677a35585e4144564d287aa5795c9eed5d7254bf0"
+    },
+    {
+      "file": "c88a6901-auxiliary-0dec00.bin",
+      "offset": 912384,
+      "sha256": "92ea59b3f913600de3e7f74ed8e6ec9ea8188c8e2ff5ae076201d6796de75040"
     }
   ]
 }

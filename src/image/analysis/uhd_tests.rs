@@ -341,12 +341,18 @@ fn earliest_auxiliary_targets_bind_native_bodies_instead_of_old_displacements() 
         (K::ParameterClass, 0x348fc, 0x3484a),
         (K::DiMode, 0xe2c0e, 0xe2c36),
         (K::MediaDefaults, 0x69268, 0x69278),
+        (K::ReadControl, 0xded5a, 0xded78),
     ] {
         let c = ClassicConsumer::inspect_kind(&bytes, 0x01ff9def, kind).unwrap();
         assert_eq!(c.selection.accept(), accept);
         assert_eq!(c.selection.reject(), reject);
         let mut bad = bytes.clone();
-        bad[c.selection.site() + if kind == K::DiMode { 4 } else { 2 }] ^= 1;
+        bad[c.selection.site()
+            + if matches!(kind, K::DiMode | K::ReadControl) {
+                4
+            } else {
+                2
+            }] ^= 1;
         assert!(ClassicConsumer::inspect_kind(&bad, 0x01ff9def, kind).is_err());
     }
 }
