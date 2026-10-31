@@ -227,9 +227,11 @@ impl SavedLink {
             if !seen.insert((pc, depth, hooked, dirty, stack.clone(), constants, compared)) {
                 continue;
             }
+            // Bound graph complexity, stack depth and image extents. A valid
+            // enclosing routine may extend beyond a fixed byte window.
             if seen.len() > 10000
                 || pc < entry
-                || pc >= entry + 0x1200
+                || pc.checked_add(2).map_or(true, |end| end > image.len())
                 || !(0..=512).contains(&depth)
                 || (pc != entry && depth < 4)
             {
@@ -743,5 +745,20 @@ mod live_definition_tests {
             let (bad, site) = fixture(middle);
             assert!(SavedLink::require_live_definition(&bad, 0, site, 2, 4, 4).is_err());
         }
+    }
+
+    #[test]
+    fn long_native_caller_is_bounded_by_flow_and_retains_saved_slot_guards() {
+        let mut image = [0xc0, 0x46].repeat(0xa01);
+        image[..2].copy_from_slice(&0xb500u16.to_le_bytes()); // PUSH {LR}
+        image[0x1400..0x1402].copy_from_slice(&0xbd00u16.to_le_bytes()); // POP {PC}
+        let witness = SavedLink::bind(&image, 0, 2).unwrap();
+        assert_eq!(witness.stack_bytes(), 4);
+        assert_eq!(witness.returns(), &[0x1400]);
+        let mut overwrite = image.clone();
+        overwrite[0x1300..0x1302].copy_from_slice(&0x9000u16.to_le_bytes()); // STR R0,[SP]
+        assert!(SavedLink::bind(&overwrite, 0, 2).is_err());
+        image[0x1400..0x1402].copy_from_slice(&0xbd10u16.to_le_bytes()); // POP {R4,PC}
+        assert!(SavedLink::bind(&image, 0, 2).is_err());
     }
 }
