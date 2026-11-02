@@ -33,6 +33,7 @@ mod uhd_density;
 mod uhd_di;
 mod uhd_identity;
 mod uhd_parameter;
+mod uhd_read_control_tail;
 mod vid;
 
 pub use auth::{AuthCell, AuthCellVariant};
@@ -48,6 +49,7 @@ pub use uhd_density::{LegacyDensityTarget, SLIM_UHD_DENSITY_TARGETS};
 pub use uhd_di::ClassicDi;
 pub use uhd_identity::{IdentityResetCall, LegacyIdentityReset};
 pub use uhd_parameter::{ClassicParameter, ClassicParameterVariant};
+pub use uhd_read_control_tail::ClassicReadControlTail;
 pub use vid::{VidGate, VidGateVariant};
 
 #[cfg(test)]
