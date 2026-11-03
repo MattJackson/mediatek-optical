@@ -154,17 +154,42 @@ impl RamReferences {
                     continue;
                 }
                 if let Some(Operand::Mem(memory)) = ins.operands.get(1) {
-                    if let Some(pointer) = values[usize::from(memory.base.num())] {
+                    let base = values[usize::from(memory.base.num())];
+                    let in_window = |value: Option<u32>| value.filter(|v| (LOW..HIGH).contains(v));
+                    let width = match ins.mnemonic {
+                        "ldrb" | "ldrsb" | "strb" => 1,
+                        "ldrh" | "ldrsh" | "strh" => 2,
+                        _ => 4,
+                    };
+                    // `[Rn, Rm]` adds both registers, so the tracked pointer may
+                    // be the index. A known base gives the exact address; an
+                    // unknown base or a shifted index leaves it unresolved.
+                    if let (None, Some((register, shift))) = (in_window(base), memory.index) {
+                        if let Some(pointer) = in_window(values[usize::from(register.num())]) {
+                            match (shift, memory.mode, base) {
+                                (None, thumb_asm::isa::AddrMode::Offset, Some(base)) => {
+                                    match pointer.checked_add(base) {
+                                        Some(address) => {
+                                            mark(&mut window, address, width);
+                                            result.uses.insert((pc, address, width));
+                                        }
+                                        None => {
+                                            result.incomplete.insert(seed);
+                                        }
+                                    }
+                                }
+                                _ => {
+                                    result.incomplete.insert(seed);
+                                }
+                            }
+                        }
+                    }
+                    if let Some(pointer) = base {
                         if (LOW..HIGH).contains(&pointer) {
                             let index = match memory.index {
                                 None => Some(0),
                                 Some((register, None)) => values[usize::from(register.num())],
                                 _ => None,
-                            };
-                            let width = match ins.mnemonic {
-                                "ldrb" | "ldrsb" | "strb" => 1,
-                                "ldrh" | "ldrsh" | "strh" => 2,
-                                _ => 4,
                             };
                             if memory.mode == thumb_asm::isa::AddrMode::Offset {
                                 if let Some(address) = index
@@ -311,8 +336,10 @@ impl RamReferences {
         result
     }
     /// Byte addresses observed in literal words, decoded accesses and counted
-    /// fill/copy loops. Call argument ranges are only potential and are
-    /// reported by [`Self::calls`], not included here.
+    /// fill/copy loops. Destinations of loader-private fills and copies are
+    /// left out (they are still listed by [`Self::fills`]); a copy's SRAM
+    /// source is always included. Call argument ranges are only potential and
+    /// are reported by [`Self::calls`], not included here.
     pub fn bytes(&self) -> &BTreeSet<u32> {
         &self.bytes
     }
