@@ -26,8 +26,17 @@ pub(super) fn targets(image: &[u8], pc: usize) -> Result<Option<Vec<usize>>, Err
     let Some(end) = target.checked_add(BODY.len()) else {
         return Ok(None);
     };
-    if image.get(target..end) != Some(BODY) {
-        return Ok(None);
+    match image.get(target..end) {
+        Some(body) if body == BODY => {}
+        // A helper prefix cut off by the end of the input is missing evidence,
+        // not proof of an ordinary call.
+        None if image
+            .get(target..)
+            .is_some_and(|rest| !rest.is_empty() && BODY.starts_with(rest)) =>
+        {
+            return Err(Error::Truncated);
+        }
+        _ => return Ok(None),
     }
     let table = pc + ins.len();
     let count = *image.get(table).ok_or(Error::Truncated)? as usize;
