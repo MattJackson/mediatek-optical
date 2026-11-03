@@ -16,15 +16,31 @@ pub struct RamReferences {
     uses: BTreeSet<(usize, u32, u32)>,
     fills: BTreeSet<(usize, u32, u32, bool)>,
 }
-impl RamReferences {
-    fn mark(&mut self, start: u32, width: u32) {
-        let end = start.saturating_add(width).min(HIGH);
-        self.bytes.extend(start.max(LOW)..end);
+/// One bit per byte of the inspected SRAM window. Walks revisit the same
+/// fills and copies many times, so marking must cost words, not bytes.
+type Window = [u64; ((HIGH - LOW) / 64) as usize];
+
+fn mark(window: &mut Window, start: u32, width: u32) {
+    let end = start.saturating_add(width).min(HIGH);
+    let start = start.max(LOW);
+    if end <= start {
+        return;
     }
+    let (mut at, end) = ((start - LOW) as usize, (end - LOW) as usize);
+    while at < end {
+        let bit = at % 64;
+        let count = (64 - bit).min(end - at);
+        window[at / 64] |= (u64::MAX >> (64 - count)) << bit;
+        at += count;
+    }
+}
+
+impl RamReferences {
     /// Include direct data/ARM literal words, then follow decoded Thumb pointer
     /// aliases through connected local flow, rather than a fixed instruction tail.
     pub fn inspect(image: &[u8]) -> Self {
         let mut result = Self::default();
+        let mut window: Window = [0; ((HIGH - LOW) / 64) as usize];
         let entries = super::ram_fill::Entries::inspect(image);
         let mut preheaders = Vec::new();
         let fills: BTreeMap<_, _> = (0..image.len().saturating_sub(20))
@@ -40,6 +56,7 @@ impl RamReferences {
             })
             .map(|fill| (fill.body, fill))
             .collect();
+        let fill_preheaders = preheaders.len();
         let copies: BTreeMap<_, _> = (0..image.len().saturating_sub(24))
             .step_by(2)
             .filter_map(|at| {
@@ -51,6 +68,10 @@ impl RamReferences {
             })
             .map(|copy| (copy.body, copy))
             .collect();
+        // Each segment is ordered by prefix and every preheader is short, so a
+        // seed only needs the entries whose span can still reach it.
+        let span = preheaders.iter().map(|(prefix, body)| body - prefix).max();
+        let (fill_preheaders, copy_preheaders) = preheaders.split_at(fill_preheaders);
         result.fills.extend(
             fills
                 .values()
@@ -59,7 +80,7 @@ impl RamReferences {
         for bytes in image.chunks_exact(4) {
             let value = u32::from_le_bytes(bytes.try_into().expect("four-byte chunk"));
             if (LOW..HIGH).contains(&value) {
-                result.mark(value, 4);
+                mark(&mut window, value, 4);
             }
         }
         for seed in (0..image.len().saturating_sub(2)).step_by(2) {
@@ -73,9 +94,17 @@ impl RamReferences {
             // A closed straight-line preheader proves the count definition
             // before this pointer literal. Replay it instead of inventing an
             // unknown loop count when starting immediately after the pointer.
-            let start = preheaders
-                .iter()
-                .find_map(|(prefix, body)| (*prefix <= seed && seed < *body).then_some(*prefix));
+            let start = span.and_then(|span| {
+                [fill_preheaders, copy_preheaders]
+                    .into_iter()
+                    .find_map(|segment| {
+                        let first = segment.partition_point(|(prefix, _)| prefix + span <= seed);
+                        segment[first..]
+                            .iter()
+                            .take_while(|(prefix, _)| *prefix <= seed)
+                            .find_map(|(prefix, body)| (seed < *body).then_some(*prefix))
+                    })
+            });
             let start = match start {
                 Some(prefix) => prefix,
                 None => {
@@ -95,10 +124,10 @@ impl RamReferences {
                 }
                 if let Some(copy) = copies.get(&pc) {
                     if !copy.loader_private && copy.length != 0 {
-                        result.mark(copy.destination.1, copy.length);
+                        mark(&mut window, copy.destination.1, copy.length);
                     }
                     // A source in SRAM is still observed as a read, even during startup.
-                    result.mark(copy.source.1, copy.length);
+                    mark(&mut window, copy.source.1, copy.length);
                     values[usize::from(copy.source.0)] = copy.source.1.checked_add(copy.length);
                     values[usize::from(copy.destination.0)] =
                         copy.destination.1.checked_add(copy.length);
@@ -109,7 +138,7 @@ impl RamReferences {
                 }
                 if let Some(fill) = fills.get(&pc) {
                     if fill.length != 0 && !fill.loader_private {
-                        result.mark(fill.address, fill.length);
+                        mark(&mut window, fill.address, fill.length);
                     }
                     values[usize::from(fill.destination)] = fill.address.checked_add(fill.length);
                     values[usize::from(fill.counter)] = Some(0);
@@ -148,13 +177,45 @@ impl RamReferences {
                                         }
                                     })
                                 {
-                                    result.mark(address, width);
+                                    mark(&mut window, address, width);
                                     result.uses.insert((pc, address, width));
                                 } else {
                                     result.incomplete.insert(seed);
                                 }
                             } else {
                                 result.incomplete.insert(seed);
+                            }
+                        }
+                    }
+                }
+                // 16-bit `stmia rN!` / `ldmia rN{!}` carry their base as a
+                // register or writeback text, not `Operand::Mem`.
+                let mut written_back = None;
+                if let ("stmia" | "ldmia", Some(Operand::RegList(list))) =
+                    (ins.mnemonic, ins.operands.get(1))
+                {
+                    let base = match ins.operands.get(0) {
+                        Some(Operand::Reg(reg)) => Some((reg.num(), false)),
+                        Some(Operand::Text(text)) => text
+                            .strip_prefix('r')
+                            .and_then(|text| text.strip_suffix('!'))
+                            .and_then(|text| text.parse::<u8>().ok())
+                            .filter(|reg| *reg < 16)
+                            .map(|reg| (reg, true)),
+                        _ => None,
+                    };
+                    if let Some((base, writeback)) = base {
+                        if let Some(pointer) = values[usize::from(base)] {
+                            if (LOW..HIGH).contains(&pointer) {
+                                let words = list.count_ones();
+                                for word in 0..words {
+                                    let address = pointer + 4 * word;
+                                    mark(&mut window, address, 4);
+                                    result.uses.insert((pc, address, 4));
+                                }
+                                if writeback {
+                                    written_back = Some((base, pointer.checked_add(4 * words)));
+                                }
                             }
                         }
                     }
@@ -203,6 +264,9 @@ impl RamReferences {
                 } else {
                     super::caller::update_constants(&ins, &mut values);
                 }
+                if let Some((base, value)) = written_back {
+                    values[usize::from(base)] = value;
+                }
                 let next = pc + ins.len();
                 if ins.is_call() {
                     if let Some(targets) = switch_targets {
@@ -239,9 +303,15 @@ impl RamReferences {
                 }
             }
         }
+        result.bytes = (0..HIGH - LOW)
+            .filter(|offset| window[(offset / 64) as usize] & (1 << (offset % 64)) != 0)
+            .map(|offset| LOW + offset)
+            .collect();
         result
     }
-    /// Byte addresses observed in references or bounded native call arguments.
+    /// Byte addresses observed in literal words, decoded accesses and counted
+    /// fill/copy loops. Call argument ranges are only potential and are
+    /// reported by [`Self::calls`], not included here.
     pub fn bytes(&self) -> &BTreeSet<u32> {
         &self.bytes
     }
@@ -281,3 +351,7 @@ fn is_return(ins: &thumb_asm::isa::Insn) -> bool {
         _ => false,
     }
 }
+
+#[cfg(test)]
+#[path = "ram_tests.rs"]
+mod tests;
