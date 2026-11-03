@@ -217,3 +217,45 @@ fn looping_stack_pointer_spills_stay_bounded() {
     // Unbounded spill tracking took over 10 s and several GB here.
     assert!(started.elapsed() < std::time::Duration::from_secs(5));
 }
+
+#[test]
+fn switch_fan_out_shares_queued_stack_models() {
+    // push {r3,r4,lr}; mov r0,sp (site); movs r3,#0; blx byte-switch whose 33
+    // targets all reach pop {r3,r4,pc}. Queued successors must not each own a
+    // stack-model copy, or a 33-way fan-out holds 33x the states the cap bounds.
+    use thumb_asm::isa::{encode_bytes, Insn, Operand, Width};
+    let mut image = vec![0xff; 0x300];
+    let mut prefix = thumb_asm::Asm::new();
+    prefix.push(0x118).mov_reg(0, 13).movs_imm(3, 0);
+    image[..6].copy_from_slice(&prefix.finish().unwrap()[..6]);
+    let call = Insn {
+        mnemonic: "blx",
+        encoding: "T2",
+        addr: 6,
+        width: Width::Wide,
+        cond: None,
+        sets_flags: false,
+        explicit_width: false,
+        operands: [Operand::Target(0x200)].into_iter().collect(),
+    };
+    image[6..10].copy_from_slice(&encode_bytes(&call).unwrap());
+    // 32 cases plus the default, all at 10 + 2 * 17 = 44.
+    image[10] = 32;
+    image[11..44].fill(17);
+    let mut suffix = thumb_asm::Asm::new();
+    suffix.pop(0x118);
+    image[44..46].copy_from_slice(&suffix.finish().unwrap()[..2]);
+    let body = crate::compiler::ARM_BYTE_SWITCH;
+    image[0x200..0x200 + body.len()].copy_from_slice(body);
+    let mut counts = WalkCounts::default();
+    assert_eq!(
+        SavedLink::frame_counted(&image, 0, 2, &mut counts),
+        Ok((12, vec![44]))
+    );
+    assert!(
+        counts.stack_copies <= counts.states,
+        "{} stack copies for {} states",
+        counts.stack_copies,
+        counts.states
+    );
+}

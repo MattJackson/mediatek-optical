@@ -117,7 +117,9 @@ impl CommandScanner {
     /// makes the role ambiguous or refuses it instead of disappearing.
     pub fn inspect(image: &[u8]) -> Result<Self, Error> {
         let mut found = None;
-        for at in (0..image.len().saturating_sub(0x60)).step_by(2) {
+        // The grammar bounds-checks its own reads (through entry + 0x5c), so
+        // a candidate ending at the image tail is still counted.
+        for at in (0..image.len()).step_by(2) {
             let Some(ins) = decode_at(image, at) else {
                 continue;
             };

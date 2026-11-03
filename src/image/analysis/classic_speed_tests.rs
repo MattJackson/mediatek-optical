@@ -118,3 +118,78 @@ fn classic_speed_setters_deduplicate_repeated_native_setters() {
     assert_eq!(roles.len(), 1, "duplicate setters must collapse");
     assert_eq!(roles, vec![(MAX_CELL, OPT_CELL)]);
 }
+
+#[test]
+fn classic_speed_stays_linear_in_consumers_times_setters() {
+    // Many consumers of one three-cell selector and many setters of one OPTM
+    // cell must not multiply: each consumer looks up only the cells it reads.
+    const SETTERS: usize = 8000;
+    const CONSUMERS: usize = 100_000;
+    const LOGGER: usize = 0x1000;
+    const SELECTOR: usize = 0x1100;
+    const OPT_CELL: u32 = 0x0200_8000;
+    const MEDIA_CELL: u32 = 0x0200_9000;
+    const MAX_CELL: u32 = 0x0200_0000;
+    fn put(image: &mut [u8], at: usize, value: u32) {
+        image[at..at + 4].copy_from_slice(&value.to_le_bytes());
+    }
+    fn branch(at: usize) -> u32 {
+        let delta = LOGGER as i64 - at as i64 - 32;
+        0xea00_0000 | ((delta >> 2) as u32 & 0x00ff_ffff)
+    }
+    let setters = 0x2000;
+    let consumers = setters + SETTERS * 0x100;
+    let mut image = vec![0u8; consumers + CONSUMERS * 12];
+    for i in 0..SETTERS {
+        let max = setters + i * 0x100;
+        put(&mut image, max, 0xe1a01000);
+        put(&mut image, max + 4, 0xe59f0040);
+        put(&mut image, max + 8, 0xe1a0200e);
+        put(&mut image, max + 12, 0xe5c01000);
+        put(&mut image, max + 16, 0xe5d01000);
+        put(&mut image, max + 20, 0xe28f0040);
+        put(&mut image, max + 24, branch(max));
+        put(&mut image, max + 0x4c, MAX_CELL + i as u32);
+        image[max + 0x5c..max + 0x61].copy_from_slice(b"RMAX\0");
+        let opt = max + 0x80;
+        put(&mut image, opt, 0xe59f1040);
+        put(&mut image, opt + 4, 0xe1a0200e);
+        put(&mut image, opt + 8, 0xe5c10000);
+        put(&mut image, opt + 12, 0xe59f0040);
+        put(&mut image, opt + 16, 0xe5d01000);
+        put(&mut image, opt + 20, 0xe28f0040);
+        put(&mut image, opt + 24, branch(opt));
+        put(&mut image, opt + 0x48, OPT_CELL);
+        put(&mut image, opt + 0x54, MAX_CELL + i as u32);
+        image[opt + 0x5c..opt + 0x61].copy_from_slice(b"OPTM\0");
+    }
+    // ldr r0,=media; ldrb r0,[r0]; lsrs r0,#6; cmp r0,#3; ldr r1,=max;
+    // ldrb r1,[r1]; ldr r2,=other; ldrb r2,[r2]; lsls/lsrs r0,#24; bx lr
+    let selector: [u16; 12] = [
+        0x4805, 0x7800, 0x0980, 0x2803, 0x4904, 0x7809, 0x4a04, 0x7812, 0x0600, 0x0e00, 0x4770,
+        0xbf00,
+    ];
+    for (n, op) in selector.iter().enumerate() {
+        image[SELECTOR + 2 * n..SELECTOR + 2 * n + 2].copy_from_slice(&op.to_le_bytes());
+    }
+    let maximum = MAX_CELL + SETTERS as u32 - 1;
+    put(&mut image, SELECTOR + 24, MEDIA_CELL);
+    put(&mut image, SELECTOR + 28, maximum);
+    put(&mut image, SELECTOR + 32, MEDIA_CELL + 1);
+    for n in 0..CONSUMERS {
+        // bl selector; ldr r1,=optm; strb r0,[r1]
+        let at = consumers + n * 12;
+        image[at..at + 4].copy_from_slice(&thumb_asm::encode_bl(at, SELECTOR as u32).unwrap());
+        image[at + 4..at + 8].copy_from_slice(&[0x00, 0x49, 0x08, 0x70]);
+        put(&mut image, at + 8, OPT_CELL);
+    }
+    let started = std::time::Instant::now();
+    let proof = ClassicSpeed::detect(&image).unwrap();
+    let elapsed = started.elapsed();
+    assert_eq!(proof.entry, SELECTOR);
+    assert_eq!(proof.maximum_cell, maximum);
+    assert_eq!(proof.optimum_cell, OPT_CELL);
+    assert_eq!(proof.media_cell, MEDIA_CELL);
+    assert_eq!(proof.consumer, consumers);
+    assert!(elapsed < std::time::Duration::from_secs(1), "{elapsed:?}");
+}

@@ -79,10 +79,13 @@ impl<'a> CommandDispatch<'a> {
     /// Require one reached record with the requested opcode and native flags.
     /// Another reached ordinary record with the same opcode is ambiguous: the
     /// native scanner does not advance past it, so it can shadow the request.
-    /// Only link (4) and terminal (3) records are passed over by opcode.
+    /// Link (4) and terminal (3) records are passed over by opcode, except
+    /// 0x3c: for CDB modes 6, 7, 10, 11 and 12 the scanner invokes any record
+    /// carrying that opcode before testing for a link or terminal.
     pub fn record(&self, opcode: u8, flags: u8) -> Result<&CommandRecord, Error> {
         let mut matches = self.records.iter().filter(|record| {
-            record.opcode == opcode && (record.flags == flags || !matches!(record.flags, 3 | 4))
+            record.opcode == opcode
+                && (record.flags == flags || opcode == 0x3c || !matches!(record.flags, 3 | 4))
         });
         let first = matches.next().ok_or(Error::UnknownLayout)?;
         if matches.next().is_some() {
