@@ -610,7 +610,40 @@ fn every_normalized_mediatek_file_is_accounted_for_in_discovery() {
         std::fs::write(path, serde_json::to_vec_pretty(&report).unwrap()).unwrap();
     }
     eprintln!("{} files: {}", paths.len(), report["counts"]);
-    assert_eq!(report["rows"].as_array().unwrap().len(), paths.len());
+    // The inventory must account for every file exactly once, with only the
+    // documented statuses, and discovery must never claim a proven contract.
+    let rows = report["rows"].as_array().unwrap();
+    let mut seen = std::collections::BTreeSet::new();
+    let mut by_status = 0;
+    for row in rows {
+        assert!(
+            seen.insert(row["path"].as_str().unwrap()),
+            "duplicate row {row}"
+        );
+        let status = row["status"].as_str().unwrap();
+        assert!(
+            [
+                "non_firmware_file",
+                "outside_2MiB_discovery",
+                "discovered_not_proven"
+            ]
+            .contains(&status),
+            "unexpected status {status}"
+        );
+        assert_eq!(
+            row["receivers"].as_array().unwrap().is_empty(),
+            status != "discovered_not_proven",
+            "{} receivers disagree with status {status}",
+            row["path"]
+        );
+        for receiver in row["receivers"].as_array().unwrap() {
+            assert_eq!(receiver["contract_status"], "unproven");
+            assert!(receiver["encoding"].is_null());
+        }
+        by_status += counts[status];
+    }
+    assert_eq!(seen.len(), paths.len());
+    assert_eq!(by_status, paths.len());
 }
 
 #[test]

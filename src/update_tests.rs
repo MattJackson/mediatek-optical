@@ -123,10 +123,10 @@ fn chips_must_match() {
     // drive that reports only a banner is identified fine (here it matches the
     // MT1939 image's chip, so the check proceeds past the chip gate).
     let banner_only = Identity::parse(&[0; INQUIRY_LEN], b"MT1939 Boot Code", &[]).unwrap();
-    assert!(!matches!(
+    assert_eq!(
         PreparedUpdate::check(&mt1939, &banner_only),
-        Err(PrepareError::ChipMismatch { .. } | PrepareError::UnknownDriveChip)
-    ));
+        Ok(family(&mt1939).unwrap())
+    );
 }
 
 #[test]

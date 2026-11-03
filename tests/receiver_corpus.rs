@@ -51,10 +51,13 @@ fn every_website_binary_matches_both_receiver_expectations() {
             assert_eq!(mode.mode(), if boot { Mode::Boot } else { Mode::Firmware });
             let result = receiver::detect_encoding(&mut image, &mode)
                 .unwrap_or_else(|e| panic!("{} {key}: {e}", row["filename"]));
-            let expected = if row["receivers"][key]["encoding"] == "encrypted" {
-                Encoding::Encrypted
-            } else {
-                Encoding::Plaintext
+            let expected = match row["receivers"][key]["encoding"].as_str() {
+                Some("encrypted") => Encoding::Encrypted,
+                Some("plaintext") => Encoding::Plaintext,
+                other => panic!(
+                    "{} {key}: unexpected audit encoding {other:?}",
+                    row["filename"]
+                ),
             };
             assert_eq!(result.encoding(), expected, "{} {key}", row["filename"]);
         }
