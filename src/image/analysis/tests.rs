@@ -221,3 +221,28 @@ fn refusal_store_base_must_be_the_loaded_literal_register() {
         );
     }
 }
+
+#[test]
+fn preserved_r7_store_refuses_a_literal_loaded_into_another_register() {
+    // wh-auth leaves through `strb r6,[r7]` (0x703e) on the preserved state
+    // pointer. A literal load before that store must define r7 itself.
+    let deny = AuthCell::detect(WH_AUTH).unwrap().deny();
+    assert_eq!(&WH_AUTH[deny..deny + 4], &[0x3e, 0x70, 0x92, 0xe4]);
+    let with_literal = |load: u16| {
+        let mut image = WH_AUTH.to_vec();
+        // ldr rN,[pc,#4]; strb r6,[r7]; b <same target>
+        for (n, half) in [load, 0x703e, 0xe491].into_iter().enumerate() {
+            image[deny + 2 * n..deny + 2 * n + 2].copy_from_slice(&half.to_le_bytes());
+        }
+        image
+    };
+    assert!(
+        AuthCell::detect(&with_literal(0x4f01)).is_ok(),
+        "a literal reloading r7 keeps the reviewed store base"
+    );
+    assert_eq!(
+        AuthCell::detect(&with_literal(0x4b01)),
+        Err(Error::InvalidContract),
+        "accepted r7 store after a literal load into r3"
+    );
+}

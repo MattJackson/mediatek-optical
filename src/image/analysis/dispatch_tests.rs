@@ -224,4 +224,53 @@ fn frameless_scanner_caller_refuses() {
     put_bl(&mut image, 0x1c0, 0);
     put(&mut image, 0x1c4, &[0xe7fe]);
     assert_eq!(roots(&image), Err(super::Error::InvalidContract));
+/// The registered fixture with `records` at its root (0x1a0), a terminal
+/// record after them, and a `push {lr}; pop {pc}` handler body at 0x1c0.
+fn with_records(records: &[(u8, u8, u32)]) -> Vec<u8> {
+    let mut image = registered();
+    let terminal = [(0, 3, 0)];
+    for (n, &(opcode, flags, handler)) in records.iter().chain(&terminal).enumerate() {
+        let at = 0x1a0 + 8 * n;
+        image[at..at + 4].copy_from_slice(&[opcode, flags, 0, 0]);
+        put_word(&mut image, at + 4, handler);
+    }
+    put(&mut image, 0x1c0, &[0xb500, 0xbd00]);
+    image
+}
+
+#[test]
+fn record_refuses_an_earlier_ordinary_record_with_the_same_opcode() {
+    use super::super::{CommandDispatch, ResponseIo};
+    let unique = with_records(&[(0x12, 7, 0x1c1)]);
+    let commands = CommandDispatch::inspect(&unique).expect("native graph");
+    assert_eq!(commands.record(0x12, 7).map(|r| r.handler), Ok(0x1c1));
+    // The native scanner stops at the first ordinary record carrying the
+    // opcode (no `add table,#8` advance), so the flags-7 record is shadowed.
+    let shadowed = with_records(&[(0x12, 0, 0x1c1), (0x12, 7, 0x1c1)]);
+    let commands = CommandDispatch::inspect(&shadowed).expect("native graph");
+    assert_eq!(
+        commands.record(0x12, 7).err(),
+        Some(super::Error::Ambiguous)
+    );
+    assert_eq!(
+        ResponseIo::inspect(&shadowed).err(),
+        Some(super::Error::Ambiguous)
+    );
+}
+
+#[test]
+fn response_uses_the_validated_inquiry_record() {
+    use super::super::ResponseIo;
+    // An even handler is entered in ARM state by `blx r0`.
+    let arm = with_records(&[(0x12, 7, 0x1c0)]);
+    assert_eq!(
+        ResponseIo::inspect(&arm).err(),
+        Some(super::Error::InvalidContract)
+    );
+    // Two reached INQUIRY records are ambiguous even with one handler.
+    let duplicate = with_records(&[(0x12, 7, 0x1c1), (0x12, 7, 0x1c1)]);
+    assert_eq!(
+        ResponseIo::inspect(&duplicate).err(),
+        Some(super::Error::Ambiguous)
+    );
 }
