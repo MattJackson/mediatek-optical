@@ -79,8 +79,18 @@ fn setup_failure_exit_restores_and_returns() {
             "{relative:#x}"
         );
     }
-    // Retarget the exit's restore BLX to the entry's save routine.
+    // Retarget the exit's restore BLX to the entry's save routine. BLX is
+    // PC-relative, so re-encode it rather than copying the entry's bytes.
     let mut changed = image.clone();
-    changed[wrapper + 0x9c..wrapper + 0xa0].copy_from_slice(&image[wrapper + 0x16..wrapper + 0x1a]);
+    let at = wrapper + 0x9c;
+    let delta = 0x2d4i64 - ((at as i64 + 4) & !3);
+    let high = 0xf000u16 | ((delta >> 12) & 0x7ff) as u16;
+    let low = 0xe800u16 | ((delta >> 1) & 0x7ff) as u16;
+    changed[at..at + 2].copy_from_slice(&high.to_le_bytes());
+    changed[at + 2..at + 4].copy_from_slice(&low.to_le_bytes());
+    assert_eq!(
+        super::super::state_slot::blx(&changed, 0, at as u32),
+        Some(0x2d4)
+    );
     assert!(inspect_mode_three_wrapper(&changed, 0, wrapper as u32).is_none());
 }

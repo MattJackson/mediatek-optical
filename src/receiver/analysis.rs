@@ -90,6 +90,9 @@ impl ApplicationAnalysis {
             }
         }
         let mut scratch: Vec<Call> = Vec::new();
+        // Whether some trace from a proven instruction boundary established
+        // the scratch call at the same index.
+        let mut scratch_boundary: Vec<bool> = Vec::new();
         let mut conflicting_arguments = false;
         for range in &mut ranges {
             let Some(signature) = range.signature else {
@@ -152,17 +155,31 @@ impl ApplicationAnalysis {
                 if !super::matches(routine, super::AES) {
                     continue;
                 }
-                if let Some(previous) = scratch.iter().find(|c| c.address == call.address) {
+                // As for the bulk header below, a start after a 32-bit prefix
+                // halfword may be the second half of one executed instruction;
+                // it counts toward conflicts but cannot alone establish a call.
+                let boundary = !after_wide_prefix(bytes, base, start);
+                if let Some(index) = scratch.iter().position(|c| c.address == call.address) {
+                    let previous = &scratch[index];
                     // r3 is not an AES argument. Different tracing start points
                     // can establish different irrelevant r3 facts.
                     conflicting_arguments |= previous.target != call.target
                         || previous.source != call.source
                         || previous.destination != call.destination
                         || previous.length != call.length;
+                    scratch_boundary[index] |= boundary;
                 } else {
                     scratch.push(call);
+                    scratch_boundary.push(boundary);
                 }
             }
+        }
+        // An AES call on staged bytes whose arguments are unproven is
+        // incomplete evidence, never the absence of a scratch decoder.
+        if scratch_boundary.contains(&false) {
+            conflicting_arguments = true;
+            let mut proven = scratch_boundary.into_iter();
+            scratch.retain(|_| proven.next() == Some(true));
         }
         scratch.sort_by_key(|c| c.address);
         let mut bulk = Vec::new();
