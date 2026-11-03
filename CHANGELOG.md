@@ -6,6 +6,7 @@
 - `analysis::Error` codes now carry a host category: `unknown_layout` and `ambiguous` are `UnsupportedFirmware`, `invalid_contract` and `truncated` are `InvalidFirmware` (previously `Unexpected`). `reference::Error::Analysis` reports offline identity or read failures in the supplied Current file as `InvalidFirmware` instead of `Connection`.
 - Add `CmacError::CircularTable`; `cmac::resign` now refuses tables with more than one active table-covering entry.
 - `analysis::Diagnostic::source()` now returns the underlying cause.
+- `AuthCell` refusal stores must go through the register their literal load defines; an `r0`-based store without a literal load is refused.
 - `RamReferences::incomplete()` now includes seeds whose path reaches an unmodelled branch (`cbz`/`cbnz`, table branches, indirect `bx`/`blx`); function returns still end a path normally.
 - Tighten analysis grammars: `TST`/`CMN`/`TEQ` invalidate cached comparisons; a UHD coefficient continuation must read the register holding `0x51b1` and any other write to it or a call ends the constant; scans now include the last offset; missing literal evidence no longer matches; register-specified shifts in caller analysis use only the low byte of the shift amount, so branch pruning no longer drops live paths.
 - `RamReferences` now records 16-bit `stmia`/`ldmia` accesses through a tracked SRAM pointer (and follows their base writeback), and no longer takes quadratic or per-byte time on images with many fill or copy loops.

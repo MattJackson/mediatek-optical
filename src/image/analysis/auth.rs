@@ -114,9 +114,17 @@ impl AuthCell {
                 };
                 // Reviewed exits preserve a live byte or materialize status=1.
                 // The generated stub branches to this original block unchanged.
+                // A literal load must define the store's base register; an r0
+                // base is only a pointer when it was just loaded (r0 holds the
+                // shifted state or a value on the reviewed paths), while the
+                // r7 base is the preserved state pointer.
                 let store_hw = half(image, store).ok_or(Error::Truncated)?;
-                let valid_store = matches!(store_hw, 0x7005 | 0x7006 | 0x703e)
-                    || (first == 0x2001 && half(image, deny + 2) == Some(0x7038));
+                let literal = (store != deny).then_some((first >> 8) & 7);
+                let valid_store = match store_hw {
+                    0x7005 | 0x7006 => literal == Some(0),
+                    0x703e => literal.map_or(true, |rd| rd == 7),
+                    _ => false,
+                } || (first == 0x2001 && half(image, deny + 2) == Some(0x7038));
                 let branch = if first == 0x2001 { deny + 4 } else { store + 2 };
                 let mut refusal = deny;
                 if alternate {
