@@ -20,7 +20,8 @@ fn files(root: &Path, out: &mut Vec<PathBuf>) {
     }
 }
 
-fn images() -> (PathBuf, Vec<PathBuf>) {
+/// Every physical file under the hoard's MediaTek buckets, unfiltered.
+fn hoard_files() -> (PathBuf, Vec<PathBuf>) {
     let root = PathBuf::from(std::env::var("MTK_HOARD_ROOT").expect("set MTK_HOARD_ROOT"));
     let mut paths = Vec::new();
     let legacy = root.join("images/mediatek");
@@ -34,8 +35,14 @@ fn images() -> (PathBuf, Vec<PathBuf>) {
             }
         }
     }
-    paths.retain(|path| path.extension().is_some_and(|ext| ext == "bin"));
     paths.sort();
+    (root, paths)
+}
+
+/// The hoard's normalized `<sha256>.bin` firmware images.
+fn images() -> (PathBuf, Vec<PathBuf>) {
+    let (root, mut paths) = hoard_files();
+    paths.retain(|path| path.extension().is_some_and(|ext| ext == "bin"));
     (root, paths)
 }
 
@@ -470,7 +477,7 @@ fn intm_mixed_candidate_preserves_boot_and_passes_held_image_integrity() {
 #[test]
 #[ignore = "discovery only; requires MTK_HOARD_ROOT and optionally MTK_DECODING_REPORT"]
 fn every_normalized_mediatek_file_is_accounted_for_in_discovery() {
-    let (root, paths) = images();
+    let (root, paths) = hoard_files();
     assert!(!paths.is_empty());
     let mut rows = Vec::new();
     let mut counts = BTreeMap::<String, usize>::new();
@@ -614,7 +621,6 @@ fn every_normalized_mediatek_file_is_accounted_for_in_discovery() {
     // documented statuses, and discovery must never claim a proven contract.
     let rows = report["rows"].as_array().unwrap();
     let mut seen = std::collections::BTreeSet::new();
-    let mut by_status = 0;
     for row in rows {
         assert!(
             seen.insert(row["path"].as_str().unwrap()),
@@ -640,9 +646,16 @@ fn every_normalized_mediatek_file_is_accounted_for_in_discovery() {
             assert_eq!(receiver["contract_status"], "unproven");
             assert!(receiver["encoding"].is_null());
         }
-        by_status += counts[status];
     }
     assert_eq!(seen.len(), paths.len());
+    let by_status: usize = [
+        "non_firmware_file",
+        "outside_2MiB_discovery",
+        "discovered_not_proven",
+    ]
+    .iter()
+    .map(|status| counts.get(*status).copied().unwrap_or(0))
+    .sum();
     assert_eq!(by_status, paths.len());
 }
 

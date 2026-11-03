@@ -94,6 +94,41 @@ fn identify_survives_refused_rom_reads() {
     assert_eq!(id.chip(), None);
 }
 
+/// A transport that claims to have received far more bytes than fit in the
+/// buffer; drive data-in counts are untrusted.
+struct OverReport;
+
+impl Transport for OverReport {
+    type Error = &'static str;
+
+    fn exec(&mut self, _: &[u8], data: Data<'_>) -> Result<usize, Self::Error> {
+        match data {
+            Data::In(buf) => {
+                buf.fill(0);
+                if let Some(first) = buf.first_mut() {
+                    *first = 0x70;
+                }
+                Ok(buf.len() + 300)
+            }
+            Data::Out(bytes) => Ok(bytes.len()),
+            Data::None => Ok(0),
+        }
+    }
+
+    fn sense(&self) -> Option<(u8, u8, u8)> {
+        None
+    }
+}
+
+#[test]
+fn over_reported_data_in_counts_are_clamped_to_the_buffer() {
+    let mut t = OverReport;
+    let mut buf = [0u8; 16];
+    assert_eq!(feature(&mut t, 0x0107, &mut buf).unwrap(), buf.len());
+    assert!(request_sense(&mut t).is_ok());
+    read_memory(&mut t, 0x3000, &mut buf).unwrap();
+}
+
 #[test]
 fn read_memory_requires_every_byte() {
     let mut t = Mock::new();
