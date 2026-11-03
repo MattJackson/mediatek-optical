@@ -22,6 +22,8 @@
 //! - `image` also enables `update`: an update prepared against the installed
 //!   firmware, refused across chips and hardware families. With `drive`,
 //!   the receiver-bound `receiver::PreparedUpdate::flash` runs it.
+//! - `analysis` — `analysis`: read-only OEM instruction-layout analysis
+//!   (`image::analysis`). Implies `image`.
 //! - `std` — links the standard library (implied by `image`).
 //!
 //! ## Drive memory

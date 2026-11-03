@@ -342,3 +342,25 @@ fn feature_template_requires_aligned_nonempty_profiles_and_core() {
         assert!(template(only_profile, only_profile.len()).is_none());
     }
 }
+
+#[test]
+fn banner_chip_is_the_leading_chip_field() {
+    // The chip field is the `MT19xx` that starts the banner; a supported chip
+    // label inside the loader token must not stand in for an unsupported one.
+    let board = Board {
+        banner: "MT1949 Boot MT1959",
+        ..JB7
+    };
+    assert_eq!(hardware(&fixtures::image(&board, 1)), None);
+}
+
+#[test]
+fn overlong_loader_tokens_are_refused_not_truncated() {
+    assert_eq!(loader(b"MT1959 Boot ABCDEFGH").as_deref(), Some("ABCDEFGH"));
+    assert_eq!(
+        loader(b"MT1959 Boot ABCDEFGH\0junk").as_deref(),
+        Some("ABCDEFGH")
+    );
+    assert_eq!(loader(b"MT1959 Boot ABCDEFGH1"), None);
+    assert_eq!(loader(b"MT1959 Boot ABCDEFGH2"), None);
+}

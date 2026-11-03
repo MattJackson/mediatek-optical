@@ -136,7 +136,8 @@ pub fn family(image: &[u8]) -> Option<Family> {
 /// and consistent:
 ///
 /// - the image is exactly [`layout::IMAGE_SIZE`] bytes;
-/// - its boot banner names the chip and reads `MT19xx Boot <loader>`; the
+/// - its boot banner reads `MT19xx Boot <loader>`, where `MT19xx` names a
+///   supported chip and `<loader>` is one to eight printable characters; the
 ///   descriptor and record tags never decide the chip;
 /// - the code area holds exactly one hardware record, whose tag parses as an
 ///   MT19xx label (it may disagree with the banner chip);
@@ -156,7 +157,9 @@ pub fn hardware(image: &[u8]) -> Option<Hardware> {
     // platform-code cross-check below (a tagged descriptor must agree on the
     // platform), never to decide `chip`.
     let tagged = Chip::from_tag(descriptor).is_some();
-    let chip = Chip::from_banner(banner)?;
+    // The chip field is the `MT19xx` that starts the banner, never a label
+    // elsewhere in it (e.g. inside the loader token).
+    let chip = Chip::from_digits(*banner.get(4)?, *banner.get(5)?)?;
     let loader = loader(banner)?;
 
     let mut at = CODE.start;
@@ -220,7 +223,8 @@ fn trim(bytes: &[u8]) -> &[u8] {
 }
 
 /// The bootloader a banner names: `MT19` + two digits + ` Boot ` + one to
-/// eight printable characters.
+/// eight printable characters. A longer token is refused, not truncated, so
+/// distinct loaders never share a family.
 fn loader(banner: &[u8]) -> Option<String> {
     let rest = banner.strip_prefix(b"MT19")?;
     if rest.len() < 2 || !rest[..2].iter().all(u8::is_ascii_digit) {
@@ -229,10 +233,9 @@ fn loader(banner: &[u8]) -> Option<String> {
     let token = rest[2..].strip_prefix(b" Boot ")?;
     let len = token
         .iter()
-        .take(LOADER_MAX)
         .take_while(|b| (0x21..0x7F).contains(*b))
         .count();
-    if len == 0 {
+    if len == 0 || len > LOADER_MAX {
         return None;
     }
     String::from_utf8(token[..len].to_vec()).ok()

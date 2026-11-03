@@ -3,7 +3,8 @@
 ## 1.2.0 — Unreleased
 
 - `FlashError::Startup` now takes its `IssueKind` from the `StartupError` it wraps: `TargetMismatch` is `Verification`, `Read` is `Connection` and `Identity` is `Update`. `ExecuteError` delegates its kind to its cause, so receiver refusals are reported as `ReceiverMismatch`, `Connection` and so on instead of `IssueKind::Update`.
-- Add `CmacError::CircularTable`; `cmac::resign` now refuses tables with more than one active table-covering entry.
+- Add `CmacError::CircularTable`; `cmac::resign` now refuses tables with more than one active table-covering entry, or an active entry whose range covers its own digest bytes.
+- `image::family::hardware` takes the chip only from the banner's leading `MT19xx` field and refuses a bootloader token longer than eight characters instead of truncating it.
 - `analysis::Diagnostic::source()` now returns the underlying cause.
 - `RamReferences::incomplete()` now includes seeds whose path reaches an unmodelled branch (`cbz`/`cbnz`, table branches, indirect `bx`/`blx`); function returns still end a path normally.
 - Tighten analysis grammars: `TST`/`CMN`/`TEQ` invalidate cached comparisons; a UHD coefficient continuation must read the register holding `0x51b1` and any other write to it or a call ends the constant; scans now include the last offset; missing literal evidence no longer matches.

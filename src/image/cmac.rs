@@ -181,7 +181,9 @@ pub fn verify(image: &[u8]) -> bool {
 /// Recompute and write back every active entry's digest, returning the new image.
 ///
 /// Data ranges are signed first; any entry that covers the table region
-/// (`0x10400`) is signed last, over the already-updated table bytes.
+/// (`0x10400`) is signed last, over the already-updated table bytes. Fails with
+/// [`CmacError::CircularTable`] when more than one active entry covers the
+/// table or an active entry covers its own digest bytes.
 pub fn resign(image: &[u8]) -> Result<Vec<u8>, CmacError> {
     let mut img = image.to_vec();
     let table = parse_table(&img)?;
@@ -191,6 +193,15 @@ pub fn resign(image: &[u8]) -> Result<Vec<u8>, CmacError> {
         .count()
         > 1
     {
+        return Err(CmacError::CircularTable);
+    }
+    // A covering entry that hashes its own digest bytes has no fixed point:
+    // writing the digest changes the input it was computed over.
+    if table.iter().any(|e| {
+        e.is_active()
+            && (e.start as usize) < e.entry_off + 28
+            && (e.end as usize) >= e.entry_off + 12
+    }) {
         return Err(CmacError::CircularTable);
     }
 
@@ -225,7 +236,8 @@ pub enum CmacError {
         /// Range end.
         end: usize,
     },
-    /// More than one active entry covers the table, so each digest would cover the other.
+    /// More than one active entry covers the table, or one covers its own
+    /// digest bytes, so no digest can be written that its range still matches.
     CircularTable,
 }
 
@@ -239,7 +251,10 @@ impl std::fmt::Display for CmacError {
                 write!(f, "bad CMAC range: start=0x{start:x} end=0x{end:x}")
             }
             CmacError::CircularTable => {
-                write!(f, "multiple active CMAC entries cover the integrity table")
+                write!(
+                    f,
+                    "CMAC entries cover each other's or their own digest in the integrity table"
+                )
             }
         }
     }
