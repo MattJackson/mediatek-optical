@@ -293,13 +293,25 @@ impl ClassicSpeed {
                 continue;
             };
             let (site, media_cell, opt) = (*site, *media_cell, optimum_cell);
-            for &maximum_cell in maximums {
-                if media_cell == maximum_cell
-                    || media_cell == opt
-                    || reads.contains(&opt)
-                    || reads.len() < 2
-                    || (reads.len() == 3 && !reads.contains(&maximum_cell))
-                {
+            if media_cell == opt || reads.contains(&opt) || reads.len() < 2 {
+                continue;
+            }
+            // A three-cell selector can only pair with a maximum it reads, so
+            // look those (at most three) up instead of walking every setter of
+            // this OPTM cell per consumer. `maximums` is sorted and distinct.
+            let read_maximums: Vec<u32>;
+            let cells: &[u32] = if reads.len() == 3 {
+                read_maximums = reads
+                    .iter()
+                    .copied()
+                    .filter(|cell| maximums.binary_search(cell).is_ok())
+                    .collect();
+                &read_maximums
+            } else {
+                maximums
+            };
+            for &maximum_cell in cells {
+                if media_cell == maximum_cell {
                     continue;
                 }
                 let candidate = Self {

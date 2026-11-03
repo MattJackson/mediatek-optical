@@ -205,7 +205,11 @@ pub(super) fn roots(image: &[u8], scanner: &CommandScanner) -> Result<BTreeSet<u
         roots.insert(root as usize);
     }
     if roots.is_empty() {
-        return Err(Error::UnknownLayout);
+        // Shaped registrations whose callers cannot be proven are present but
+        // unproven evidence, not an absent registrar call.
+        return Err(unproven
+            .first()
+            .map_or(Error::UnknownLayout, |(_, error)| unproven_error(*error)));
     }
     if let Some((_, error)) = unproven.iter().find(|(root, _)| !roots.contains(root)) {
         return Err(unproven_error(*error));

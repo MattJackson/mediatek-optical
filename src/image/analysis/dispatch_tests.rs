@@ -276,3 +276,61 @@ fn response_uses_the_validated_inquiry_record() {
         Some(super::Error::Ambiguous)
     );
 }
+
+#[test]
+fn scanner_grammar_at_the_image_tail_makes_role_ambiguous() {
+    // A second complete grammar whose last read (its CDB literal) is the final
+    // image word must still count as a candidate.
+    let mut image = scanner();
+    let ret = image.len();
+    let entry = ret + 8;
+    // ret: mov r0,r4; pop {r4,pc}; add r4,#8; b scan
+    let mut tail: Vec<u16> = vec![0x4620, 0xbd10, 0x3408, 0xe002];
+    let body: Vec<u16> = scanner()[..0x5c]
+        .chunks(2)
+        .map(|h| u16::from_le_bytes([h[0], h[1]]))
+        .collect();
+    tail.extend(body);
+    let mut tail: Vec<u8> = tail.iter().flat_map(|h| h.to_le_bytes()).collect();
+    let rel = |at: usize| at - ret;
+    // Retarget the ret branches backwards and the CDB literal to entry + 0x5c.
+    tail[rel(entry + 2)..rel(entry + 4)].copy_from_slice(&0x4b16u16.to_le_bytes());
+    tail[rel(entry + 24)..rel(entry + 26)].copy_from_slice(&0xe7eeu16.to_le_bytes());
+    tail[rel(entry + 0x54)..rel(entry + 0x56)].copy_from_slice(&0xe7d0u16.to_le_bytes());
+    tail[rel(entry + 0x5a)..rel(entry + 0x5c)].copy_from_slice(&0xd1cfu16.to_le_bytes());
+    tail.extend(0x0200_0100u32.to_le_bytes());
+    image.extend(tail);
+    assert_eq!(image.len(), entry + 0x60);
+    assert!(CommandScanner::grammar(&image, entry).is_some());
+    assert_eq!(
+        CommandScanner::inspect(&image),
+        Err(super::Error::Ambiguous)
+    );
+}
+
+#[test]
+fn only_unproven_registrations_refuse_as_invalid_contract() {
+    // Shaped registrations that exist but cannot be proven are not absence.
+    let mut image = registered();
+    put(&mut image, 0x186, &[0xbf00, 0xbf00]);
+    assert_eq!(roots(&image), Err(super::Error::UnknownLayout));
+    let image = with_frameless_registration(image, 0x1a0);
+    assert_eq!(roots(&image), Err(super::Error::InvalidContract));
+}
+
+#[test]
+fn record_refuses_an_earlier_link_record_with_opcode_0x3c() {
+    use super::super::CommandDispatch;
+    // For CDB 3c 06/07/0a/0b/0c the native scanner invokes any record whose
+    // opcode is 0x3c, including a link record, before following its link.
+    let image = with_records(&[(0x3c, 4, 0x1a8), (0x3c, 1, 0x1c1)]);
+    let commands = CommandDispatch::inspect(&image).expect("native graph");
+    assert_eq!(
+        commands.record(0x3c, 1).err(),
+        Some(super::Error::Ambiguous)
+    );
+    // Other opcodes still pass over link records.
+    let image = with_records(&[(0x12, 4, 0x1a8), (0x12, 7, 0x1c1)]);
+    let commands = CommandDispatch::inspect(&image).expect("native graph");
+    assert_eq!(commands.record(0x12, 7).map(|r| r.handler), Ok(0x1c1));
+}
