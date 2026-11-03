@@ -156,6 +156,7 @@ impl<E> CodedError for crate::update::StartupError<E> {
             Self::Identity(_) => "mediatek.startup.identity",
             Self::Read(_) => "mediatek.startup.read",
             Self::TargetMismatch => "mediatek.startup.target_mismatch",
+            Self::Unobserved => "mediatek.startup.unobserved",
         }
     }
 }

@@ -58,12 +58,16 @@ pub trait FlashRuntime<E> {
     /// checks.
     fn commit_failed(&mut self, _error: &Error<E>) {}
     /// TEST UNIT READY right after COMMIT failed; expected while programming.
+    /// Reported only: neither this failure nor a later unit-attention sense is
+    /// counted as restart evidence.
     fn commit_not_ready(&mut self, _error: &Error<E>) {}
     /// A REQUEST SENSE outcome that does not fail the flash.
     fn status(&mut self, _stage: Stage, _status: Status<'_, E>) {}
     /// The upload is complete; readiness polling starts.
     fn uploaded(&mut self, _bytes: usize) {}
-    /// A readiness poll failed after `elapsed` of polling.
+    /// A readiness poll failed after `elapsed` of polling. Reported only;
+    /// readiness gates read-back and never confers success, which needs
+    /// read-back plus the post-write INQUIRY and descriptor checks.
     fn poll_failed(&mut self, _elapsed: Duration, _error: &Error<E>) {}
     /// Read-back verification starts.
     fn verifying(&mut self) {}
@@ -307,13 +311,16 @@ impl Payload<'_> {
         self.verify(io.reads, runtime)
     }
 
-    /// Execute and retain read-back quality, then require exact target startup.
+    /// Execute and retain read-back quality, then require the target identity
+    /// and classify restart evidence against `prior`, the receiver identity
+    /// revalidated immediately before the write.
     pub(crate) fn flash_completed<R, W, H>(
         &self,
         io: FlashTransport<'_, R, W>,
         runtime: &mut H,
         mode: ExecutionMode,
         prepare: cdb::Prepare,
+        prior: &crate::receiver::DetectedMode,
     ) -> Result<super::Completion, FlashError<W::Error>>
     where
         W: Transport,
@@ -329,7 +336,7 @@ impl Payload<'_> {
             mode,
             prepare,
         );
-        super::completion::complete(io.reads, self.image, result)
+        super::completion::complete(io.reads, self.image, result, prior)
     }
 
     /// Read back every chunk and compare the protected bytes.

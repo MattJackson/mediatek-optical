@@ -117,6 +117,8 @@ impl PreparedUpdate {
         &self.plan
     }
     /// Revalidate the bound receiver before entering the shared Flash engine.
+    /// Requires complete read-back and an observed restart: an unchanged
+    /// identity returns [`update::StartupError::Unobserved`] after the write.
     pub fn flash<R, W, H>(
         &self,
         io: update::FlashTransport<'_, R, W>,
@@ -132,8 +134,11 @@ impl PreparedUpdate {
             .map_err(ExecuteError::Flash)
     }
 
-    /// Revalidate, execute, and confirm exact target startup. An unreadable
-    /// protected region is retained as limited verification, never full success.
+    /// Revalidate, execute, and require the target identity after the write.
+    /// An unreadable protected region is retained as limited verification,
+    /// never full success. Hosts must check [`update::Startup::evidence`]:
+    /// [`update::StartupEvidence::Unobserved`] means the restart into the
+    /// target was not observed and is not confirmed startup.
     pub fn flash_completed<R, W, H>(
         &self,
         io: update::FlashTransport<'_, R, W>,
@@ -336,7 +341,15 @@ impl TransferPlan {
             image: self.image(),
             transfer: self.transfer(),
         }
-        .flash_completed(io, runtime, self.mode, self.prepare)
+        // The identity just revalidated: mode and INQUIRY bytes 8..36 match
+        // the physical drive on every path (see `completion::classify`).
+        .flash_completed(
+            io,
+            runtime,
+            self.mode,
+            self.prepare,
+            &self.receiver.identity,
+        )
         .map_err(ExecuteError::Flash)
     }
 

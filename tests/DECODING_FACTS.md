@@ -286,9 +286,12 @@ banner and descriptor are revalidated at execution. Reference code never
 replaces physical post-write reads. An explicit unavailable-installed path
 retains chip/input checks without inventing installed bytes from the target.
 
-Both execution paths require exact target startup and return full/limited
-readback quality. Ready status alone, BOOT, old INTM, a different build, or
-unreadable startup metadata cannot produce a completed target result. A data
+Both execution paths require the target identity and stored build metadata
+after the write and return full/limited readback quality with restart evidence.
+Ready status alone, BOOT, old INTM, a different stored build, or unreadable
+startup metadata cannot produce a completed target result. A different build
+whose INQUIRY identity equals the one reported before the write completes only
+as `StartupEvidence::Unobserved`, which the legacy `flash` APIs refuse. A data
 write failure or mismatching readback triggers no subsequent startup probes.
 
 The secure service remains opaque, and hardware programming is not emulated.

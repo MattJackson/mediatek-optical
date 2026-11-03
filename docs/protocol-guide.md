@@ -57,12 +57,43 @@ plan. Unknown or conflicting receiver contracts fail before any write. File
 encoding never chooses transfer encoding; header and body can require different
 representations.
 
-`receiver::PreparedUpdate::flash` requires complete protected-region readback.
-`flash_completed` also confirms exact target startup but returns a `Completion`
-whose `ReadbackQuality` explicitly distinguishes complete and limited readback.
-Every readable mismatch and every failed data write remains an error. Neither
-readiness nor a matching model name alone establishes target startup. The
-120-second readiness bound accommodates the OEM command window.
+`receiver::PreparedUpdate::flash` requires complete protected-region readback
+and an observed restart. `flash_completed` returns a `Completion` whose
+`ReadbackQuality` explicitly distinguishes complete and limited readback, and
+whose `Startup::evidence()` states how strongly a restart into the target was
+observed. Every readable mismatch and every failed data write remains an error.
+
+After COMMIT the sequence is unchanged: TEST UNIT READY (a failure is only
+reported), REQUEST SENSE, a TEST UNIT READY poll of at most 120 seconds (the OEM
+command window), REQUEST SENSE, read-back, then one INQUIRY and one READ BUFFER
+of the descriptor. Readiness only gates read-back. Neither a not-ready poll nor
+a unit-attention sense is counted as restart evidence: no recorded hardware fact
+establishes either as a restart signal. Success requires read-back, an
+application INQUIRY whose vendor, product and revision equal the target's, and
+the stored descriptor (bytes 0..0x58) equal to the target's. That descriptor is
+read through READ BUFFER, the same path as read-back, so it shows what was
+programmed, not what is running.
+
+The post-write INQUIRY is compared with the receiver identity revalidated
+immediately before the write (operating mode and INQUIRY bytes 8..36 only; a
+`Receiver::from_firmware` receiver stores a synthesized INQUIRY whose other
+bytes are not evidence):
+
+- `StartupEvidence::LeftBoot`: BOOT answered before the write; the target
+  application answers now.
+- `StartupEvidence::IdentityChanged`: the application reported a different
+  vendor, product or revision before the write and reports the target's now.
+  Whether old code could serve INQUIRY from newly programmed flash is not
+  recorded; this is the strongest evidence INQUIRY offers.
+- `StartupEvidence::Unobserved`: the application already reported the target's
+  identity before the write (a reflash or a same-version build). INQUIRY cannot
+  tell the old firmware still running apart from the target having started.
+  `flash_completed` returns this as reduced verification, not confirmed
+  startup; the legacy `flash` APIs return `StartupError::Unobserved`
+  (`mediatek.startup.unobserved`, `IssueKind::Verification`). Hosts must check
+  `Startup::evidence()` and, for `Unobserved`, advise a power cycle and
+  re-identification before relying on the new firmware. No command is added to
+  look for a restart, and nothing is retried.
 
 When installed bytes are genuinely unavailable, the explicit
 `prepare_without_installed` path retains target/chip/receiver checks but cannot
@@ -166,7 +197,9 @@ Explicit `recovery::PreparedRecovery::flash` reports a failed PREPARE through
 This is recovery host policy, not a claim that the receiver always rejects
 PREPARE. Normal `PreparedUpdate::flash` remains strict. STREAM failures stop
 both paths, no firmware writes retry, and recovery still requires readback
-verification and confirmed application startup. Physical recovery remains
+verification and the target application identity; `flash_completed` reports
+the restart evidence as above, and the legacy `flash` returns
+`recovery::Error::Startup` when it is `Unobserved`. Physical recovery remains
 unvalidated.
 
 `receiver::entry::inspect_boot_legacy(window, flash_address)` and

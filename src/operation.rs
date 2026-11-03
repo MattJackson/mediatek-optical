@@ -30,7 +30,8 @@ pub enum Phase {
     Preparing,
     /// Sending firmware to the drive.
     Writing,
-    /// Waiting for programming and restart to finish.
+    /// Waiting for programming and restart to finish. Readiness in this phase
+    /// only gates read-back; it is never evidence that the drive restarted.
     Restarting,
     /// Comparing bytes read from the drive with the prepared target.
     Verifying,

@@ -30,8 +30,11 @@ use crate::{cdb, layout, Chip, DriveClass, Identity};
 
 #[cfg(feature = "drive")]
 mod completion;
+// Reference receivers (image + enc) test restart classification directly.
+#[cfg(all(test, feature = "drive", feature = "enc"))]
+pub(crate) use completion::classify;
 #[cfg(feature = "drive")]
-pub use completion::{Completion, ReadbackQuality, Startup, StartupError};
+pub use completion::{Completion, ReadbackQuality, Startup, StartupError, StartupEvidence};
 #[cfg(feature = "drive")]
 pub(crate) mod flash;
 #[cfg(feature = "drive")]

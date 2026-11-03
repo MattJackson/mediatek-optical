@@ -27,6 +27,8 @@ where
     let receiver = receiver::detect(reads, &mode)?;
     let target = Envelope::load(target_image)?;
     let prepared = receiver.prepare(&target, &installed)?;
+    // Report `readback` quality and `startup.evidence()`: `Unobserved` is not
+    // confirmed startup; advise a power cycle and re-identification.
     Ok(prepared.flash_completed(FlashTransport { reads, writes }, runtime)?)
 }
 

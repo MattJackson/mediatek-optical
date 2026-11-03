@@ -30,8 +30,10 @@ conventions. Firmware formats differ: Pioneer normally updates separate Kernel
 and Normal components; MediaTek validates one complete 2 MiB image.
 
 `flash` requires complete relevant readback. A Normal-only Pioneer update does
-not write or verify a Kernel. `flash_completed` requires confirmed target startup
-and retains limited readback explicitly; every readable mismatch and failed
+not write or verify a Kernel. MediaTek `flash_completed` requires the target
+identity after the write and reports restart evidence through
+`Startup::evidence()`, which hosts must check (`Unobserved` is not confirmed
+startup); it retains limited readback explicitly; every readable mismatch and failed
 firmware write remains an error. Readiness alone is insufficient. Callers must
 report the qualification and must not retry firmware writes automatically.
 
