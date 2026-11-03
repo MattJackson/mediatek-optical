@@ -453,6 +453,7 @@ fn record_refuses_an_earlier_link_record_with_opcode_0x3c() {
     assert_eq!(commands.record(0x12, 7).map(|r| r.handler), Ok(0x1c1));
 }
 
+#[test]
 fn response_with_only_an_unproven_writer_is_ambiguous() {
     use super::super::ResponseIo;
     let mut image = with_response();
