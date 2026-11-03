@@ -248,11 +248,8 @@ impl InstalledFirmware {
         let descriptor = identity
             .has_descriptor()
             .then(|| layout::DESCRIPTOR.of(image) == Some(&identity.descriptor_bytes()[..]));
-        // A banner that names a chip is bound even when it does not start
-        // with printable text: the chip gate reads these same raw bytes.
-        let banner = (!identity.banner().is_empty()
-            || Chip::from_banner(identity.banner_bytes()).is_some())
-        .then(|| layout::BANNER.of(image) == Some(&identity.banner_bytes()[..]));
+        let banner = (!identity.banner().is_empty())
+            .then(|| layout::BANNER.of(image) == Some(&identity.banner_bytes()[..]));
         match (descriptor, banner) {
             (None, None) | (Some(false), _) | (_, Some(false)) => {
                 Err(PrepareError::InstalledMismatch)

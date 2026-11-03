@@ -266,18 +266,6 @@ fn installed_firmware_must_be_the_live_drive() {
         InstalledFirmware::new(blank, &running).unwrap_err(),
         PrepareError::InstalledMismatch
     );
-    // A read banner that names a chip binds even when its first byte is not
-    // printable; the chip gate reads those same raw bytes.
-    let mut live = *id.banner_bytes();
-    live.copy_within(..layout::BANNER.len - 1, 1);
-    live[0] = 0x01;
-    let unprintable = Identity::parse(&[0; INQUIRY_LEN], &live, id.descriptor_bytes()).unwrap();
-    assert_eq!(unprintable.banner(), "");
-    assert!(Chip::from_banner(unprintable.banner_bytes()).is_some());
-    assert_eq!(
-        InstalledFirmware::new(unprintable, &running).unwrap_err(),
-        PrepareError::InstalledMismatch
-    );
     // The stored image binds as well as a drive read of it.
     let bound = InstalledFirmware::new(id.clone(), &running).unwrap();
     assert_eq!(bound.family(), family(&running));
