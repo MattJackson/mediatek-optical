@@ -51,14 +51,18 @@ pub struct ApplicationAnalysis {
     conflicting_arguments: bool,
 }
 
-// Whether the halfword before `start` opens a 32-bit Thumb-2 encoding.
+// Whether the halfword before `start` opens a 32-bit Thumb-2 encoding, or
+// cannot be read (so `start` is not a proven instruction boundary).
 fn after_wide_prefix(bytes: &[u8], base: u32, start: u32) -> bool {
     start
         .checked_sub(2)
         .and_then(|previous| previous.checked_sub(base))
         .and_then(|offset| usize::try_from(offset).ok())
         .and_then(|offset| bytes.get(offset..offset.checked_add(2)?))
-        .is_some_and(|half| u16::from_le_bytes([half[0], half[1]]) >> 11 >= 0b11101)
+        // An unreadable previous halfword is not evidence of a boundary.
+        .map_or(true, |half| {
+            u16::from_le_bytes([half[0], half[1]]) >> 11 >= 0b11101
+        })
 }
 
 impl ApplicationAnalysis {

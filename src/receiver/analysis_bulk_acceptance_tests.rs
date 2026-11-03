@@ -169,3 +169,11 @@ fn header_call_seen_only_from_inside_a_wide_instruction_is_not_proven() {
     assert!(analysis.bulk_decoders().is_empty());
     assert!(analysis.conflicting_arguments());
 }
+
+#[test]
+fn a_start_without_a_readable_previous_halfword_is_not_a_proven_boundary() {
+    // Missing evidence must not count as an instruction boundary.
+    let bytes = [0u8; 8];
+    assert!(super::after_wide_prefix(&bytes, 0x1000, 0x1000));
+    assert!(!super::after_wide_prefix(&bytes, 0x1000, 0x1002));
+}
