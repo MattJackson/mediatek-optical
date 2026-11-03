@@ -13,7 +13,7 @@ pub struct ClassicReadCompletion {
     pub recovery_end: usize,
     /// Source-bound state-pointer load before the recovery dispatch.
     pub recovery_state_load: usize,
-    /// Native state-pointer and request-pointer registers.
+    /// Native state-pointer register.
     pub recovery_state_register: u8,
     /// Native request/status structure register.
     pub recovery_request_register: u8,
@@ -169,7 +169,7 @@ const BOUNDARY: &[(u16, u16)] = &[
     (0x3240, 0xffff),
     (0x6091, 0xffff),
 ];
-const BOUNDARY_VENEER: &[(u16, u16)] = &[
+pub(super) const BOUNDARY_VENEER: &[(u16, u16)] = &[
     (0x4800, 0xff00),
     (0x7801, 0xffff),
     (0x20c8, 0xffff),
@@ -384,11 +384,16 @@ impl ClassicReadCompletion {
                             value = v;
                             end = site + 4;
                         }
-                        if next & 0xfe00 == 0x1e00
+                        if next & 0xfc00 == 0x1c00
                             && (next & 7) as u8 == state_register
                             && ((next >> 3) & 7) as u8 == state_register
                         {
-                            let v = value.checked_sub(u32::from((next >> 6) & 7))?;
+                            let amount = u32::from((next >> 6) & 7);
+                            let v = if next & 0x0200 == 0 {
+                                value.checked_add(amount)?
+                            } else {
+                                value.checked_sub(amount)?
+                            };
                             value = v;
                             end = site + 4;
                         }
@@ -447,13 +452,15 @@ impl ClassicReadCompletion {
         {
             return Err(Error::InvalidContract);
         }
-        let (boundary_region, boundary_length) = match locate(image, BOUNDARY, state) {
-            Ok(at) => (at, BOUNDARY.len() * 2),
-            Err(Error::UnknownLayout) => (
-                locate(image, BOUNDARY_VENEER, state)?,
-                BOUNDARY_VENEER.len() * 2,
-            ),
-            Err(e) => return Err(e),
+        // Both boundary grammars are searched; one match of each is ambiguous.
+        let (boundary_region, boundary_length) = match (
+            locate(image, BOUNDARY, state),
+            locate(image, BOUNDARY_VENEER, state),
+        ) {
+            (Ok(_), Ok(_)) => return Err(Error::Ambiguous),
+            (Ok(at), Err(Error::UnknownLayout)) => (at, BOUNDARY.len() * 2),
+            (Err(Error::UnknownLayout), Ok(at)) => (at, BOUNDARY_VENEER.len() * 2),
+            (Err(e), _) | (_, Err(e)) => return Err(e),
         };
         let shift = if boundary_length == BOUNDARY.len() * 2 {
             0

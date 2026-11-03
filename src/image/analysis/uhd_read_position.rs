@@ -5,7 +5,7 @@ use super::{matches, C7Selection, Error, SavedLink};
 pub struct ClassicReadPosition {
     /// Complete native routine entry.
     pub entry: usize,
-    /// Working position word, current layer and cached layer cells.
+    /// Native working position word.
     pub position: u32,
     /// Native current-layer byte.
     pub layer: u32,
@@ -215,7 +215,7 @@ impl ClassicReadPosition {
     pub fn detect(image: &[u8], state: u32) -> Result<Self, Error> {
         let length = PATTERN.len() * 2;
         if image.len() < length {
-            return Err(Error::Truncated);
+            return Err(Error::UnknownLayout);
         }
         let mut found = None;
         for entry in (0..=image.len() - length).step_by(2) {
@@ -233,6 +233,11 @@ impl ClassicReadPosition {
             let layer = literal(image, entry + 0x3e)?;
             let cached_layer = literal(image, entry + 0x3c)?;
             let status = literal(image, entry + 2)?;
+            // The range gates set their status bit through a second load of
+            // the same cell; bind it rather than trusting the entry clear.
+            if literal(image, entry + 0x140)? != status {
+                return Err(Error::InvalidContract);
+            }
             if [state, position, layer, cached_layer, status]
                 .iter()
                 .any(|p| !(0x01ff0000..0x02010000).contains(p))

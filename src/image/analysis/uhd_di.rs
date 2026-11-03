@@ -33,8 +33,10 @@ fn target(image: &[u8], at: usize) -> Result<usize, Error> {
         return Err(Error::InvalidContract);
     }
     let value = ins.branch_target().ok_or(Error::InvalidContract)? as usize;
-    (value + 2 <= image.len())
-        .then_some(value)
+    value
+        .checked_add(2)
+        .filter(|end| *end <= image.len())
+        .map(|_| value)
         .ok_or(Error::Truncated)
 }
 fn exactly_one(mut items: impl Iterator<Item = usize>) -> Result<usize, Error> {

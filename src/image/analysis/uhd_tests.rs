@@ -583,3 +583,211 @@ fn completion_scan_includes_pattern_at_last_offset() {
         Err(Error::InvalidContract)
     );
 }
+
+#[test]
+fn coefficient_constant_ends_when_ldm_loads_the_register() {
+    let code: [u16; 4] = [
+        0x4901, // ldr r1, [pc, #4] -> 0x51b1
+        0xc802, // ldmia r0!, {r1} (replaces r1)
+        0x1852, // adds r2, r2, r1 (reads the loaded r1, not 0x51b1)
+        0xbf00,
+    ];
+    let mut image = vec![0u8; 12];
+    for (i, h) in code.iter().enumerate() {
+        image[i * 2..i * 2 + 2].copy_from_slice(&h.to_le_bytes());
+    }
+    image[8..12].copy_from_slice(&0x51b1u32.to_le_bytes());
+    assert!(super::uhd::coefficient(&image, 0, false).is_err());
+}
+
+#[test]
+fn reverse_selector_with_a_non_forward_shared_gate_is_invalid_not_absent() {
+    let (root, cases) = fixtures();
+    let mut count = 0;
+    for case in cases {
+        let bytes = image(&root, &case);
+        let areas = UhdAreas::inspect(&bytes);
+        if areas
+            .area(UhdArea::ReverseCalculation)
+            .unwrap()
+            .selection()
+            .is_none()
+        {
+            continue;
+        }
+        let forward = areas.area(UhdArea::ForwardCalculation).unwrap();
+        let add = forward.coefficient_continuation().unwrap();
+        let op = u16::from_le_bytes(bytes[add..add + 2].try_into().unwrap());
+        assert_eq!(op & 0xfe00, 0x1800, "16-bit ADDS register form");
+        let mut bad = bytes.clone();
+        bad[add..add + 2].copy_from_slice(&(op | 0x0200).to_le_bytes()); // SUBS
+                                                                         // The forward copy also matches the reverse prefix; make its own
+                                                                         // rejection self-referential so that copy also needs this forward gate.
+        let bne = forward.site() + 12;
+        bad[bne..bne + 2].copy_from_slice(&0xd1feu16.to_le_bytes());
+        assert_eq!(
+            UhdAreas::inspect(&bad).area(UhdArea::ReverseCalculation),
+            Err(Error::InvalidContract)
+        );
+        count += 1;
+    }
+    assert_eq!(count, 6);
+}
+
+#[test]
+fn hardware_defaults_bl_suffix_does_not_pin_the_call_displacement() {
+    let (root, cases) = fixtures();
+    let mut count = 0;
+    for case in cases {
+        let bytes = image(&root, &case);
+        let areas = UhdAreas::inspect(&bytes);
+        let Ok(contract) = areas.area(UhdArea::HardwareDefaults) else {
+            continue;
+        };
+        if contract.variant() != "desktop_default8_c7_aware" {
+            continue;
+        }
+        let call = contract.site() + 0x46;
+        let target = thumb_asm::decode_bl(&bytes, call).unwrap();
+        let mut moved = bytes.clone();
+        moved[call..call + 4].copy_from_slice(&thumb_asm::encode_bl(call, target ^ 2).unwrap());
+        let moved = UhdAreas::inspect(&moved);
+        assert_eq!(
+            moved.area(UhdArea::HardwareDefaults).unwrap().site(),
+            contract.site()
+        );
+        count += 1;
+    }
+    assert!(count > 0);
+}
+
+#[test]
+fn read_status_join_requires_the_fall_through_load_to_define_r0() {
+    let (root, cases) = fixtures();
+    let mut count = 0;
+    for case in cases {
+        if !case["auxiliary_consumers"].is_array() {
+            continue;
+        }
+        let bytes = image(&root, &case);
+        let state = case["state"].as_u64().unwrap() as u32;
+        let contracts = super::ClassicConsumer::inspect(&bytes, state).unwrap();
+        let status = contracts
+            .iter()
+            .find(|c| c.kind == super::ClassicConsumerKind::ReadStatus)
+            .unwrap();
+        let at = status.region + 30;
+        let op = u16::from_le_bytes(bytes[at..at + 2].try_into().unwrap());
+        let mut bad = bytes.clone();
+        bad[at..at + 2].copy_from_slice(&(op | 0x0200).to_le_bytes()); // ldr r2, same pool
+        assert!(super::ClassicConsumer::inspect(&bad, state).is_err());
+        count += 1;
+    }
+    assert_eq!(count, 4);
+}
+
+#[test]
+fn read_completion_refuses_both_boundary_grammars() {
+    let (root, cases) = fixtures();
+    let sha = |c: &serde_json::Value| c["source_sha256"].as_str().unwrap().to_owned();
+    let veneer_case = cases
+        .iter()
+        .find(|c| sha(c).starts_with("0b2cdb82"))
+        .unwrap();
+    let plain_case = cases
+        .iter()
+        .find(|c| sha(c).starts_with("40eb760e"))
+        .unwrap();
+    let veneer = image(&root, veneer_case);
+    let mut bytes = image(&root, plain_case);
+    let state = plain_case["state"].as_u64().unwrap() as u32;
+    assert_eq!(state, veneer_case["state"].as_u64().unwrap() as u32);
+    let original = super::ClassicReadCompletion::inspect(&bytes, state).unwrap();
+    let from = veneer_case["read_completion"]["boundary_region"]
+        .as_u64()
+        .unwrap() as usize;
+    // Copy the veneer body with its literal pool, preserving word alignment.
+    let to = 0x1d0000 + from % 4;
+    bytes[to..to + 0x500].copy_from_slice(&veneer[from..from + 0x500]);
+    assert_eq!(
+        super::uhd_completion::locate(&bytes, super::uhd_completion::BOUNDARY_VENEER, state),
+        Ok(to)
+    );
+    assert!(original.boundary_region != to);
+    assert_eq!(
+        super::ClassicReadCompletion::inspect(&bytes, state).map(|c| c.boundary_region),
+        Err(Error::Ambiguous)
+    );
+}
+
+#[test]
+fn recovery_state_producer_accepts_three_bit_adds_adjustment() {
+    let (root, cases) = fixtures();
+    let case = cases
+        .iter()
+        .find(|c| c["source_sha256"].as_str().unwrap().starts_with("b093a736"))
+        .unwrap();
+    let mut bytes = image(&root, case);
+    let state = case["state"].as_u64().unwrap() as u32;
+    let load = case["read_completion"]["recovery_state_load"]
+        .as_u64()
+        .unwrap() as usize;
+    let op = u16::from_le_bytes(bytes[load..load + 2].try_into().unwrap());
+    let pool = ((load + 4) & !3) + (op & 255) as usize * 4;
+    // Native `ldr r5, =state+4; subs r5, r5, #4` becomes `ldr r5, =state-4; adds r5, r5, #4`.
+    assert_eq!(&bytes[load + 2..load + 4], &0x1f2du16.to_le_bytes());
+    assert_eq!(&bytes[pool..pool + 4], &(state + 4).to_le_bytes());
+    bytes[pool..pool + 4].copy_from_slice(&(state - 4).to_le_bytes());
+    bytes[load + 2..load + 4].copy_from_slice(&0x1d2du16.to_le_bytes());
+    let c = super::ClassicReadCompletion::inspect(&bytes, state).unwrap();
+    assert_eq!(c.recovery_state_load, load);
+}
+
+#[test]
+fn read_position_binds_the_range_status_cell_written_by_the_gates() {
+    let (root, cases) = fixtures();
+    let mut count = 0;
+    for case in cases {
+        let Some(entry) = case["read_position_entry"].as_u64() else {
+            continue;
+        };
+        let entry = entry as usize;
+        let bytes = image(&root, &case);
+        let state = case["state"].as_u64().unwrap() as u32;
+        let contract = super::ClassicReadPosition::detect(&bytes, state).unwrap();
+        // Point the range-status load at the (different, in-RAM) layer cell's pool word.
+        let at = entry + 0x3e;
+        let layer_op = u16::from_le_bytes(bytes[at..at + 2].try_into().unwrap());
+        let layer_pool = ((at + 4) & !3) + (layer_op & 255) as usize * 4;
+        let at = entry + 0x140;
+        let base = (at + 4) & !3;
+        assert!(layer_pool > base && contract.layer != contract.status);
+        let op = 0x4a00 | ((layer_pool - base) / 4) as u16;
+        let mut bad = bytes.clone();
+        bad[at..at + 2].copy_from_slice(&op.to_le_bytes());
+        assert_eq!(
+            super::ClassicReadPosition::detect(&bad, state).map(|c| c.status),
+            Err(Error::InvalidContract)
+        );
+        count += 1;
+    }
+    assert_eq!(count, 4);
+}
+
+#[test]
+fn whole_routine_detectors_report_short_images_as_unknown_layout() {
+    let short = [0u8; 64];
+    let state = 0x0200_0000;
+    assert_eq!(
+        super::ClassicPosition::detect(&short, state).map(|c| c.entry),
+        Err(Error::UnknownLayout)
+    );
+    assert_eq!(
+        super::ClassicPositionSetup::detect(&short, state).map(|c| c.entry),
+        Err(Error::UnknownLayout)
+    );
+    assert_eq!(
+        super::ClassicReadPosition::detect(&short, state).map(|c| c.entry),
+        Err(Error::UnknownLayout)
+    );
+}

@@ -9,7 +9,9 @@ pub struct ClassicCalibration {
     pub site: usize,
     /// Original table base, before the native +0x58 adjustment.
     pub original_base: u32,
-    /// Native C8 coefficients; absent for state-independent getter layouts.
+    /// The getter's native C8 table ([`ClassicParameter::coefficients`]), which
+    /// C7 shares once media selection is extended. The OEM C7 table is
+    /// `original_base + 0x58`. Absent for state-independent getter layouts.
     pub c7_coefficients: Option<u32>,
 }
 const PATTERN: &[(u16, u16)] = &[

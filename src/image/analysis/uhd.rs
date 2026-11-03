@@ -211,21 +211,25 @@ pub(super) fn coefficient(image: &[u8], start: usize, reverse: bool) -> Result<u
         }
         // Any other write to the live register, or a call, ends the constant.
         if let Some(live) = constant {
-            let writes_live = match ins.operands.get(0) {
-                Some(Operand::RegList(bits)) => {
-                    matches!(ins.mnemonic, "pop" | "ldm" | "ldmia" | "ldmdb")
-                        && bits & (1 << live) != 0
-                }
-                Some(Operand::Reg(r)) => {
-                    r.num() == live
-                        && !ins.mnemonic.starts_with("str")
-                        && !matches!(
-                            ins.mnemonic,
-                            "push" | "stm" | "stmia" | "stmdb" | "cmp" | "cmn" | "tst" | "teq"
-                        )
-                }
-                _ => false,
-            };
+            // `pop` carries its list first; `ldm` carries the base register
+            // first and the loaded list second.
+            let loads_live = matches!(ins.mnemonic, "pop" | "ldm" | "ldmia" | "ldmdb")
+                && ins
+                    .operands
+                    .as_slice()
+                    .any(|op| matches!(op, Operand::RegList(bits) if bits & (1 << live) != 0));
+            let writes_live = loads_live
+                || match ins.operands.get(0) {
+                    Some(Operand::Reg(r)) => {
+                        r.num() == live
+                            && !ins.mnemonic.starts_with("str")
+                            && !matches!(
+                                ins.mnemonic,
+                                "push" | "stm" | "stmia" | "stmdb" | "cmp" | "cmn" | "tst" | "teq"
+                            )
+                    }
+                    _ => false,
+                };
             if writes_live || ins.is_call() {
                 constant = None;
             }
@@ -324,7 +328,16 @@ fn bind(image: &[u8], def: &Definition, site: usize) -> Result<UhdAreaContract, 
                 if !matches(image, forward_site, forward_def.pattern) {
                     return Err(Error::InvalidContract);
                 }
-                let forward = bind(image, forward_def, forward_site)?;
+                // This candidate's own coefficient already proved it is a
+                // reverse calculation. A shared gate that is not a forward
+                // calculation is a broken contract, not "the opposite role".
+                let forward = bind(image, forward_def, forward_site).map_err(|e| {
+                    if e == Error::UnknownLayout {
+                        Error::InvalidContract
+                    } else {
+                        e
+                    }
+                })?;
                 let gate = forward.selection().ok_or(Error::InvalidContract)?;
                 if gate.site() + gate.replay().len() * 2 != reject
                     || forward.literals.first().map(|l| l.value)
