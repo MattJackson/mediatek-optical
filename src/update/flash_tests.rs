@@ -44,6 +44,13 @@ struct Drive {
     unfilled_at: Option<usize>,
     committed: bool,
     inquiry_revision: Option<[u8; 4]>,
+    /// INQUIRY reports revision `BOOT` until COMMIT (a BOOT receiver).
+    boot_until_commit: bool,
+    /// INQUIRY keeps answering the identity stored before programming, as
+    /// old firmware that is still running would.
+    stale_inquiry: bool,
+    /// The identity programming replaced, kept for `stale_inquiry`.
+    replaced_identity: Option<Vec<u8>>,
 }
 
 impl Drive {
@@ -63,6 +70,9 @@ impl Drive {
             #[cfg(not(feature = "enc"))]
             panic!("encrypted test transport requires the enc feature");
         }
+        let identity = layout::DESCRIPTOR.start..layout::DESCRIPTOR.start + 28;
+        self.replaced_identity
+            .get_or_insert_with(|| self.flash[identity].to_vec());
         let mirror = image[layout::BOOT_MIRROR.start..layout::BOOT_MIRROR.end()].to_vec();
         image[..layout::BOOT_PAGE.len].copy_from_slice(&mirror);
         // The drive keeps its own per-unit regions.
@@ -104,8 +114,14 @@ impl Drive {
                 inquiry[8..36].copy_from_slice(
                     &self.flash[layout::DESCRIPTOR.start..layout::DESCRIPTOR.start + 28],
                 );
+                if let (true, Some(old)) = (self.stale_inquiry, &self.replaced_identity) {
+                    inquiry[8..36].copy_from_slice(old);
+                }
                 if let Some(revision) = self.inquiry_revision {
                     inquiry[32..36].copy_from_slice(&revision);
+                }
+                if self.boot_until_commit && !self.committed {
+                    inquiry[32..36].copy_from_slice(b"BOOT");
                 }
                 buf.copy_from_slice(&inquiry[..buf.len()]);
                 Ok(buf.len())
@@ -718,6 +734,9 @@ fn run_completed(
 ) -> Result<crate::update::Completion, FlashError<&'static str>> {
     let mut reads = Handle(drive.clone(), Via::Reads);
     let mut writes = Handle(drive.clone(), Via::Writes);
+    // The receiver identity bound before the write, as execution revalidates it.
+    let prior = crate::receiver::detect_mode(&mut reads).unwrap();
+    drive.borrow_mut().log.clear();
     crate::update::flash::Payload {
         class: update.class(),
         image: update.image(),
@@ -731,15 +750,189 @@ fn run_completed(
         &mut Clock::default(),
         mode,
         cdb::Prepare::ModeOne,
+        &prior,
     )
+}
+
+type Setup = fn() -> (Rc<RefCell<Drive>>, PreparedUpdate, Vec<u8>);
+
+/// Builds 1 and 2 of [`JB7`] with the target's revision changed to `1.04`,
+/// so INQUIRY identity differs before and after the write.
+fn setup_identity_change() -> (Rc<RefCell<Drive>>, PreparedUpdate, Vec<u8>) {
+    let running = fixtures::image(&JB7, 1);
+    let mut target = fixtures::image(&JB7, 2);
+    let d = layout::DESCRIPTOR.start;
+    target[d + 0x18..d + 0x1C].copy_from_slice(b"1.04");
+    let target = fixtures::sign(target);
+    let update = prepare(&target, &running).unwrap();
+    (Drive::running(&running), update, target)
+}
+
+/// Every command after COMMIT, which today's sequence fixes: TEST UNIT READY,
+/// REQUEST SENSE, the readiness poll, REQUEST SENSE, read-back of every chunk,
+/// then exactly one INQUIRY and one descriptor READ BUFFER.
+fn after_commit(drive: &Rc<RefCell<Drive>>) -> Vec<(Via, Vec<u8>, usize)> {
+    let log = &drive.borrow().log;
+    let commit = log
+        .iter()
+        .position(|(_, c, _)| *c == cdb::finish())
+        .expect("COMMIT sent");
+    log[commit + 1..].to_vec()
+}
+
+fn expected_after_commit() -> Vec<(Via, Vec<u8>, usize)> {
+    let mut want = vec![
+        (Via::Reads, cdb::test_unit_ready().to_vec(), 0),
+        (Via::Reads, cdb::request_sense().to_vec(), 16),
+        (Via::Reads, cdb::test_unit_ready().to_vec(), 0),
+        (Via::Reads, cdb::request_sense().to_vec(), 16),
+    ];
+    for i in 0..128u32 {
+        want.push((
+            Via::Reads,
+            cdb::read_memory(i * 0x4000, 0x4000).to_vec(),
+            0x4000,
+        ));
+    }
+    want.push((
+        Via::Reads,
+        cdb::inquiry(crate::INQUIRY_LEN as u16).to_vec(),
+        crate::INQUIRY_LEN,
+    ));
+    want.push((
+        Via::Reads,
+        cdb::read_memory(
+            layout::DESCRIPTOR.start as u32,
+            layout::DESCRIPTOR.len as u32,
+        )
+        .to_vec(),
+        layout::DESCRIPTOR.len,
+    ));
+    want
+}
+
+#[test]
+fn same_identity_completion_is_unobserved_for_flash_and_recovery() {
+    use crate::update::{flash::ExecutionMode, StartupError, StartupEvidence};
+    for mode in [ExecutionMode::Flash, ExecutionMode::Recovery] {
+        // Builds 1 and 2 both report "1.03": INQUIRY cannot tell the old
+        // firmware still running apart from the target having started.
+        let (drive, update, _) = setup();
+        let completed = run_completed(&drive, &update, mode).unwrap();
+        assert_eq!(completed.startup.evidence(), StartupEvidence::Unobserved);
+        assert!(
+            matches!(
+                completed.into_verified::<&str>(),
+                Err(FlashError::Startup(StartupError::Unobserved))
+            ),
+            "an unobserved restart is never a verified flash"
+        );
+    }
+}
+
+#[test]
+fn stale_old_firmware_with_same_identity_is_never_confirmed() {
+    use crate::update::{flash::ExecutionMode, StartupError, StartupEvidence};
+    for mode in [ExecutionMode::Flash, ExecutionMode::Recovery] {
+        let (drive, update, _) = setup();
+        drive.borrow_mut().stale_inquiry = true;
+        let completed = run_completed(&drive, &update, mode).unwrap();
+        assert_eq!(completed.startup.evidence(), StartupEvidence::Unobserved);
+        assert!(matches!(
+            completed.into_verified::<&str>(),
+            Err(FlashError::Startup(StartupError::Unobserved))
+        ));
+    }
+}
+
+#[test]
+fn identity_change_is_observed() {
+    use crate::update::{flash::ExecutionMode, StartupError, StartupEvidence};
+    for mode in [ExecutionMode::Flash, ExecutionMode::Recovery] {
+        let (drive, update, _) = setup_identity_change();
+        let completed = run_completed(&drive, &update, mode).unwrap();
+        assert_eq!(
+            completed.startup.evidence(),
+            StartupEvidence::IdentityChanged
+        );
+        assert_eq!(&completed.startup.inquiry()[32..36], b"1.04");
+        assert!(completed.into_verified::<&str>().is_ok());
+        // Old firmware still answering with its own identity is refused.
+        let (drive, update, _) = setup_identity_change();
+        drive.borrow_mut().stale_inquiry = true;
+        assert!(matches!(
+            run_completed(&drive, &update, mode),
+            Err(FlashError::Startup(StartupError::TargetMismatch))
+        ));
+    }
+}
+
+#[test]
+fn boot_to_target_is_left_boot() {
+    use crate::update::{flash::ExecutionMode, StartupEvidence};
+    let (drive, update, _) = setup();
+    drive.borrow_mut().boot_until_commit = true;
+    let completed = run_completed(&drive, &update, ExecutionMode::Recovery).unwrap();
+    assert_eq!(completed.startup.evidence(), StartupEvidence::LeftBoot);
+    assert!(completed.into_verified::<&str>().is_ok());
+}
+
+#[test]
+fn startup_evidence_adds_no_command() {
+    use crate::update::{flash::ExecutionMode, StartupEvidence};
+    let cases: [(Setup, bool, _); 3] = [
+        (setup, false, StartupEvidence::Unobserved),
+        (
+            setup_identity_change,
+            false,
+            StartupEvidence::IdentityChanged,
+        ),
+        (setup, true, StartupEvidence::LeftBoot),
+    ];
+    for (build, boot, evidence) in cases {
+        let (drive, update, _) = build();
+        drive.borrow_mut().boot_until_commit = boot;
+        let completed = run_completed(&drive, &update, ExecutionMode::Recovery).unwrap();
+        assert_eq!(completed.startup.evidence(), evidence);
+        assert_eq!(after_commit(&drive), expected_after_commit());
+        // The legacy mapping is pure: it issues nothing either.
+        let sent = drive.borrow().log.len();
+        let _ = completed.into_verified::<&str>();
+        assert_eq!(drive.borrow().log.len(), sent);
+    }
+    for build in [setup as Setup, setup_identity_change] {
+        let (drive, update, _) = build();
+        run_completed(&drive, &update, ExecutionMode::Flash).unwrap();
+        assert_eq!(after_commit(&drive), expected_after_commit());
+    }
+}
+
+#[test]
+fn limited_readback_is_reported_before_an_unobserved_restart() {
+    use crate::update::{flash::ExecutionMode, ReadbackQuality, StartupEvidence};
+    let (drive, update, _) = setup();
+    drive.borrow_mut().short_at = Some(0x14000);
+    let completed = run_completed(&drive, &update, ExecutionMode::Flash).unwrap();
+    assert!(matches!(
+        completed.readback,
+        ReadbackQuality::Limited { unverified: 1, .. }
+    ));
+    assert_eq!(completed.startup.evidence(), StartupEvidence::Unobserved);
+    assert!(matches!(
+        completed.into_verified::<&str>(),
+        Err(FlashError::Incomplete { unverified: 1, .. })
+    ));
 }
 
 #[test]
 fn completion_requires_the_target_running_for_flash_and_recovery() {
-    use crate::update::{flash::ExecutionMode, ReadbackQuality, StartupError};
+    use crate::update::{flash::ExecutionMode, ReadbackQuality, StartupError, StartupEvidence};
     for mode in [ExecutionMode::Flash, ExecutionMode::Recovery] {
         let (drive, update, target) = setup();
         let completed = run_completed(&drive, &update, mode).unwrap();
+        // This fixture pair shares its INQUIRY identity: matching identity
+        // and descriptor alone are not an observed restart.
+        assert_eq!(completed.startup.evidence(), StartupEvidence::Unobserved);
         assert!(matches!(
             completed.readback,
             ReadbackQuality::Complete(Verified {

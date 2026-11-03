@@ -129,3 +129,37 @@ fn offline_reference_defects_classify_as_firmware_not_connection() {
     ));
     assert_eq!(error.kind(), IssueKind::InvalidFirmware);
 }
+
+#[test]
+fn reference_receiver_restart_evidence_uses_only_revalidated_identity() {
+    use crate::update::{classify, StartupEvidence};
+    let (envelope, mut live) = fixture();
+    let receiver = Receiver::from_firmware(&envelope).unwrap();
+    // The stored identity is synthesized from the image: only bytes 0, 4 and
+    // 8..36 are set. Execution revalidates mode and 8..36 before writing.
+    receiver.revalidate(&mut live).unwrap();
+    let prior = &receiver.identity;
+    struct Physical([u8; INQUIRY_LEN]);
+    impl Transport for Physical {
+        type Error = &'static str;
+        fn sense(&self) -> Option<(u8, u8, u8)> {
+            None
+        }
+        fn exec(&mut self, _: &[u8], data: Data<'_>) -> Result<usize, Self::Error> {
+            let Data::In(out) = data else { panic!() };
+            out.copy_from_slice(&self.0[..out.len()]);
+            Ok(out.len())
+        }
+    }
+    // A physical INQUIRY differs from the synthesized one outside 8..36.
+    let mut inquiry = *prior.inquiry();
+    inquiry[2] = 5;
+    inquiry[3] = 2;
+    inquiry[7] = 0x10;
+    let same = super::super::detect_mode(&mut Physical(inquiry)).unwrap();
+    assert_ne!(same.inquiry(), prior.inquiry());
+    assert_eq!(classify(prior, &same), StartupEvidence::Unobserved);
+    inquiry[32..36].copy_from_slice(b"1.04");
+    let changed = super::super::detect_mode(&mut Physical(inquiry)).unwrap();
+    assert_eq!(classify(prior, &changed), StartupEvidence::IdentityChanged);
+}

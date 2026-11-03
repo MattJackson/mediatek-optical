@@ -45,3 +45,11 @@ fn execute_and_flash_errors_classify_by_their_cause() {
         IssueKind::Update
     );
 }
+
+#[test]
+fn an_unobserved_restart_is_a_post_write_verification_state() {
+    assert_eq!(
+        super::kind_for_code("mediatek.startup.unobserved"),
+        crate::operation::IssueKind::Verification
+    );
+}
