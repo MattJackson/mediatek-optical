@@ -14,7 +14,13 @@ pub struct CommandScanner {
 }
 
 impl CommandScanner {
+    /// One candidate as [`Self::inspect`] accepts it: grammar and proven frame.
+    #[cfg(test)]
     fn at(image: &[u8], entry: usize) -> Option<Self> {
+        Self::grammar(image, entry).filter(|_| SavedLink::bind(image, entry, entry + 22).is_ok())
+    }
+    /// The complete scanner grammar, before its native call frame is proven.
+    fn grammar(image: &[u8], entry: usize) -> Option<Self> {
         use Operand::{Imm, Reg as R};
         let push = instruction(image, entry)?;
         let Some(Operand::RegList(saved)) = push.operands.get(0) else {
@@ -96,7 +102,6 @@ impl CommandScanner {
             || !exact(image, ret + 4, "add", &[r(t), Imm(8)])
             || !branch(image, ret + 6, scan)
             || !advances(image, linked + 16, c, t, ret + 4)
-            || SavedLink::bind(image, entry, entry + 22).is_err()
         {
             return None;
         }
@@ -108,6 +113,8 @@ impl CommandScanner {
     }
 
     /// Require one complete scanner grammar and balanced native call frame.
+    /// A grammar whose frame cannot be proven still counts as a candidate, so it
+    /// makes the role ambiguous or refuses it instead of disappearing.
     pub fn inspect(image: &[u8]) -> Result<Self, Error> {
         let mut found = None;
         for at in (0..image.len().saturating_sub(0x60)).step_by(2) {
@@ -117,13 +124,16 @@ impl CommandScanner {
             if ins.mnemonic != "push" {
                 continue;
             }
-            if let Some(candidate) = Self::at(image, at) {
+            if let Some(candidate) = Self::grammar(image, at) {
                 if found.replace(candidate).is_some() {
                     return Err(Error::Ambiguous);
                 }
             }
         }
-        found.ok_or(Error::UnknownLayout)
+        let found = found.ok_or(Error::UnknownLayout)?;
+        SavedLink::bind(image, found.entry, found.entry + 22)
+            .map_err(|_| Error::InvalidContract)?;
+        Ok(found)
     }
     /// Flash table roots registered into the array consumed by native callers.
     pub fn table_roots(&self, image: &[u8]) -> Result<std::collections::BTreeSet<usize>, Error> {

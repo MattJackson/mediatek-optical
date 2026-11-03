@@ -76,8 +76,8 @@ fn arrays(image: &[u8], scanner: &CommandScanner) -> Result<BTreeSet<u32>, Error
     for site in thumb_asm::find_bl_sites(image, scanner.entry() as u32) {
         // An unprovable scanner caller could own an array whose roots would
         // otherwise vanish from the table graph.
-        let parent = SavedLink::detect(image, site).map_err(unproven_error)?;
-        for at in (parent.entry..(site + 0x100).min(image.len().saturating_sub(8))).step_by(2) {
+        let parent = SavedLink::detect_entry(image, site).map_err(unproven_error)?;
+        for at in (parent..(site + 0x100).min(image.len().saturating_sub(8))).step_by(2) {
             let Some(shift) = instruction(image, at) else {
                 continue;
             };
@@ -107,7 +107,7 @@ fn arrays(image: &[u8], scanner: &CommandScanner) -> Result<BTreeSet<u32>, Error
                 continue;
             }
             let mut bound = false;
-            for definition in (parent.entry..at).step_by(2) {
+            for definition in (parent..at).step_by(2) {
                 let Some((reg, value)) = literal_load(image, definition) else {
                     continue;
                 };
@@ -120,7 +120,7 @@ fn arrays(image: &[u8], scanner: &CommandScanner) -> Result<BTreeSet<u32>, Error
                 }
                 if SavedLink::require_live_definition(
                     image,
-                    parent.entry,
+                    parent,
                     at,
                     definition,
                     definition + 2,
@@ -190,9 +190,15 @@ pub(super) fn roots(image: &[u8], scanner: &CommandScanner) -> Result<BTreeSet<u
         if root as usize >= image.len() || root & 3 != 0 {
             return Err(Error::InvalidContract);
         }
-        if let Err(error) = SavedLink::detect(image, at)
-            .and_then(|caller| caller.require_argument_definition(image, at - 4, at - 2, 0))
-        {
+        // A repeated proven root is accepted whether or not this caller proves,
+        // so its frame walk is skipped. The image is the one just inspected,
+        // so the walk does not rehash it per call site.
+        if roots.contains(&(root as usize)) {
+            continue;
+        }
+        if let Err(error) = SavedLink::detect_entry(image, at).and_then(|entry| {
+            SavedLink::require_live_definition(image, entry, at, at - 4, at - 2, 0)
+        }) {
             unproven.push((root as usize, error));
             continue;
         }
