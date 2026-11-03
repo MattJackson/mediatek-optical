@@ -114,6 +114,22 @@ fn native_register_definition_rejects_writeback_and_clobber() {
 }
 
 #[test]
+fn live_definition_holds_on_every_arrival_at_a_looping_read() {
+    // push {r4,lr}; movs r0,#5; L: bl X (site); cmp r4,#0; <tail>; pop {r4,pc}; X: bx lr.
+    // The call clobbers r0, so a loop back to L reads the callee's result.
+    let image = |tail: u16| thumb(&[0xb510, 0x2005, 0xf000, 0xf803, 0x2c00, tail, 0xbd10, 0x4770]);
+    // bne L: the second arrival at the site no longer holds the constant.
+    assert_eq!(
+        SavedLink::require_live_definition(&image(0xd1fb), 0, 4, 2, 4, 0),
+        Err(Error::InvalidContract)
+    );
+    // bne movs: every arrival re-executes the definition.
+    assert!(SavedLink::require_live_definition(&image(0xd1fa), 0, 4, 2, 4, 0).is_ok());
+    // nop: the site is reached once.
+    assert!(SavedLink::require_live_definition(&image(0x46c0), 0, 4, 2, 4, 0).is_ok());
+}
+
+#[test]
 fn tst_invalidates_cached_comparison() {
     // CMP r0,#1 would make BNE never taken, but TST rewrites the flags, so
     // the branch to the invalid path must still be explored.
@@ -248,14 +264,18 @@ fn switch_fan_out_shares_queued_stack_models() {
     let body = crate::compiler::ARM_BYTE_SWITCH;
     image[0x200..0x200 + body.len()].copy_from_slice(body);
     let mut counts = WalkCounts::default();
+    let copies = || super::super::caller_stack::STACK_COPIES.with(core::cell::Cell::get);
+    let before = copies();
     assert_eq!(
         SavedLink::frame_counted(&image, 0, 2, &mut counts),
         Ok((12, vec![44]))
     );
+    // Each visited state copies the model it mutates once; a copy per queued
+    // successor would add one for every switch target on top of that.
+    let made = copies() - before;
     assert!(
-        counts.stack_copies <= counts.states,
-        "{} stack copies for {} states",
-        counts.stack_copies,
+        made <= counts.states,
+        "{made} stack copies for {} states",
         counts.states
     );
 }

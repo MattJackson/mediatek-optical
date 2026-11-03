@@ -17,11 +17,28 @@ enum Alias {
     Unknown,
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
 pub(super) struct StackFlow {
     aliases: [Alias; 16],
     /// Byte provenance retains pointer spills, including partial overwrites.
     bytes: BTreeMap<i32, Alias>,
+}
+
+#[cfg(test)]
+thread_local! {
+    /// Deep copies of any stack model made on this thread.
+    pub(super) static STACK_COPIES: core::cell::Cell<usize> = const { core::cell::Cell::new(0) };
+}
+
+impl Clone for StackFlow {
+    fn clone(&self) -> Self {
+        #[cfg(test)]
+        STACK_COPIES.with(|copies| copies.set(copies.get() + 1));
+        Self {
+            aliases: self.aliases,
+            bytes: self.bytes.clone(),
+        }
+    }
 }
 
 impl StackFlow {

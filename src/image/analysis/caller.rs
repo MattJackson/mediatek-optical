@@ -176,8 +176,6 @@ impl SavedLink {
 pub(super) struct WalkCounts {
     /// Distinct states visited.
     pub(super) states: usize,
-    /// Deep copies of the stack model made.
-    pub(super) stack_copies: usize,
 }
 impl SavedLink {
     /// Bind an explicit entry and detour using a bounded native control-flow walk.
@@ -304,9 +302,6 @@ impl SavedLink {
             let call_clobbers = super::switch::clobbers(switch_targets.is_some());
             // Queued successors share this state's stack model, so live copies
             // stay proportional to the states visited rather than to the queue.
-            if Rc::strong_count(&stack) > 1 {
-                counts.stack_copies += 1;
-            }
             Rc::make_mut(&mut stack).observe(&ins, depth, &constants, &protected, call_clobbers)?;
             if ins.mnemonic == "cmp" {
                 compared = scalar_operand(ins.operands.get(0), &constants)
@@ -563,12 +558,12 @@ impl SavedLink {
                 return Err(Error::InvalidContract);
             }
             starts.insert(pc);
+            // Keep walking past the read: a loop back to it must arrive live too.
             if pc == site {
                 if !live {
                     return Err(Error::InvalidContract);
                 }
                 reached = true;
-                continue;
             }
             if pc == definition {
                 queue.push_back((definition_end, true, depth));
