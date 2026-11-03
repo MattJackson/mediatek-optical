@@ -34,7 +34,7 @@ pub use auth::{AuthCell, AuthCellVariant};
 pub use caller::SavedLink;
 pub use classic_speed::ClassicSpeed;
 pub use media::{MediaGate, MediaGateVariant};
-pub use uhd::{C7Selection, UhdArea, UhdAreaContract, UhdAreas, UhdEdge, UhdHandling, UhdLiteral};
+pub use uhd::{C7Selection, UhdArea, UhdAreaContract, UhdAreas, UhdEdge, UhdLiteral};
 pub use uhd_consumers::{ClassicConsumer, ClassicConsumerKind};
 pub use uhd_di::ClassicDi;
 pub use uhd_parameter::{ClassicParameter, ClassicParameterVariant};

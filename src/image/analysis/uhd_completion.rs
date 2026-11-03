@@ -524,8 +524,9 @@ impl ClassicReadCompletion {
             });
             callers.push(SavedLink::detect(image, site)?);
         }
-        // The boundary rejection skips the reflected-position block; its guard
-        // may be a branch veneer but must remain inside the matched parent.
+        // The boundary rejection skips the reflected-position block: its native
+        // BNE target (past the matched bytes) must be an unconditional `B`.
+        // Containment of that target in the parent function is not checked.
         if half(image, boundary_reject).map(|op| op & 0xf800) != Some(0xe000) {
             return Err(Error::InvalidContract);
         }

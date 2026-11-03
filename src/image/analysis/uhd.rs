@@ -39,7 +39,7 @@ impl UhdArea {
 
 /// Native handling established by a positively recognized code grammar.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum UhdHandling {
+pub(crate) enum UhdHandling {
     /// Older selection/recognition requiring an extension for the new state.
     Legacy,
     /// This region already explicitly handles C7/U.
@@ -158,7 +158,9 @@ impl UhdAreaContract {
     pub fn coefficient_continuation(&self) -> Option<usize> {
         self.coefficient_continuation
     }
-    /// Whether this region explicitly contains a C7 selection/recognition path.
+    /// Whether the native grammar explicitly handles C7. For the explicit-C7
+    /// forward and reverse calculations the `cmp r0, #0xc7` test lies at the
+    /// first rejection's branch target, outside `site()..site() + length()`.
     /// Hardware defaults intentionally have no conversion meaning.
     pub fn selects_c7(&self) -> Option<bool> {
         match self.handling {

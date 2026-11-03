@@ -2,6 +2,7 @@
 
 ## 1.2.0 — Unreleased
 
+- `analysis::UhdHandling` is no longer exported: no public API produced or accepted it; `UhdAreaContract::selects_c7()` remains the public view.
 - `SavedLink::bind` (and roles built on it) refuses a walk that spills more than 256 bytes of stack pointers onto the stack with `InvalidContract`, instead of exhausting memory on looping pointer spills.
 - Receiver detection fails closed on more partial evidence: `detect_encoding` examines a header-decrypt call ending exactly at the search-window end; `ApplicationAnalysis::conflicting_arguments()` is set when a proven in-place body decode has no header call (instead of reporting no bulk decoder); the compiler-helper command table refuses an UNDEFINED `BLX` suffix with bit 0 set; `PrepareError::Integrity` is also documented (and displayed) as covering an image with no verifiable protected range.
 - `FlashError::Startup` now takes its `IssueKind` from the `StartupError` it wraps: `TargetMismatch` is `Verification`, `Read` is `Connection` and `Identity` is `Update`. `ExecuteError` delegates its kind to its cause, so receiver refusals are reported as `ReceiverMismatch`, `Connection` and so on instead of `IssueKind::Update`.
