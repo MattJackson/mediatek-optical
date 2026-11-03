@@ -1,7 +1,9 @@
 //! Additional source-bound classic C8 consumers paired with explicit modern C7 gates.
 //! Names describe code roles, not physical controller behavior or UHD capability.
 //! Modern comparison source: 648a16d024eea31ef4901f3ac2180cbfffeda1161d70f9096335d8a6097445bc;
-//! regions 32cbe, 33670, 33cae, 414f8, 142826 and 1435e0 respectively.
+//! regions 32cbe, 33670, 33cae, 414f8, 142826 and 1435e0 are the counterparts of
+//! `Control18`, `Mode23`, `ParameterClass`, `RequestArgument`, `ReadValue` and
+//! `ReadStatus` respectively; the other definitions name their counterparts inline.
 use super::{conditional, half, matches, C7Selection, Error, SavedLink};
 
 /// Independently located native consumer roles, without model/hash dispatch.
@@ -54,7 +56,7 @@ struct Definition {
 // Reference 40eb760e23f100d55e86e9c061c73428d4087ef712294e4dbfcefa3093837a1a.
 // Addresses document provenance only; inspection searches all instruction offsets.
 const DEFINITIONS: &[Definition] = &[
-    // 0x6799a..0x679b4; modern explicit C7 counterpart0x688e6.
+    // 0x6799a..0x679b4; modern explicit C7 counterpart 0x688e6.
     Definition {
         kind: ClassicConsumerKind::MediaDefaults,
         gate: 6,
