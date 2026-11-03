@@ -104,7 +104,8 @@ impl Chip {
         }
     }
 
-    /// The chip named by the first `MTEKMT19xx` identity tag in `bytes`.
+    /// The chip named by the first `MTEKMT19xx` identity tag in `bytes` whose
+    /// digits name a supported chip; tags with other digits are skipped.
     ///
     /// This is a label parser, not operational chip detection. OEM identity
     /// tags can be stale; [`Identity::chip`] and image analysis use the boot
@@ -220,8 +221,8 @@ impl DriveClass {
         core::time::Duration::from_millis(500)
     }
 
-    /// Read-back verification compares no byte below this offset: the drive
-    /// serves its boot area remapped ([`layout::BOOT_AREA`]).
+    /// Read-back verification compares no byte below this offset, the end of
+    /// the flash sector holding the remapped boot page ([`layout::BOOT_AREA`]).
     pub const fn verify_floor(self) -> usize {
         layout::BOOT_AREA.end()
     }

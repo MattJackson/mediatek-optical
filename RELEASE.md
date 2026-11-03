@@ -82,7 +82,9 @@ MediaTek:
 Both existing firmware fuzz targets ran with nightly Rust, libFuzzer and Address
 Sanitizer for 61 seconds without a crash: 131,907 runs for Pioneer and 301,587 for
 MediaTek, with a maximum input length of 131,072 bytes. These are bounded smoke
-runs, not exhaustive search. Reproduce with:
+runs, not exhaustive search. At that length the MediaTek hardware-family and
+descriptor parsers, which need a whole 2 MiB image, were not reached; the target
+now also embeds each shorter input in an erased 2 MiB image. Reproduce with:
 
 ```sh
 cargo +nightly fuzz run firmware -- -max_total_time=60 -max_len=131072
