@@ -2,6 +2,7 @@
 use super::{caller_stack::StackFlow, Error};
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
+use std::rc::Rc;
 use thumb_asm::isa::{decode_at, Operand, Reg};
 
 /// The native function saves the incoming LR and reaches balanced pop-PC exits.
@@ -170,6 +171,14 @@ impl SavedLink {
         Ok(())
     }
 }
+/// Work done by one [`SavedLink`] frame walk.
+#[derive(Debug, Default)]
+pub(super) struct WalkCounts {
+    /// Distinct states visited.
+    pub(super) states: usize,
+    /// Deep copies of the stack model made.
+    pub(super) stack_copies: usize,
+}
 impl SavedLink {
     /// Bind an explicit entry and detour using a bounded native control-flow walk.
     /// The detour may clobber LR only until the next native call or pop-PC return.
@@ -185,6 +194,15 @@ impl SavedLink {
     }
     /// The bounded walk behind [`Self::bind`]: stack depth and balanced exits.
     fn frame(image: &[u8], entry: usize, site: usize) -> Result<(usize, Vec<usize>), Error> {
+        Self::frame_counted(image, entry, site, &mut WalkCounts::default())
+    }
+    /// [`Self::frame`], reporting the work done in `counts`.
+    pub(super) fn frame_counted(
+        image: &[u8],
+        entry: usize,
+        site: usize,
+        counts: &mut WalkCounts,
+    ) -> Result<(usize, Vec<usize>), Error> {
         if entry >= site || !saves_link(image, entry) {
             return Err(Error::InvalidContract);
         }
@@ -208,7 +226,7 @@ impl SavedLink {
             0i32,
             false,
             false,
-            StackFlow::default(),
+            Rc::new(StackFlow::default()),
             [None; 16],
             None,
         )]);
@@ -232,7 +250,8 @@ impl SavedLink {
             // Small exact index loops retain their values; an unknown stack index refuses.
             for (reg, value) in constants.iter_mut().enumerate() {
                 let history = scalar_history.entry((pc, reg)).or_default();
-                if let Some(value) = *value {
+                // Nine values already widen this register; more never change the outcome.
+                if let (Some(value), true) = (*value, history.len() <= 8) {
                     history.insert(value);
                 }
                 if history.len() > 8 {
@@ -240,9 +259,18 @@ impl SavedLink {
                     compared = None;
                 }
             }
-            if !seen.insert((pc, depth, hooked, dirty, stack.clone(), constants, compared)) {
+            if !seen.insert((
+                pc,
+                depth,
+                hooked,
+                dirty,
+                Rc::clone(&stack),
+                constants,
+                compared,
+            )) {
                 continue;
             }
+            counts.states = seen.len();
             if seen.len() > 10000
                 || pc < entry
                 || pc >= entry + 0x1200
@@ -274,7 +302,12 @@ impl SavedLink {
                 None
             };
             let call_clobbers = super::switch::clobbers(switch_targets.is_some());
-            stack.observe(&ins, depth, &constants, &protected, call_clobbers)?;
+            // Queued successors share this state's stack model, so live copies
+            // stay proportional to the states visited rather than to the queue.
+            if Rc::strong_count(&stack) > 1 {
+                counts.stack_copies += 1;
+            }
+            Rc::make_mut(&mut stack).observe(&ins, depth, &constants, &protected, call_clobbers)?;
             if ins.mnemonic == "cmp" {
                 compared = scalar_operand(ins.operands.get(0), &constants)
                     .zip(scalar_operand(ins.operands.get(1), &constants));
@@ -349,7 +382,7 @@ impl SavedLink {
                             depth,
                             hooked,
                             dirty,
-                            stack.clone(),
+                            Rc::clone(&stack),
                             constants,
                             compared,
                         ));
@@ -361,7 +394,7 @@ impl SavedLink {
                     depth,
                     hooked,
                     dirty,
-                    stack.clone(),
+                    Rc::clone(&stack),
                     constants,
                     compared,
                 ));
@@ -386,7 +419,7 @@ impl SavedLink {
                         depth,
                         hooked,
                         dirty,
-                        stack.clone(),
+                        Rc::clone(&stack),
                         constants,
                         compared,
                     ));
@@ -397,7 +430,7 @@ impl SavedLink {
                         depth,
                         hooked,
                         dirty,
-                        stack.clone(),
+                        Rc::clone(&stack),
                         constants,
                         compared,
                     ));
@@ -408,7 +441,7 @@ impl SavedLink {
                     depth,
                     hooked,
                     dirty,
-                    stack.clone(),
+                    Rc::clone(&stack),
                     constants,
                     compared,
                 ));
