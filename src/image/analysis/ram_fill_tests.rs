@@ -216,4 +216,12 @@ fn unmodelled_branch_marks_the_pointer_seed_incomplete() {
     image[2..4].copy_from_slice(&0x4770u16.to_le_bytes());
     let refs = super::super::RamReferences::inspect(&image);
     assert!(!refs.incomplete().contains(&0));
+
+    // A `pop {r4, pc}` function return ends the path; it loses no successors.
+    image[2..4].copy_from_slice(&0xbd10u16.to_le_bytes());
+    let refs = super::super::RamReferences::inspect(&image);
+    assert!(
+        !refs.incomplete().contains(&0),
+        "pop {{r4, pc}} is a return"
+    );
 }

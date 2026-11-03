@@ -195,18 +195,6 @@ pub(super) fn coefficient(image: &[u8], start: usize, reverse: bool) -> Result<u
         }
         visited.push(pc);
         let ins = decode_at(image, pc).ok_or(Error::Truncated)?;
-        if let Some(live) = constant {
-            if matches!(ins.operands.get(0), Some(Operand::Reg(r)) if r.num() == live)
-                && (ins.mnemonic.starts_with("mov")
-                    || ins.mnemonic.starts_with("mvn")
-                    || ins.mnemonic.starts_with("ldr"))
-            {
-                constant = None;
-            }
-        }
-        if let Some(load) = literal(image, pc).filter(|v| v.value == 0x51b1) {
-            constant = Some(load.register);
-        }
         // Only an add/sub that reads the register holding 0x51b1 continues it.
         let reads_constant = |live: u8| {
             let reads = |op: Option<Operand>| matches!(op, Some(Operand::Reg(r) | Operand::RegShifted(r, _)) if r.num() == live);
@@ -220,6 +208,30 @@ pub(super) fn coefficient(image: &[u8], start: usize, reverse: bool) -> Result<u
             } else {
                 Err(Error::UnknownLayout)
             };
+        }
+        // Any other write to the live register, or a call, ends the constant.
+        if let Some(live) = constant {
+            let writes_live = match ins.operands.get(0) {
+                Some(Operand::RegList(bits)) => {
+                    matches!(ins.mnemonic, "pop" | "ldm" | "ldmia" | "ldmdb")
+                        && bits & (1 << live) != 0
+                }
+                Some(Operand::Reg(r)) => {
+                    r.num() == live
+                        && !ins.mnemonic.starts_with("str")
+                        && !matches!(
+                            ins.mnemonic,
+                            "push" | "stm" | "stmia" | "stmdb" | "cmp" | "cmn" | "tst" | "teq"
+                        )
+                }
+                _ => false,
+            };
+            if writes_live || ins.is_call() {
+                constant = None;
+            }
+        }
+        if let Some(load) = literal(image, pc).filter(|v| v.value == 0x51b1) {
+            constant = Some(load.register);
         }
         // The fall-through CC-mask path skips calls and follows unconditional
         // branches over literal pools. No symbolic state or hardware is guessed.

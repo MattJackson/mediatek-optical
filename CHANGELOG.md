@@ -2,8 +2,12 @@
 
 ## 1.2.0 — Unreleased
 
-- Classify `ExecuteError` by its cause: a pre-write receiver refusal is no longer reported as `IssueKind::Update`. `FlashError::Startup` now reports the startup error's kind, so a target mismatch after flashing is `IssueKind::Verification`.
-- Receiver detection now fails with a read error instead of choosing an encoding from partial evidence; BOOT entry matching refuses ambiguous grammars; unaligned programming-loop targets are rejected; `Chip::from_banner` ignores bytes after the banner NUL; recovery identification reports a malformed identity as `InvalidIdentity`.
+- `FlashError::Startup` now takes its `IssueKind` from the `StartupError` it wraps: `TargetMismatch` is `Verification`, `Read` is `Connection` and `Identity` is `Update`. `ExecuteError` delegates its kind to its cause, so receiver refusals are reported as `ReceiverMismatch`, `Connection` and so on instead of `IssueKind::Update`.
+- Add `CmacError::CircularTable`; `cmac::resign` now refuses tables with more than one active table-covering entry.
+- `analysis::Diagnostic::source()` now returns the underlying cause.
+- `RamReferences::incomplete()` now includes seeds whose path reaches an unmodelled branch (`cbz`/`cbnz`, table branches, indirect `bx`/`blx`); function returns still end a path normally.
+- Tighten analysis grammars: `TST`/`CMN`/`TEQ` invalidate cached comparisons; a UHD coefficient continuation must read the register holding `0x51b1` and any other write to it or a call ends the constant; scans now include the last offset; missing literal evidence no longer matches.
+- `detect_encoding` propagates read failures instead of choosing an encoding from partial evidence. `Chip::from_banner` ignores bytes after the first NUL. Ambiguous BOOT grammars are refused, unaligned programming-loop targets are rejected, and recovery identification reports a malformed identity as `InvalidIdentity`.
 
 - Restrict boot-mirror readback detection to complete 2 MiB MT19xx images; older 512 KiB OEM firmware and partial fragments are not raw MT19xx captures.
 

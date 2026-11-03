@@ -554,6 +554,22 @@ fn coefficient_requires_add_reading_the_loaded_constant() {
 }
 
 #[test]
+fn coefficient_constant_ends_when_any_instruction_writes_the_register() {
+    let code: [u16; 6] = [
+        0x4801, // ldr r0, [pc, #4] -> 0x51b1
+        0x1888, // adds r0, r1, r2 (overwrites r0 without reading it)
+        0x1903, // adds r3, r0, r4 (reads the new r0, not 0x51b1)
+        0xbf00, 0x51b1, 0x0000,
+    ];
+    let mut image = vec![0u8; 16];
+    for (i, h) in code.iter().enumerate() {
+        image[i * 2..i * 2 + 2].copy_from_slice(&h.to_le_bytes());
+    }
+    image[8..12].copy_from_slice(&0x51b1u32.to_le_bytes());
+    assert!(super::uhd::coefficient(&image, 0, false).is_err());
+}
+
+#[test]
 fn completion_scan_includes_pattern_at_last_offset() {
     use super::uhd_completion::{locate, CONTROLLER};
     let mut image = Vec::new();

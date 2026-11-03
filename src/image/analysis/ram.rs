@@ -228,12 +228,10 @@ impl RamReferences {
                         if ins.cond.is_some() && taken != Some(true) {
                             pending.push_back((next, values, zero));
                         }
-                    } else if !matches!(
-                        (ins.mnemonic, ins.operands.get(0)),
-                        ("bx", Some(Operand::Reg(reg))) if reg.num() == 14
-                    ) {
-                        // cbz/cbnz, indirect bx and table branches lose their
-                        // successors: the path is not fully observed.
+                    } else if !is_return(&ins) {
+                        // cbz/cbnz, indirect bx/blx and table branches lose
+                        // their successors: the path is not fully observed.
+                        // Returns simply end the path.
                         result.incomplete.insert(seed);
                     }
                 } else if !ins.writes_pc() {
@@ -264,5 +262,22 @@ impl RamReferences {
     /// Seed locations with an unresolved index, control flow or bounded walk.
     pub fn incomplete(&self) -> &BTreeSet<usize> {
         &self.incomplete
+    }
+}
+
+/// A PC-writing function return: `pop {.., pc}`, `ldm sp.., {.., pc}`,
+/// `mov pc, lr`, `ldr pc, [sp..]` and `bx lr`.
+fn is_return(ins: &thumb_asm::isa::Insn) -> bool {
+    let reg = |op: Option<Operand>, n: u8| matches!(op, Some(Operand::Reg(r)) if r.num() == n);
+    match ins.mnemonic {
+        "bx" => reg(ins.operands.get(0), 14),
+        "pop" => ins.writes_pc(),
+        "mov" => reg(ins.operands.get(0), 15) && reg(ins.operands.get(1), 14),
+        "ldr" => {
+            reg(ins.operands.get(0), 15)
+                && matches!(ins.operands.get(1), Some(Operand::Mem(m)) if m.base.num() == 13)
+        }
+        "ldm" | "ldmia" | "ldmdb" => ins.writes_pc() && reg(ins.operands.get(0), 13),
+        _ => false,
     }
 }
