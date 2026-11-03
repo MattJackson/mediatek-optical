@@ -227,4 +227,6 @@ stable identifier such as `mediatek.receiver.changed`, independent of runtime
 values. Match typed variants for parameters and use codes for translation keys;
 English `Display` messages are diagnostic prose. Wrapper errors preserve their
 own stage code and expose typed causes through `std::error::Error::source` when
-`std` is enabled. Handle unknown future identifiers with a generic message.
+`std` is enabled. The source chain ends at `drive::Error`: its transport
+variant carries the host's own error type, which only needs `Debug`, so match
+`drive::Error::Transport(e)` to inspect it. Handle unknown future identifiers with a generic message.

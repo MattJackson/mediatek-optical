@@ -49,7 +49,8 @@ pub trait Transport {
 #[derive(Debug)]
 #[non_exhaustive]
 pub enum Error<E> {
-    /// The transport failed.
+    /// The transport failed. The host error is not exposed through
+    /// `std::error::Error::source` because `E` need only implement `Debug`.
     Transport(E),
     /// The drive returned fewer bytes than required.
     Short {

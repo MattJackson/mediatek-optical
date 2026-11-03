@@ -180,7 +180,14 @@ impl<E> CodedError for crate::receiver::ExecuteError<E> {
 impl<E> CodedError for crate::receiver::reference::Error<E> {
     fn kind(&self) -> crate::operation::IssueKind {
         match self {
-            Self::Analysis(error) => error.kind(),
+            // Analysis reads only the supplied file: an identity or read
+            // failure there is a firmware defect, never a connection fault.
+            Self::Analysis(error) => match error.kind() {
+                crate::operation::IssueKind::Connection => {
+                    crate::operation::IssueKind::InvalidFirmware
+                }
+                kind => kind,
+            },
             Self::Binding(error) => error.kind(),
         }
     }

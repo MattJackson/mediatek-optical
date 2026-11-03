@@ -113,3 +113,18 @@ fn reference_is_not_a_source_of_live_readback_bytes() {
     let mut code = [0; 32];
     assert!(drive::read_memory(&mut live, 0x9a300, &mut code).is_err());
 }
+
+#[test]
+fn offline_reference_defects_classify_as_firmware_not_connection() {
+    use crate::{operation::IssueKind, CodedError};
+    let (envelope, _) = fixture();
+    let mut image = envelope.image().to_vec();
+    image[layout::DESCRIPTOR.start + 24..layout::DESCRIPTOR.start + 28].copy_from_slice(b"BOOT");
+    let envelope = Envelope::load(&crate::fixtures::sign(image)).unwrap();
+    let error = Receiver::from_firmware(&envelope).unwrap_err();
+    assert!(matches!(
+        error,
+        Error::Analysis(super::super::Error::InvalidIdentity)
+    ));
+    assert_eq!(error.kind(), IssueKind::InvalidFirmware);
+}

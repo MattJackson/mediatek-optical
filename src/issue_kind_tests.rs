@@ -1,6 +1,9 @@
 #[test]
 fn every_declared_code_has_a_deliberate_host_category() {
-    for source in [include_str!("error_codes.rs")] {
+    for source in [
+        include_str!("error_codes.rs"),
+        include_str!("image/analysis/mod.rs"),
+    ] {
         let codes: Vec<&str> = source
             .split('"')
             .filter(|s| s.starts_with("mediatek.") && !s.contains(char::is_whitespace))
