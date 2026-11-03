@@ -94,6 +94,30 @@ fn reference_binding_checks_build_metadata_and_preserves_live_boot_snapshot() {
 }
 
 #[test]
+fn reference_binding_compares_the_complete_descriptor() {
+    let (envelope, mut live) = fixture();
+    // Control: the unmodified drive matches its Current reference.
+    let offline = Receiver::from_firmware(&envelope).unwrap();
+    offline.revalidate(&mut live).unwrap();
+    let detected = detect(&mut live, &envelope).unwrap();
+    detected.revalidate(&mut live).unwrap();
+    // A byte past 0x58 of the live descriptor no longer matches the reference.
+    live.image[layout::DESCRIPTOR.start + 0x80] ^= 1;
+    assert!(matches!(
+        offline.revalidate(&mut live),
+        Err(super::super::Error::Changed)
+    ));
+    assert!(matches!(
+        detected.revalidate(&mut live),
+        Err(super::super::Error::Changed)
+    ));
+    assert!(matches!(
+        detect(&mut live, &envelope),
+        Err(Error::Binding(super::super::Error::Changed))
+    ));
+}
+
+#[test]
 fn unknown_reference_code_does_not_gain_a_receiver_from_matching_metadata() {
     let (envelope, mut live) = fixture();
     let mut image = envelope.image().to_vec();

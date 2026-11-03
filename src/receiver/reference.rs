@@ -59,7 +59,7 @@ impl<E: core::fmt::Debug + 'static> std::error::Error for Error<E> {
 pub(super) struct Binding {
     identity: [u8; 28],
     banner: [u8; layout::BANNER.len],
-    descriptor: [u8; 0x58],
+    descriptor: [u8; layout::DESCRIPTOR.len],
     live_banner: Option<[u8; layout::BANNER.len]>,
     image_hash: [u8; 32],
 }
@@ -79,7 +79,7 @@ impl Binding {
         drive::read_memory(t, layout::DESCRIPTOR.start as u32, &mut descriptor)
             .map_err(super::Error::Read)?;
         if banner[..16] != self.banner[..16]
-            || descriptor[..0x58] != self.descriptor
+            || descriptor != self.descriptor
             || self.live_banner.is_some_and(|expected| banner != expected)
         {
             return Err(super::Error::Changed);
@@ -116,7 +116,7 @@ impl Receiver {
                 .expect("validated banner")
                 .try_into()
                 .unwrap(),
-            descriptor: descriptor[..0x58].try_into().expect("descriptor metadata"),
+            descriptor: descriptor.try_into().expect("descriptor length"),
             live_banner: None,
             image_hash: *envelope.image_sha256(),
         });

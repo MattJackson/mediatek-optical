@@ -71,6 +71,15 @@ consent; the library never invents installed bytes from the target. A Current
 firmware reference may supply offline receiver evidence, with explicit provenance
 and physical metadata binding; post-write verification still uses live reads.
 
+The installed binding, Current-reference revalidation (at detection and again
+immediately before PREPARE) and post-write startup confirmation each compare the
+complete 0x100-byte identity descriptor at 0x1ec000. The descriptor is programmed
+from the image, not written by the drive. Read-back compares only the image's
+CMAC-covered ranges; in every held MT19 image these exclude the descriptor, so
+startup is the only post-write evidence for it. A differing descriptor is
+`receiver::Error::Changed` before a write and `StartupError::TargetMismatch`
+after one.
+
 ## OEM reconstruction
 
 `oem::rebuild` turns a complete drive read into a flashable image:

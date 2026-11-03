@@ -813,6 +813,48 @@ fn completion_rejects_same_revision_with_wrong_build_and_unreadable_descriptor()
 }
 
 #[test]
+fn completion_rejects_descriptor_tail_mismatch() {
+    use crate::update::{flash::ExecutionMode, StartupError};
+    let descriptor_read = |cdb: &[u8], len: usize| {
+        cdb[0] == 0x3C
+            && u32::from_be_bytes([0, cdb[3], cdb[4], cdb[5]]) as usize == layout::DESCRIPTOR.start
+            && len == layout::DESCRIPTOR.len
+    };
+    for mode in [ExecutionMode::Flash, ExecutionMode::Recovery] {
+        // Control: the untouched target starts and reports its metadata.
+        let (drive, update, target) = setup();
+        let completed = run_completed(&drive, &update, mode).unwrap();
+        assert_eq!(
+            completed.startup.descriptor(),
+            &target[layout::DESCRIPTOR.start..layout::DESCRIPTOR.start + 0x58]
+        );
+        // A descriptor tail byte outside the fixture's CMAC ranges: only startup sees it.
+        let (drive, update, _) = setup();
+        drive.borrow_mut().corrupt = Some(layout::DESCRIPTOR.start + 0x80);
+        assert!(matches!(
+            run_completed(&drive, &update, mode),
+            Err(FlashError::Startup(StartupError::TargetMismatch))
+        ));
+        let d = drive.borrow();
+        assert!(d.committed);
+        let at = d
+            .log
+            .iter()
+            .rposition(|(_, cdb, len)| descriptor_read(cdb, *len))
+            .expect("startup read the descriptor");
+        assert!(
+            !d.log[at..].iter().any(|(_, cdb, _)| cdb[0] == 0x3B),
+            "no write or commit follows the startup descriptor read"
+        );
+        assert_eq!(
+            at,
+            d.log.len() - 1,
+            "no further commands after the mismatch"
+        );
+    }
+}
+
+#[test]
 fn completion_never_probes_startup_after_partial_write_or_corrupt_readback() {
     use crate::update::flash::ExecutionMode;
     for mode in [ExecutionMode::Flash, ExecutionMode::Recovery] {
