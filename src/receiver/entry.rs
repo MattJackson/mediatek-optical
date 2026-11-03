@@ -150,8 +150,9 @@ fn candidate(w: &Window<'_>, start: u32) -> Option<LegacyCandidate> {
     // later bit clause relying on that implicit value is then rejected.
     let mut one_live = preloaded_one;
     if let Some(local) = w.literal(p) {
-        // After the branch r0's pointer and r2's compare are dead, but r0 stays
-        // reserved; r2 may be the MMIO base and r7 may be rebuilt.
+        // After the branch r2's compare is dead, so r2 may become the MMIO
+        // base and r7 may be rebuilt. r0 still holds the CDB pointer: every
+        // bit clause below reads CDB byte 9 through it (LDRB tmp,[r0,#9]).
         if local.0 == 0 {
             return None;
         }

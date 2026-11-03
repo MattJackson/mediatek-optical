@@ -37,10 +37,12 @@ pub fn inspect_mode_three_wrapper(
     let at = |delta: u32| address.checked_add(delta);
     let expected = super::super::mixed::COMPACT_WRAPPER;
     let calls = [
-        0x16, 0x1c, 0x22, 0x26, 0x2a, 0x136, 0x13a, 0x13e, 0x17a, 0x17e, 0x190,
+        0x16, 0x1c, 0x22, 0x26, 0x2a, 0x9c, 0x136, 0x13a, 0x13e, 0x17a, 0x17e, 0x190,
     ];
     let literals = [0x32, 0x40, 0x124, 0x12a, 0x12e, 0x132, 0x134, 0x182];
-    for range in [0..0x54u32, 0x10a..0x144, 0x17a..0x198] {
+    // 0x9a..0xa2 is the restoring exit taken by the setup checks at +0x30,
+    // +0x38 and +0x3e before the mode branch.
+    for range in [0..0x54u32, 0x9a..0xa2, 0x10a..0x144, 0x17a..0x198] {
         for delta in range.step_by(2) {
             if calls.iter().any(|&call| delta == call || delta == call + 2)
                 || literals.contains(&delta)
@@ -54,6 +56,7 @@ pub fn inspect_mode_three_wrapper(
     }
     if address & 1 != 0
         || super::state_slot::blx(bytes, base, at(0x16)?)? != 0x2d4
+        || super::state_slot::blx(bytes, base, at(0x9c)?)? != 0x2cc
         || super::state_slot::blx(bytes, base, at(0x190)?)? != 0x2cc
         || literal(bytes, base, at(0x40)?, 3)? != 0x04002240
         || literal(bytes, base, at(0x182)?, 3)? != 0x04002240

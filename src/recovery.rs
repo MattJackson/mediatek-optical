@@ -116,7 +116,11 @@ impl Receiver {
     pub fn chip(&self) -> Chip {
         self.chip
     }
-    /// Verify identity, receiver instructions and chip/banner before a write.
+    /// Verify identity, receiver evidence and chip/banner before a write.
+    ///
+    /// A receiver from [`Receiver::identify_reference`] re-reads only INQUIRY
+    /// identity, the boot banner and build metadata; its instruction evidence
+    /// comes from the reference image and is not re-read.
     pub fn revalidate<T: Transport>(&self, t: &mut T) -> Result<(), Error<T::Error>> {
         self.receiver.revalidate(t).map_err(Error::Receiver)?;
         let mut banner = [0; layout::BANNER.len];

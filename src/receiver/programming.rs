@@ -26,7 +26,9 @@ pub use mode_three::{inspect_mode_three_wrapper, ModeThreeWrapper};
 /// Check the native 16-entry integrity walker against its complete instruction
 /// grammar. Both staging loads must bind to the caller's decoded staging cell;
 /// all diagnostic calls share one target. The crypto routine is retained OEM
-/// code, not replaced or inferred from a firmware/model name.
+/// code, not replaced or inferred from a firmware/model name. The callee of
+/// the call before the loop (+0x0e) and the diagnostic callee are not bound:
+/// their behaviour is a separate obligation.
 pub fn inspect_integrity_walker(
     bytes: &[u8],
     base: u32,

@@ -51,6 +51,16 @@ pub struct ApplicationAnalysis {
     conflicting_arguments: bool,
 }
 
+// Whether the halfword before `start` opens a 32-bit Thumb-2 encoding.
+fn after_wide_prefix(bytes: &[u8], base: u32, start: u32) -> bool {
+    start
+        .checked_sub(2)
+        .and_then(|previous| previous.checked_sub(base))
+        .and_then(|offset| usize::try_from(offset).ok())
+        .and_then(|offset| bytes.get(offset..offset.checked_add(2)?))
+        .is_some_and(|half| u16::from_le_bytes([half[0], half[1]]) >> 11 >= 0b11101)
+}
+
 impl ApplicationAnalysis {
     /// Analyze a bounded application code snapshot once. No firmware target,
     /// filename, model or version string contributes to the result.
@@ -204,6 +214,7 @@ impl ApplicationAnalysis {
             let first = range.selection.address.saturating_sub(512).max(base);
             let mut header: Option<Call> = None;
             let mut ambiguous = false;
+            let mut boundary = false;
             for start in (first..range.selection.address).step_by(2) {
                 let Some(call) =
                     decoding::trace_call(bytes, base, start, [Value::Unknown; 8], |a| {
@@ -230,11 +241,16 @@ impl ApplicationAnalysis {
                 } else {
                     header = Some(call);
                 }
+                // A start after a 32-bit prefix halfword may be the second
+                // half of an instruction the CPU executes as one; such a
+                // trace still counts toward ambiguity but cannot alone
+                // establish the header arguments.
+                boundary |= !after_wide_prefix(bytes, base, start);
             }
             // A proven in-place body decode without its header call is
             // incomplete evidence, never the absence of a bulk decoder.
             match (ambiguous, header) {
-                (false, Some(header)) => bulk.push(BulkDecode {
+                (false, Some(header)) if boundary => bulk.push(BulkDecode {
                     selection_address: range.selection.address,
                     header,
                     from_zero,
