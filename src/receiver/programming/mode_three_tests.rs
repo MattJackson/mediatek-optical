@@ -63,3 +63,24 @@ fn unaligned_loop_address_is_rejected() {
     image[literal..literal + 4].copy_from_slice(&0x17003u32.to_le_bytes());
     assert!(inspect_mode_three_wrapper(&image, 0, 0x17c44e).is_none());
 }
+
+#[test]
+fn setup_failure_exit_restores_and_returns() {
+    let image = fixture();
+    let wrapper = 0x17c44e;
+    // +0x30, +0x38 and +0x3e leave the mode-three path for +0x9a. That exit
+    // reloads the saved state, calls the restore routine and branches back
+    // to the common return.
+    for relative in [0x9a, 0x9b, 0xa0, 0xa1] {
+        let mut changed = image.clone();
+        changed[wrapper + relative] ^= 1;
+        assert!(
+            inspect_mode_three_wrapper(&changed, 0, wrapper as u32).is_none(),
+            "{relative:#x}"
+        );
+    }
+    // Retarget the exit's restore BLX to the entry's save routine.
+    let mut changed = image.clone();
+    changed[wrapper + 0x9c..wrapper + 0xa0].copy_from_slice(&image[wrapper + 0x16..wrapper + 0x1a]);
+    assert!(inspect_mode_three_wrapper(&changed, 0, wrapper as u32).is_none());
+}

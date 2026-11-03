@@ -57,8 +57,9 @@ fn explicit_reference_binds_without_physical_code_reads() {
     assert_eq!(receiver.provenance(), Provenance::CurrentReference);
     assert_eq!(receiver.reference_sha256(), Some(envelope.image_sha256()));
     assert!(receiver.prepare_command().is_some());
+    let detected = live.reads;
     receiver.revalidate(&mut live).unwrap();
-    assert!(live.reads > 0);
+    assert!(live.reads > detected);
 }
 
 #[test]

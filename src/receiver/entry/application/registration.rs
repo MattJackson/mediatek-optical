@@ -10,9 +10,11 @@ pub struct Registration {
     pub callback: u32,
 }
 
-/// Find exactly one aligned record containing opcode 0x3B/type 1 and the
-/// supplied Thumb callback. Unknown types, non-Thumb pointers, duplicates,
-/// truncated records and address overflow never supply a registration.
+/// Find exactly one aligned opcode 0x3B/type 1 record and require it to name
+/// the supplied Thumb callback. A second 0x3B/type 1 record for any handler
+/// leaves dispatcher selection ambiguous. Unknown types, non-Thumb pointers,
+/// duplicates, truncated records and address overflow never supply a
+/// registration.
 pub fn inspect_registration(bytes: &[u8], address: u32, callback: u32) -> Option<Registration> {
     if callback & 1 != 0 {
         return None;
@@ -25,18 +27,16 @@ pub fn inspect_registration(bytes: &[u8], address: u32, callback: u32) -> Option
             continue;
         }
         at.checked_add(8)?;
-        if bytes[offset..offset + 4] == [0x3b, 1, 0, 0] && bytes[offset + 4..offset + 8] == pointer
-        {
+        if bytes[offset..offset + 4] == [0x3b, 1, 0, 0] {
             if found.is_some() {
                 return None;
             }
-            found = Some(Registration {
-                record: at,
-                callback,
-            });
+            found = Some(at);
         }
     }
-    found
+    let record = found?;
+    let offset = usize::try_from(record - address).ok()?;
+    (bytes[offset + 4..offset + 8] == pointer).then_some(Registration { record, callback })
 }
 
 #[cfg(test)]

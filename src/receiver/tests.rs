@@ -186,7 +186,10 @@ fn recovery_boot_without_application_metadata_validates_image_and_stale_receiver
         Err(PrepareError::ChipMismatch { .. })
     ));
     dev.image[0x36c4] ^= 1;
-    assert!(receiver.revalidate(&mut dev).is_err());
+    assert!(matches!(
+        receiver.revalidate(&mut dev),
+        Err(recovery::Error::Receiver(Error::Changed))
+    ));
 }
 
 #[cfg(all(feature = "image", feature = "enc"))]

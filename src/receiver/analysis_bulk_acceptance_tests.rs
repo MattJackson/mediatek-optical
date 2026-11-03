@@ -147,3 +147,25 @@ fn proven_body_decode_without_its_header_call_is_conflicting_evidence() {
     assert!(analysis.bulk_decoders().is_empty());
     assert!(analysis.conflicting_arguments());
 }
+
+#[test]
+fn header_call_seen_only_from_inside_a_wide_instruction_is_not_proven() {
+    let baseline = ApplicationAnalysis::inspect(HELD, BASE).unwrap();
+    let [bulk] = baseline.bulk_decoders() else {
+        panic!("held image has one bulk decoder")
+    };
+    assert_eq!(bulk.header.address, 0xa76a8);
+    // r2 now comes from `ldr.w r2, [r0, #0x210]`: a runtime value. Only a
+    // trace starting at its second halfword decodes `movs r2, #16`.
+    let mut changed = HELD.to_vec();
+    let at = (0xa7692 - BASE) as usize;
+    for (index, word) in [0xf8d0u16, 0x2210, 0x4831, 0xa905, 0xe001]
+        .into_iter()
+        .enumerate()
+    {
+        changed[at + index * 2..at + index * 2 + 2].copy_from_slice(&word.to_le_bytes());
+    }
+    let analysis = ApplicationAnalysis::inspect(&changed, BASE).unwrap();
+    assert!(analysis.bulk_decoders().is_empty());
+    assert!(analysis.conflicting_arguments());
+}
