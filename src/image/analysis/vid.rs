@@ -109,14 +109,15 @@ impl<'a> VidGate<'a> {
         self.agid_base(self.image)
     }
     /// Nearest `push {r4-r7, lr}` (0xb5f0) producer prologue within 0x200
-    /// bytes preceding this gate. This is a positional search: it does not
-    /// prove uniqueness or recognize other prologue forms.
+    /// bytes preceding the [`Self::comparison`] gate (the same window that
+    /// [`super::AuthCell::inspect`] enforces). This is a positional search: it
+    /// does not prove uniqueness or recognize other prologue forms.
     pub fn producer(&self, image: &[u8]) -> Result<usize, Error> {
         if image != self.image {
             return Err(Error::InvalidContract);
         }
         let mut at = self.anchor + 16;
-        let end = at.saturating_sub(0x200);
+        let end = self.comparison().saturating_sub(0x200);
         while at >= end + 2 {
             at -= 2;
             if half(image, at) == Some(0xb5f0) {

@@ -77,14 +77,19 @@ impl<'a> CommandDispatch<'a> {
         &self.records
     }
     /// Require one reached record with the requested opcode and native flags.
+    /// Another reached ordinary record with the same opcode is ambiguous: the
+    /// native scanner does not advance past it, so it can shadow the request.
+    /// Only link (4) and terminal (3) records are passed over by opcode.
     pub fn record(&self, opcode: u8, flags: u8) -> Result<&CommandRecord, Error> {
-        let mut matches = self
-            .records
-            .iter()
-            .filter(|record| record.opcode == opcode && record.flags == flags);
+        let mut matches = self.records.iter().filter(|record| {
+            record.opcode == opcode && (record.flags == flags || !matches!(record.flags, 3 | 4))
+        });
         let first = matches.next().ok_or(Error::UnknownLayout)?;
         if matches.next().is_some() {
             return Err(Error::Ambiguous);
+        }
+        if first.flags != flags {
+            return Err(Error::UnknownLayout);
         }
         if first.handler & 1 == 0 || first.handler as usize >= self.image.len() {
             return Err(Error::InvalidContract);

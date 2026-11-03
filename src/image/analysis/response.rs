@@ -179,20 +179,7 @@ impl<'a> ResponseIo<'a> {
     }
     pub(super) fn from_dispatch(commands: &super::CommandDispatch<'a>) -> Result<Self, Error> {
         let image = commands.image();
-        let entries: std::collections::BTreeSet<_> = commands
-            .records()
-            .iter()
-            .filter(|record| record.opcode == 0x12 && record.flags == 7)
-            .map(|record| (record.handler & !1) as usize)
-            .collect();
-        if entries.len() != 1 {
-            return Err(if entries.is_empty() {
-                Error::UnknownLayout
-            } else {
-                Error::Ambiguous
-            });
-        }
-        let entry = *entries.first().ok_or(Error::UnknownLayout)?;
+        let entry = (commands.record(0x12, 7)?.handler & !1) as usize;
         let mut prologue = entry;
         while prologue < entry.saturating_add(8) && literal_load(image, prologue).is_some() {
             prologue += 2;
