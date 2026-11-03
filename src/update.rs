@@ -214,6 +214,13 @@ impl DriveClass {
     /// Inclusive byte ranges a read-back must match: every active integrity
     /// entry, clipped to [`DriveClass::verify_floor`]. Per-unit regions are
     /// outside every entry.
+    ///
+    /// Returns no ranges when the integrity table cannot be parsed (a short
+    /// buffer, an out-of-bounds or circular entry) as well as when no active
+    /// entry reaches above the floor. Either way nothing can be verified: an
+    /// empty result is never evidence of a matching read-back, and the
+    /// library's own preparation refuses such an image with
+    /// [`PrepareError::Integrity`].
     pub fn verification_ranges(self, image: &[u8]) -> Vec<RangeInclusive<usize>> {
         let Ok(entries) = cmac::parse_table(image) else {
             return Vec::new();
