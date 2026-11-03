@@ -46,3 +46,21 @@ fn rejects_capture_corruption_empty_integrity_and_unknown_framing() {
         Error::Image(PrepareError::Size(16))
     );
 }
+
+#[test]
+fn rejects_an_unrecognised_integrity_enabled_word() {
+    let mut image = fixtures::image(&BU3, 3);
+    assert!(Envelope::load(&image).is_ok());
+    let at = image::cmac::TABLE_OFFSET + image::cmac::ENTRY_SIZE;
+    image[at..at + 4].copy_from_slice(&0u32.to_le_bytes());
+    assert_eq!(
+        Envelope::load(&image).unwrap_err(),
+        Error::Image(PrepareError::Integrity)
+    );
+    let mut wire = image;
+    crate::enc::encrypt(&mut wire).unwrap();
+    assert_eq!(
+        Envelope::load(&wire).unwrap_err(),
+        Error::Image(PrepareError::Integrity)
+    );
+}

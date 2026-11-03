@@ -223,6 +223,14 @@ fn recovery_boot_without_application_metadata_validates_image_and_stale_receiver
         receiver.prepare(&corrupt),
         Err(PrepareError::Integrity)
     ));
+    // An unrecognised integrity-table enabled word is refused like corruption.
+    let mut unknown = target.clone();
+    let at = crate::image::cmac::TABLE_OFFSET + crate::image::cmac::ENTRY_SIZE;
+    unknown[at..at + 4].copy_from_slice(&0u32.to_le_bytes());
+    assert!(matches!(
+        receiver.prepare(&unknown),
+        Err(PrepareError::Integrity)
+    ));
     let wrong_chip = fixtures::image(&fixtures::JB7, 2);
     assert!(matches!(
         receiver.prepare(&wrong_chip),

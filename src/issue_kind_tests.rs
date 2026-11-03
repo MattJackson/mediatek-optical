@@ -53,3 +53,15 @@ fn an_unobserved_restart_is_a_post_write_verification_state() {
         crate::operation::IssueKind::Verification
     );
 }
+
+#[cfg(feature = "image")]
+#[test]
+fn an_unrecognised_cmac_enabled_word_is_invalid_firmware() {
+    use crate::{image::cmac::CmacError, operation::IssueKind, CodedError};
+    let e = CmacError::UnknownEnabled {
+        index: 1,
+        enabled: 0,
+    };
+    assert_eq!(e.code(), "mediatek.cmac.unknown_enabled");
+    assert_eq!(e.kind(), IssueKind::InvalidFirmware);
+}

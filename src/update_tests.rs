@@ -203,6 +203,30 @@ fn an_untagged_image_is_matched_by_the_drive_banner() {
 }
 
 #[test]
+fn an_unrecognised_integrity_enabled_word_is_refused_before_any_write() {
+    let running = fixtures::image(&JB7, 1);
+    let mut target = fixtures::image(&JB7, 2);
+    let live = identity_of(&running);
+    assert!(PreparedUpdate::check(&target, &live).is_ok());
+    assert!(prepare(&target, &running).is_ok());
+    assert!(PreparedUpdate::prepare_without_installed(&target, &live).is_ok());
+    let at = cmac::TABLE_OFFSET + cmac::ENTRY_SIZE;
+    target[at..at + 4].copy_from_slice(&0u32.to_le_bytes());
+    assert_eq!(
+        PreparedUpdate::check(&target, &live).unwrap_err(),
+        PrepareError::Integrity
+    );
+    assert_eq!(
+        prepare(&target, &running).unwrap_err(),
+        PrepareError::Integrity
+    );
+    assert_eq!(
+        PreparedUpdate::prepare_without_installed(&target, &live).unwrap_err(),
+        PrepareError::Integrity
+    );
+}
+
+#[test]
 fn invalid_images_are_refused_first() {
     let running = fixtures::image(&JB7, 1);
     let mut short = running.clone();

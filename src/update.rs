@@ -56,8 +56,9 @@ pub enum PrepareError {
     Layout(crate::receiver::layout::Error),
     /// The image is not [`layout::IMAGE_SIZE`] bytes.
     Size(usize),
-    /// The image fails its AES-CMAC integrity table, or that table leaves no
-    /// protected range that read-back can verify.
+    /// The image fails its AES-CMAC integrity table (including an entry whose
+    /// `enabled` word is unrecognised, see [`cmac::verify`]), or that table
+    /// leaves no protected range that read-back can verify.
     Integrity,
     /// The image is a raw drive read: its boot page is the read-back mirror,
     /// and writing it would store that page in place of the boot page.
@@ -224,6 +225,11 @@ impl DriveClass {
     /// empty result is never evidence of a matching read-back, and the
     /// library's own preparation refuses such an image with
     /// [`PrepareError::Integrity`].
+    ///
+    /// The result is only meaningful for an image that passed
+    /// [`cmac::verify`]: this filters entries by [`cmac::CmacEntry::is_active`]
+    /// alone and does not itself refuse an unrecognised `enabled` word. Every
+    /// update and recovery path gates on `cmac::verify` before calling it.
     pub fn verification_ranges(self, image: &[u8]) -> Vec<RangeInclusive<usize>> {
         let Ok(entries) = cmac::parse_table(image) else {
             return Vec::new();

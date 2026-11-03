@@ -64,6 +64,7 @@ impl CodedError for crate::image::cmac::CmacError {
             Self::ImageTooSmall { .. } => "mediatek.cmac.image_too_small",
             Self::BadRange { .. } => "mediatek.cmac.bad_range",
             Self::CircularTable => "mediatek.cmac.circular_table",
+            Self::UnknownEnabled { .. } => "mediatek.cmac.unknown_enabled",
         }
     }
 }
