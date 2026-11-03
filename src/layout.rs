@@ -45,8 +45,9 @@ pub const BOOT_MIRROR: Range = Range {
     len: 0x400,
 };
 
-/// The boot area: the 4 KiB flash sector holding [`BOOT_PAGE`]. The drive
-/// serves it remapped, so read-back verification skips it.
+/// The boot area: the 4 KiB flash sector holding [`BOOT_PAGE`]. Only
+/// [`BOOT_PAGE`] is known to read back remapped; read-back verification
+/// conservatively compares no byte of the whole sector.
 pub const BOOT_AREA: Range = Range {
     name: "boot area",
     start: 0,

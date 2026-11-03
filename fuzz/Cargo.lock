@@ -170,11 +170,12 @@ dependencies = [
 
 [[package]]
 name = "mediatek-optical"
-version = "1.0.0"
+version = "1.2.0"
 dependencies = [
  "aes",
  "cmac",
  "sha2",
+ "thumb-asm",
 ]
 
 [[package]]
@@ -213,6 +214,11 @@ name = "subtle"
 version = "2.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "13c2bddecc57b384dee18652358fb23172facb8a2c51ccc10d74c157bdea3292"
+
+[[package]]
+name = "thumb-asm"
+version = "0.14.1"
+source = "git+https://github.com/MattJackson/thumb-asm?rev=0d9b37aa76c964949256146ce9be0cfbe4f823a0#0d9b37aa76c964949256146ce9be0cfbe4f823a0"
 
 [[package]]
 name = "typenum"
