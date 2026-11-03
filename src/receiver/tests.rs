@@ -240,3 +240,46 @@ fn a_failed_scan_or_routine_read_is_an_error_not_partial_evidence() {
         Err(Error::Read(_))
     ));
 }
+
+#[cfg(all(feature = "image", feature = "enc"))]
+#[test]
+fn recovery_revalidates_an_unchanged_drive_and_refuses_a_changed_banner_before_writing() {
+    use crate::{fixtures, recovery, update};
+    struct Runtime;
+    impl update::FlashRuntime<&'static str> for Runtime {
+        fn elapsed(&self) -> std::time::Duration {
+            std::time::Duration::ZERO
+        }
+        fn sleep(&mut self, _: std::time::Duration) {
+            panic!("unexpected wait")
+        }
+    }
+    let mut dev = Device::new(Mode::Boot);
+    dev.image = fixtures::image(&fixtures::JB8, 1);
+    dev.stamp(0x36c4, PLAIN_DIRECT);
+    let receiver = recovery::Receiver::identify(&mut dev).unwrap().unwrap();
+    receiver.revalidate(&mut dev).unwrap();
+    let prepared = receiver
+        .prepare(&fixtures::image(&fixtures::BU3, 2))
+        .unwrap();
+    // Same receiver signature and INQUIRY, different live boot banner. The
+    // receiver's own snapshot and recovery's banner binding both refuse it.
+    dev.image[crate::layout::BANNER.start + 0x1f] ^= 1;
+    assert!(matches!(
+        receiver.revalidate(&mut dev),
+        Err(recovery::Error::Changed | recovery::Error::Receiver(Error::Changed))
+    ));
+    let mut writes = Device::new(Mode::Boot);
+    let result = prepared.flash_completed(
+        update::FlashTransport {
+            reads: &mut dev,
+            writes: &mut writes,
+        },
+        &mut Runtime,
+    );
+    assert!(matches!(
+        result,
+        Err(recovery::Error::Changed | recovery::Error::Receiver(Error::Changed))
+    ));
+    assert_eq!(writes.reads, 0, "no command may reach the write session");
+}
