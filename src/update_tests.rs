@@ -273,6 +273,35 @@ fn installed_firmware_must_be_the_live_drive() {
 }
 
 #[test]
+fn installed_binding_compares_the_complete_descriptor() {
+    let running = fixtures::image(&JB7, 1);
+    let capture = fixtures::drive_read(&running);
+    let id = identity_of(&running);
+    // Control: the untouched capture binds.
+    InstalledFirmware::new(id.clone(), &capture).unwrap();
+    // A capture differing past 0x58 of the descriptor is not the live drive.
+    let mut tail = capture.clone();
+    tail[layout::DESCRIPTOR.start + 0x80] ^= 1;
+    assert_eq!(
+        InstalledFirmware::new(id.clone(), &tail).unwrap_err(),
+        PrepareError::InstalledMismatch
+    );
+    // A short live descriptor keeps its tag but is zero-padded: it is missing
+    // evidence, not a match for the capture's tail.
+    let short = Identity::parse(
+        &[0; INQUIRY_LEN],
+        layout::BANNER.of(&running).unwrap(),
+        &layout::DESCRIPTOR.of(&running).unwrap()[..0x58],
+    )
+    .unwrap();
+    assert!(short.has_descriptor());
+    assert_eq!(
+        InstalledFirmware::new(short, &capture).unwrap_err(),
+        PrepareError::InstalledMismatch
+    );
+}
+
+#[test]
 fn steps_are_the_oem_session() {
     let image = fixtures::image(&JB7, 1);
     let steps = prepare(&image, &image).unwrap().steps();

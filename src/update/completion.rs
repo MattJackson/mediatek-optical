@@ -29,8 +29,8 @@ impl Startup {
     pub fn inquiry(&self) -> &[u8; INQUIRY_LEN] {
         &self.inquiry
     }
-    /// Live model, revision and build metadata matched against the target.
-    /// The device-written descriptor tail is deliberately excluded.
+    /// Live model, revision and build metadata (descriptor bytes `0..0x58`);
+    /// all [`layout::DESCRIPTOR`] bytes matched the target.
     pub fn descriptor(&self) -> &[u8; 0x58] {
         &self.descriptor
     }
@@ -135,7 +135,7 @@ fn confirm_startup<T: drive::Transport>(
     let mut descriptor = [0; layout::DESCRIPTOR.len];
     drive::read_memory(reads, layout::DESCRIPTOR.start as u32, &mut descriptor)
         .map_err(StartupError::Read)?;
-    if descriptor[..0x58] != expected[..0x58] {
+    if descriptor[..] != expected[..] {
         return Err(StartupError::TargetMismatch);
     }
     Ok(Startup {

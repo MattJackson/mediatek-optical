@@ -240,7 +240,11 @@ impl InstalledFirmware {
     /// Fails with [`PrepareError::InstalledMismatch`] unless the image is
     /// [`layout::IMAGE_SIZE`] bytes and holds the identity descriptor (when
     /// the identity has one) and the boot banner (when the identity read one)
-    /// the drive reports; at least one of them must be present.
+    /// the drive reports; at least one of them must be present. All
+    /// [`layout::DESCRIPTOR`] bytes must equal the live descriptor: a capture
+    /// and the live read come from the same programmed flash, so any
+    /// difference, including a short live descriptor that
+    /// [`Identity::parse`] zero-pads, is refused.
     pub fn new(identity: Identity, image: &[u8]) -> Result<Self, PrepareError> {
         if image.len() != layout::IMAGE_SIZE {
             return Err(PrepareError::InstalledMismatch);
