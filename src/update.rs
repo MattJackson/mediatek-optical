@@ -43,7 +43,10 @@ pub use flash::{FlashError, FlashRuntime, FlashTransport, Stage, Status, Verifie
 pub enum PrepareError {
     /// No complete live entry profile was identified before preparation.
     ReceiverEntry,
-    /// Decoder evidence does not yet establish an executable transfer contract.
+    /// Decoder evidence does not yet establish an executable transfer contract,
+    /// or the recognized contract does not accept this image (for example a
+    /// required descriptor byte differs, or an active integrity range reaches
+    /// a region the receiver deliberately preserves).
     ReceiverContract,
     /// The receiver's transfer layout is contradictory; no firmware was sent.
     #[cfg(all(feature = "drive", feature = "enc"))]
@@ -89,9 +92,10 @@ impl core::fmt::Display for PrepareError {
             Self::ReceiverEntry => f.write_str(
                 "receiver entry profile is unknown; detect the live receiver before preparing",
             ),
-            Self::ReceiverContract => {
-                f.write_str("receiver transfer contract is incomplete; no firmware was sent")
-            }
+            Self::ReceiverContract => f.write_str(
+                "receiver transfer contract is incomplete or does not accept this image; \
+                     no firmware was sent",
+            ),
             #[cfg(all(feature = "drive", feature = "enc"))]
             Self::Layout(e) => write!(f, "receiver transfer layout is unsupported: {e}"),
             Self::Size(n) => write!(

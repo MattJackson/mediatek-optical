@@ -551,8 +551,32 @@ fn live_detection_selects_prepare_and_encoding_for_every_published_receiver() {
             );
             *transfer_counts.entry(format.clone()).or_default() += 1;
             transfer_cases.push(serde_json::json!({"sha256":hash,"mode":format!("{:?}",expected_mode),"format":format,"prepare":prepared.plan().prepare_command().command(),"flash_and_recovery_prepared":true}));
+            // Unchanged bytes revalidate, including the whole profile snapshot.
+            assert!(
+                detected.revalidate(&mut device).is_ok(),
+                "{hash} BOOT={boot}"
+            );
+            // The last banner byte is covered only by the profile snapshot,
+            // not by the signature site or AES routine evidence.
+            let banner = mediatek_optical::layout::BANNER;
+            let profile_only = banner.start + banner.len - 1;
+            device.bytes[profile_only] ^= 1;
+            assert!(
+                matches!(
+                    detected.revalidate(&mut device),
+                    Err(receiver::Error::Changed)
+                ),
+                "{hash} BOOT={boot}"
+            );
+            device.bytes[profile_only] ^= 1;
             device.bytes[detected.signature_address() as usize] ^= 1;
-            assert!(detected.revalidate(&mut device).is_err());
+            assert!(
+                matches!(
+                    detected.revalidate(&mut device),
+                    Err(receiver::Error::Changed)
+                ),
+                "{hash} BOOT={boot}"
+            );
             count += 1;
         }
     }

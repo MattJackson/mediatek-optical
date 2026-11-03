@@ -83,3 +83,34 @@ fn immediate_integrity_join_remains_supported() {
     assert_eq!(proof.success, BASE + 40);
     assert_eq!(proof.failure, BASE + 26);
 }
+
+#[test]
+fn walker_start_must_be_an_instruction_boundary() {
+    let checks = include_bytes!("../../tests/fixtures/analysis/uh12-native-checks.bin");
+    let crypto = include_bytes!("../../tests/fixtures/analysis/uh12-cmac-range.bin");
+    let helpers = include_bytes!("../../tests/fixtures/analysis/uh12-cmac-helpers.bin");
+    let mut bytes = vec![0; 0x200000];
+    bytes[0x17c27a..0x17c27a + checks.len()].copy_from_slice(checks);
+    bytes[0x17c0e0..0x17c0e0 + crypto.len()].copy_from_slice(crypto);
+    bytes[0x17f9c..0x17f9c + helpers.len()].copy_from_slice(helpers);
+    let start = 0x17c298;
+    assert!(inspect_integrity_walker(&bytes, 0, start, 0x02000c2c).is_some());
+    // Shift the whole stream by one byte, then restore every literal word at
+    // the word-aligned pool address an odd-PC load computes.
+    let mut shifted = vec![0; bytes.len()];
+    shifted[1..].copy_from_slice(&bytes[..bytes.len() - 1]);
+    let mut pools = Vec::new();
+    for at in (0..bytes.len() - 1).step_by(2) {
+        let op = u16::from_le_bytes([bytes[at], bytes[at + 1]]);
+        if op & 0xf800 == 0x4800 && op != 0 {
+            pools.push(((at + 4) & !3) + usize::from(op & 255) * 4);
+        }
+    }
+    for pool in pools {
+        shifted[pool..pool + 4].copy_from_slice(&bytes[pool..pool + 4]);
+    }
+    assert_eq!(
+        inspect_integrity_walker(&shifted, 0, start + 1, 0x02000c2c),
+        None
+    );
+}

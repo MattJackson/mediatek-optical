@@ -177,3 +177,41 @@ fn a_start_without_a_readable_previous_halfword_is_not_a_proven_boundary() {
     assert!(super::after_wide_prefix(&bytes, 0x1000, 0x1000));
     assert!(!super::after_wide_prefix(&bytes, 0x1000, 0x1002));
 }
+
+#[test]
+fn scratch_call_seen_only_from_inside_a_wide_instruction_is_not_proven() {
+    // BH16NS40 INTM excerpts restored at their source offsets in an erased
+    // window: the selection/signature block with its staged header call, and
+    // the AES routine prologue that call targets.
+    const SCRATCH_BASE: u32 = 0x9b000;
+    let mut window = vec![0u8; 0x9d820 - SCRATCH_BASE as usize];
+    for (address, excerpt) in [
+        (
+            0x9d320,
+            include_bytes!("../../tests/fixtures/analysis/intm-scratch-header.bin").as_slice(),
+        ),
+        (
+            0x9b024,
+            include_bytes!("../../tests/fixtures/analysis/intm-aes-prologue.bin").as_slice(),
+        ),
+    ] {
+        let at = address - SCRATCH_BASE as usize;
+        window[at..at + excerpt.len()].copy_from_slice(excerpt);
+    }
+    let baseline = ApplicationAnalysis::inspect(&window, SCRATCH_BASE).unwrap();
+    let [header] = baseline.scratch_decoders() else {
+        panic!("excerpt has one scratch header decoder")
+    };
+    assert_eq!((header.address, header.target), (0x9d48e, 0x9b024));
+    assert!(!baseline.conflicting_arguments());
+    // r2 now comes from `ldr.w r2, [r4, #0x210]`, a runtime value, and the
+    // original `movs r2, #16` becomes `movs r2, r2`. Only a trace starting at
+    // the load's second halfword decodes `movs r2, #16`.
+    for (address, word) in [(0x9d47c, 0xf8d4u16), (0x9d47e, 0x2210), (0x9d488, 0x0012)] {
+        let at = address - SCRATCH_BASE as usize;
+        window[at..at + 2].copy_from_slice(&word.to_le_bytes());
+    }
+    let changed = ApplicationAnalysis::inspect(&window, SCRATCH_BASE).unwrap();
+    assert!(changed.scratch_decoders().is_empty());
+    assert!(changed.conflicting_arguments());
+}

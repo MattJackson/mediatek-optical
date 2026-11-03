@@ -36,7 +36,7 @@ pub fn inspect_integrity_walker(
     staging_cell: u32,
 ) -> Option<u32> {
     use super::decoding::branch_link;
-    if !ram(staging_cell) {
+    if base & 1 != 0 || start & 1 != 0 || !ram(staging_cell) {
         return None;
     }
     let expected = super::mixed::COMPACT_INTEGRITY.get(15..96)?;

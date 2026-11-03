@@ -340,12 +340,16 @@ impl ApplicationAnalysis {
         &self.integrity
     }
     /// Argument-traced scratch header decoder calls, not whole-image decoders.
+    /// A call established only by traces that do not start on a proven
+    /// instruction boundary is withheld and sets [`Self::conflicting_arguments`].
     pub fn scratch_decoders(&self) -> &[Call] {
         &self.scratch
     }
     /// Whether the evidence is ambiguous or incomplete: candidate traces
     /// disagree about a decoder's actual arguments, more than one acceptance
-    /// tail matches a range, or a proven body decode lacks its header call.
+    /// tail matches a range, a proven body decode lacks its header call, or a
+    /// scratch or bulk header call is established only by traces that do not
+    /// start on a proven instruction boundary.
     /// Consumers must refuse a transfer contract when this is set.
     pub fn conflicting_arguments(&self) -> bool {
         self.conflicting_arguments
