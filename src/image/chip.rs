@@ -70,8 +70,8 @@ pub struct ChipInfo {
     /// gates the family (see module docs).
     pub marker_0x50: Option<u8>,
     /// Whether the image carries a well-formed MTEK identity page at
-    /// [`layout::DESCRIPTOR`] (tag `MTEKMT19..` present). Gates identity-page
-    /// edits such as the downgrade-enable byte.
+    /// [`layout::DESCRIPTOR`] (tag `MTEKMT19` at `+0x34`). Display only: when
+    /// `false` the descriptor text fields are reported empty.
     pub descriptor_present: bool,
 }
 
@@ -152,7 +152,7 @@ pub fn detect_chip(image: &[u8]) -> Result<ChipInfo, ChipError> {
     // --- Identity tag (stale vendor label): display / audit only. ---
     let identity_tag = first_mtek_tag(image);
 
-    // --- Descriptor parse (display-only + DE anchor). ---
+    // --- Descriptor parse (display-only). ---
     let (vendor, model, rev, vendor_specific, marker_0x50, descriptor_present) =
         parse_descriptor(image);
 

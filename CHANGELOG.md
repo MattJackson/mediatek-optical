@@ -5,6 +5,8 @@
 - `FlashError::Startup` now takes its `IssueKind` from the `StartupError` it wraps: `TargetMismatch` is `Verification`, `Read` is `Connection` and `Identity` is `Update`. `ExecuteError` delegates its kind to its cause, so receiver refusals are reported as `ReceiverMismatch`, `Connection` and so on instead of `IssueKind::Update`.
 - `analysis::Error` codes now carry a host category: `unknown_layout` and `ambiguous` are `UnsupportedFirmware`, `invalid_contract` and `truncated` are `InvalidFirmware` (previously `Unexpected`). `reference::Error::Analysis` reports offline identity or read failures in the supplied Current file as `InvalidFirmware` instead of `Connection`.
 - Add `CmacError::CircularTable`; `cmac::resign` now refuses tables with more than one active table-covering entry.
+- Add `CmacError::CircularTable`; `cmac::resign` now refuses tables with more than one active table-covering entry, or an active entry whose range covers its own digest bytes.
+- `image::family::hardware` takes the chip only from the banner's leading `MT19xx` field and refuses a bootloader token longer than eight characters instead of truncating it.
 - `analysis::Diagnostic::source()` now returns the underlying cause.
 - `AuthCell` refusal stores must go through the register their literal load defines; an `r0`-based store without a literal load is refused.
 - `RamReferences::incomplete()` now includes seeds whose path reaches an unmodelled branch (`cbz`/`cbnz`, table branches, indirect `bx`/`blx`); function returns still end a path normally.

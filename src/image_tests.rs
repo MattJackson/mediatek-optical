@@ -97,3 +97,17 @@ fn resign_refuses_two_entries_that_both_cover_the_table() {
     }
     assert_eq!(cmac::resign(&img), Err(cmac::CmacError::CircularTable));
 }
+
+#[test]
+fn resign_refuses_an_entry_that_covers_its_own_digest() {
+    let mut img = vec![0u8; layout::IMAGE_SIZE];
+    let table = cmac::TABLE_OFFSET;
+    img[table..table + cmac::ENTRY_COUNT * cmac::ENTRY_SIZE].fill(0xFF);
+    img[table..table + 4].copy_from_slice(&1u32.to_le_bytes());
+    img[table + 4..table + 8].copy_from_slice(&0x10000u32.to_le_bytes());
+    img[table + 8..table + 12].copy_from_slice(&0x105BFu32.to_le_bytes());
+    assert_eq!(
+        cmac::resign(&img).err(),
+        Some(cmac::CmacError::CircularTable)
+    );
+}
