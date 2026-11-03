@@ -216,6 +216,10 @@ impl Receiver {
         self.site.address
     }
     /// Re-read identity and matched instructions immediately before writing.
+    ///
+    /// A reference-bound receiver (`Provenance::CurrentReference`, built by
+    /// `Receiver::from_firmware`) re-reads only INQUIRY identity, the boot banner
+    /// and build metadata; its instruction evidence is not re-read.
     pub fn revalidate<T: Transport>(&self, t: &mut T) -> Result<(), Error<T::Error>> {
         #[cfg(all(feature = "image", feature = "enc"))]
         if let Some(reference) = &self.reference {
@@ -309,7 +313,8 @@ pub fn detect_encoding<T: Transport>(
     while base < end {
         let len = core::cmp::min(block.len(), (end - base) as usize);
         drive::read_memory(t, base, &mut block[..len]).map_err(Error::Read)?;
-        for off in (0..len.saturating_sub(4)).step_by(2) {
+        // Inclusive of `len - 4`: a 4-byte call ending at the window end counts.
+        for off in (0..len.saturating_sub(3)).step_by(2) {
             let bytes = &block[off..len];
             let address = base + off as u32;
             let mut candidate = None;

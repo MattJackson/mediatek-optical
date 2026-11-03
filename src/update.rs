@@ -50,7 +50,8 @@ pub enum PrepareError {
     Layout(crate::receiver::layout::Error),
     /// The image is not [`layout::IMAGE_SIZE`] bytes.
     Size(usize),
-    /// The image fails its AES-CMAC integrity table.
+    /// The image fails its AES-CMAC integrity table, or that table leaves no
+    /// protected range that read-back can verify.
     Integrity,
     /// The image is a raw drive read: its boot page is the read-back mirror,
     /// and writing it would store that page in place of the boot page.
@@ -98,7 +99,9 @@ impl core::fmt::Display for PrepareError {
                 "image is {n} bytes; an update image is exactly {} bytes",
                 layout::IMAGE_SIZE
             ),
-            Self::Integrity => f.write_str("image fails its AES-CMAC integrity check"),
+            Self::Integrity => f.write_str(
+                "image fails its AES-CMAC integrity check or has no verifiable protected range",
+            ),
             Self::DriveRead => f.write_str(
                 "image is a raw drive read (its boot page is the read-back copy), not a \
                  flashable image",
@@ -245,8 +248,11 @@ impl InstalledFirmware {
         let descriptor = identity
             .has_descriptor()
             .then(|| layout::DESCRIPTOR.of(image) == Some(&identity.descriptor_bytes()[..]));
-        let banner = (!identity.banner().is_empty())
-            .then(|| layout::BANNER.of(image) == Some(&identity.banner_bytes()[..]));
+        // A banner that names a chip is bound even when it does not start
+        // with printable text: the chip gate reads these same raw bytes.
+        let banner = (!identity.banner().is_empty()
+            || Chip::from_banner(identity.banner_bytes()).is_some())
+        .then(|| layout::BANNER.of(image) == Some(&identity.banner_bytes()[..]));
         match (descriptor, banner) {
             (None, None) | (Some(false), _) | (_, Some(false)) => {
                 Err(PrepareError::InstalledMismatch)
