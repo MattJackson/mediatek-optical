@@ -16,8 +16,12 @@ fn compiler_trampolines_are_bounded_and_cycles_are_rejected() {
         ),
         Some(0x100c)
     );
-    let mut fourth = bytes;
+    // A fourth trampoline whose destination is an in-window non-branch:
+    // only the three-step bound rejects it.
+    let mut fourth = [0xff; 18];
+    fourth[..12].copy_from_slice(&bytes[..12]);
     fourth[12..14].copy_from_slice(&[0x00, 0xe0]);
+    fourth[16..18].copy_from_slice(&[0x83, 0x78]);
     assert_eq!(
         follow(
             &Window {
@@ -28,6 +32,8 @@ fn compiler_trampolines_are_bounded_and_cycles_are_rejected() {
         ),
         None
     );
+    // With a three-step bound any cycle also ends at a branch, so this only
+    // pins the observable result; the explicit cycle check is not separable.
     let cycle = [0xfe, 0xe7];
     assert_eq!(
         follow(

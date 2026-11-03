@@ -59,7 +59,9 @@ pub struct Call {
     pub destination: Value,
     /// Exact length, established through data flow into r2.
     pub length: u32,
-    /// Preserved r3 evidence; programming wrappers use it to select their mode.
+    /// r3 as traced from this start point. Programming wrappers use r3 to
+    /// select their mode; it is not an AES argument, so for scratch decoders
+    /// it is not compared across traces and may depend on the start point.
     pub fourth_argument: Value,
 }
 

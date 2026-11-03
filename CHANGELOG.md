@@ -2,6 +2,7 @@
 
 ## 1.2.0 — Unreleased
 
+- `ApplicationAnalysis` no longer reports a scratch decoder established only by a trace starting inside a 32-bit Thumb-2 instruction; such a call is withheld from `scratch_decoders()` and sets `conflicting_arguments()`, matching the bulk-header rule.
 - Analysis refuses more partial evidence: `RequestedRateClamp::detect` also counts a clamp in the last 32 bytes of the image (`Ambiguous`); `AuthCell` requires the auth==6 fall-through to reach the preparation call through straight-line code and direct `BL` calls; `ResponseIo` reports `Ambiguous` when a writer's buffer offset is passed by a committer caller whose argument cannot be proven; `VidGate::agid_base` also binds checked AGID reads through `r0`-`r3`.
 - `analysis::UhdHandling` is no longer exported: no public API produced or accepted it; `UhdAreaContract::selects_c7()` remains the public view.
 - `SavedLink::bind` (and roles built on it) refuses a walk that spills more than 256 bytes of stack pointers onto the stack with `InvalidContract`, instead of exhausting memory on looping pointer spills.

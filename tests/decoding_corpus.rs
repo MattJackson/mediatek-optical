@@ -391,6 +391,30 @@ fn aes_prologue(bytes: &[u8], address: u32) -> bool {
 }
 
 #[test]
+#[ignore = "requires private MTK_HOARD_ROOT"]
+fn scratch_call_seen_only_from_inside_a_wide_instruction_is_not_proven() {
+    use mediatek_optical::receiver::analysis::ApplicationAnalysis;
+    let (_, paths) = images();
+    let intm = firmware(
+        &paths,
+        "c3a18eed17251d1508964647e833ffdfe01b13c28dff9a717dfac6336e7c70e6",
+    );
+    let mut window = intm[0x98000..0xb4000].to_vec();
+    let cached = ApplicationAnalysis::inspect(&window, 0x98000).unwrap();
+    assert_eq!(cached.scratch_decoders()[0].address, 0x9d48e);
+    // r2 now comes from `ldr.w r2, [r4, #0x210]`, a runtime value, and the
+    // original `movs r2, #16` becomes `movs r2, r2`. Only a trace starting at the
+    // load's second halfword decodes `movs r2, #16`.
+    for (address, word) in [(0x9d47c, 0xf8d4u16), (0x9d47e, 0x2210), (0x9d488, 0x0012)] {
+        let at = address - 0x98000;
+        window[at..at + 2].copy_from_slice(&word.to_le_bytes());
+    }
+    let changed = ApplicationAnalysis::inspect(&window, 0x98000).unwrap();
+    assert!(changed.scratch_decoders().is_empty());
+    assert!(changed.conflicting_arguments());
+}
+
+#[test]
 #[ignore = "offline candidate validation; requires private MTK_HOARD_ROOT"]
 fn intm_mixed_candidate_preserves_boot_and_passes_held_image_integrity() {
     use mediatek_optical::{
