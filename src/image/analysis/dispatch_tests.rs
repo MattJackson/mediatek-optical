@@ -158,3 +158,70 @@ fn array_pattern_without_bound_definition_refuses() {
     put_word(&mut image, 0x21c, 0x0300_0000);
     assert_eq!(roots(&image), Err(super::Error::InvalidContract));
 }
+
+/// The scanner fixture with an undefined instruction on a reachable path the
+/// grammar does not fix, so its native frame cannot be proven.
+fn unproven_scanner() -> Vec<u8> {
+    let mut image = scanner();
+    put(&mut image, 92, &[0xde00]);
+    image
+}
+
+#[test]
+fn scanner_grammar_with_unproven_frame_refuses() {
+    let image = unproven_scanner();
+    assert!(CommandScanner::grammar(&image, 0).is_some());
+    assert_eq!(CommandScanner::at(&image, 0), None);
+    // A complete grammar is a contract violation, not an absent role.
+    assert_eq!(
+        CommandScanner::inspect(&image),
+        Err(super::Error::InvalidContract)
+    );
+}
+
+#[test]
+fn scanner_grammar_with_unproven_frame_makes_role_ambiguous() {
+    // A second native scanner must not vanish because its frame is unproven.
+    let mut image = scanner();
+    image.resize(0x200, 0);
+    image[0x100..0x200].copy_from_slice(&unproven_scanner());
+    assert_eq!(
+        CommandScanner::inspect(&image),
+        Err(super::Error::Ambiguous)
+    );
+}
+
+/// A correctly shaped registration at 0x1c0 in code with no provable frame.
+fn with_frameless_registration(mut image: Vec<u8>, root: u32) -> Vec<u8> {
+    // ldr r0,=root; mov r1,#0; bl registrar; b .
+    put(&mut image, 0x1c0, &[0x4803, 0x2100]);
+    put_bl(&mut image, 0x1c4, 0x100);
+    put(&mut image, 0x1c8, &[0xe7fe]);
+    put_word(&mut image, 0x1d0, root);
+    image
+}
+
+#[test]
+fn frameless_registration_of_new_root_refuses() {
+    assert_eq!(
+        roots(&with_frameless_registration(registered(), 0x1e0)),
+        Err(super::Error::InvalidContract)
+    );
+}
+
+#[test]
+fn frameless_registration_of_proven_root_is_accepted() {
+    assert_eq!(
+        roots(&with_frameless_registration(registered(), 0x1a0)),
+        Ok(vec![0x1a0])
+    );
+}
+
+#[test]
+fn frameless_scanner_caller_refuses() {
+    // A scanner caller whose frame cannot be proven could own an array.
+    let mut image = registered();
+    put_bl(&mut image, 0x1c0, 0);
+    put(&mut image, 0x1c4, &[0xe7fe]);
+    assert_eq!(roots(&image), Err(super::Error::InvalidContract));
+}

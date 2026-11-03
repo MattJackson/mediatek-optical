@@ -170,6 +170,17 @@ impl SavedLink {
     /// Bind an explicit entry and detour using a bounded native control-flow walk.
     /// The detour may clobber LR only until the next native call or pop-PC return.
     pub fn bind(image: &[u8], entry: usize, site: usize) -> Result<Self, Error> {
+        let (stack_bytes, returns) = Self::frame(image, entry, site)?;
+        Ok(Self {
+            source: Sha256::digest(image).into(),
+            entry,
+            site,
+            stack_bytes,
+            returns,
+        })
+    }
+    /// The bounded walk behind [`Self::bind`]: stack depth and balanced exits.
+    fn frame(image: &[u8], entry: usize, site: usize) -> Result<(usize, Vec<usize>), Error> {
         if entry >= site || !saves_link(image, entry) {
             return Err(Error::InvalidContract);
         }
@@ -402,21 +413,33 @@ impl SavedLink {
         if depths.len() != 1 || returns.is_empty() {
             return Err(Error::InvalidContract);
         }
-        Ok(Self {
-            source: Sha256::digest(image).into(),
-            entry,
-            site,
-            stack_bytes: *depths.iter().next().unwrap(),
-            returns: returns.into_iter().collect(),
-        })
+        Ok((
+            *depths.iter().next().unwrap(),
+            returns.into_iter().collect(),
+        ))
     }
     /// Select the nearest preceding LR-saving entry whose complete local graph
     /// proves the detour's stack and link-register lifetime.
     pub fn detect(image: &[u8], site: usize) -> Result<Self, Error> {
+        let (entry, (stack_bytes, returns)) = Self::nearest(image, site)?;
+        Ok(Self {
+            source: Sha256::digest(image).into(),
+            entry,
+            site,
+            stack_bytes,
+            returns,
+        })
+    }
+    /// The entry [`Self::detect`] selects, without hashing the input. Callers
+    /// that prove many sites of one image use this to stay linear in its size.
+    pub(super) fn detect_entry(image: &[u8], site: usize) -> Result<usize, Error> {
+        Self::nearest(image, site).map(|(entry, _)| entry)
+    }
+    fn nearest(image: &[u8], site: usize) -> Result<(usize, (usize, Vec<usize>)), Error> {
         for entry in (site.saturating_sub(0x1200)..site).step_by(2).rev() {
             if saves_link(image, entry) {
-                if let Ok(bound) = Self::bind(image, entry, site) {
-                    return Ok(bound);
+                if let Ok(frame) = Self::frame(image, entry, site) {
+                    return Ok((entry, frame));
                 }
             }
         }
