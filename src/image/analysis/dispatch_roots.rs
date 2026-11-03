@@ -22,13 +22,15 @@ fn multiple(image: &[u8], at: usize, mnemonic: &str, base: u8, list: u16) -> boo
 
 /// This native variadic registrar saves r0-r3, initializes the cache, then copies
 /// the original r0 and subsequent arguments into the scanner's array slots 1+.
-fn registrar(image: &[u8], at: usize, array: u32) -> bool {
+/// Returns the array it fills.
+fn registrar(image: &[u8], at: usize) -> Option<u32> {
     use Operand::{Imm, Reg as R};
     let r = |n| R(Reg(n));
-    let lit = |off, reg, value| literal_load(image, at + off) == Some((Reg(reg), value));
-    exact(image,at,"push",&[Operand::RegList(15)])
+    let (Reg(5), array) = literal_load(image, at + 4)? else {
+        return None;
+    };
+    (exact(image,at,"push",&[Operand::RegList(15)])
         && exact(image,at+2,"push",&[Operand::RegList((1<<4)|(1<<5)|(1<<6)|(1<<14))])
-        && lit(4,5,array)
         && exact(image,at+6,"mov",&[r(1),Imm(0)])
         && exact(image,at+8,"mov",&[r(2),Imm(0)])
         && multiple(image,at+10,"stm",5,(1<<1)|(1<<2))
@@ -64,16 +66,17 @@ fn registrar(image: &[u8], at: usize, array: u32) -> bool {
         && exact(image,at+68,"pop",&[Operand::RegList((1<<4)|(1<<5)|(1<<6))])
         && exact(image,at+70,"pop",&[Operand::RegList(1<<3)])
         && exact(image,at+72,"add",&[r(13),Imm(16)])
-        && exact(image,at+74,"bx",&[r(3)])
+        && exact(image,at+74,"bx",&[r(3)]))
+    .then_some(array)
 }
 
 fn arrays(image: &[u8], scanner: &CommandScanner) -> Result<BTreeSet<u32>, Error> {
     use Operand::{Imm, Reg as R};
     let mut arrays = BTreeSet::new();
     for site in thumb_asm::find_bl_sites(image, scanner.entry() as u32) {
-        let Ok(parent) = SavedLink::detect(image, site) else {
-            continue;
-        };
+        // An unprovable scanner caller could own an array whose roots would
+        // otherwise vanish from the table graph.
+        let parent = SavedLink::detect(image, site).map_err(unproven_error)?;
         for at in (parent.entry..(site + 0x100).min(image.len().saturating_sub(8))).step_by(2) {
             let Some(shift) = instruction(image, at) else {
                 continue;
@@ -103,6 +106,7 @@ fn arrays(image: &[u8], scanner: &CommandScanner) -> Result<BTreeSet<u32>, Error
             {
                 continue;
             }
+            let mut bound = false;
             for definition in (parent.entry..at).step_by(2) {
                 let Some((reg, value)) = literal_load(image, definition) else {
                     continue;
@@ -125,7 +129,11 @@ fn arrays(image: &[u8], scanner: &CommandScanner) -> Result<BTreeSet<u32>, Error
                 .is_ok()
                 {
                     arrays.insert(value);
+                    bound = true;
                 }
+            }
+            if !bound {
+                return Err(Error::InvalidContract);
             }
         }
     }
@@ -135,6 +143,14 @@ fn arrays(image: &[u8], scanner: &CommandScanner) -> Result<BTreeSet<u32>, Error
     Ok(arrays)
 }
 
+/// A native call into a proven role whose own contract cannot be proven.
+fn unproven_error(error: Error) -> Error {
+    match error {
+        Error::Ambiguous => Error::Ambiguous,
+        _ => Error::InvalidContract,
+    }
+}
+
 pub(super) fn roots(image: &[u8], scanner: &CommandScanner) -> Result<BTreeSet<usize>, Error> {
     let arrays = arrays(image, scanner)?;
     let mut registrars = BTreeSet::new();
@@ -142,13 +158,12 @@ pub(super) fn roots(image: &[u8], scanner: &CommandScanner) -> Result<BTreeSet<u
         if !exact(image, at, "push", &[Operand::RegList(15)]) {
             continue;
         }
-        for array in &arrays {
-            if registrar(image, at, *array) {
-                registrars.insert(at);
-            }
+        if registrar(image, at).is_some_and(|array| arrays.contains(&array)) {
+            registrars.insert(at);
         }
     }
     let mut roots = BTreeSet::new();
+    let mut unproven = Vec::new();
     for at in (4..image.len().saturating_sub(4)).step_by(2) {
         let Some(ins) = decode_at(image, at) else {
             continue;
@@ -161,33 +176,33 @@ pub(super) fn roots(image: &[u8], scanner: &CommandScanner) -> Result<BTreeSet<u
         {
             continue;
         }
-        if !exact(
+        // A registration whose caller cannot be proven must repeat a proven
+        // root; an unknown extra table could make a record lookup ambiguous.
+        let shaped = exact(
             image,
             at - 2,
             "mov",
             &[Operand::Reg(Reg(1)), Operand::Imm(0)],
-        ) {
-            continue;
-        }
-        let Some((reg, root)) = literal_load(image, at - 4) else {
-            continue;
+        );
+        let Some((Reg(0), root)) = literal_load(image, at - 4).filter(|_| shaped) else {
+            return Err(Error::InvalidContract);
         };
-        if reg != Reg(0) || root as usize >= image.len() || root & 3 != 0 {
-            continue;
+        if root as usize >= image.len() || root & 3 != 0 {
+            return Err(Error::InvalidContract);
         }
-        let Ok(caller) = SavedLink::detect(image, at) else {
-            continue;
-        };
-        if caller
-            .require_argument_definition(image, at - 4, at - 2, 0)
-            .is_err()
+        if let Err(error) = SavedLink::detect(image, at)
+            .and_then(|caller| caller.require_argument_definition(image, at - 4, at - 2, 0))
         {
+            unproven.push((root as usize, error));
             continue;
         }
         roots.insert(root as usize);
     }
     if roots.is_empty() {
         return Err(Error::UnknownLayout);
+    }
+    if let Some((_, error)) = unproven.iter().find(|(root, _)| !roots.contains(root)) {
+        return Err(unproven_error(*error));
     }
     Ok(roots)
 }

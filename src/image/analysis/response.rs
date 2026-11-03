@@ -23,7 +23,8 @@ pub struct ResponseCommit {
     protocol: super::response_return::Protocol,
 }
 impl ResponseCommit {
-    /// Bind the exact entry targeted by a native caller.
+    /// Validate the committer grammar at exactly `entry`. This does not prove a
+    /// native caller; [`ResponseIo`] binds the entry to the INQUIRY handler's call.
     pub fn at(image: &[u8], entry: usize) -> Result<Self, Error> {
         let (_, source_cell) = literal_load(image, entry).ok_or(Error::UnknownLayout)?;
         if !SRAM.contains(&source_cell) || source_cell & 3 != 0 {
