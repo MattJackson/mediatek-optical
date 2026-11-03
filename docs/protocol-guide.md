@@ -36,7 +36,9 @@ two: a BH16NS40 1.03 (`JB7`, family `11e7527216405467`) and a BH16NS40 1.05
 (`JB8`, family `70f72c46f9603141`) are different boards, and the vendor
 updaters refuse to cross them. `None` means the family cannot be
 established: a wrong size, no chip, a malformed banner, no or several
-records, a record for another chip or platform, or a broken feature template.
+records, a record without a parseable `MTEKMT19xx` tag (the tag may name the
+other chip), a tagged descriptor whose platform code differs from the
+record's, or a broken feature template.
 
 ## Updates
 
