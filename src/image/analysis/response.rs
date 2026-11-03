@@ -4,6 +4,22 @@ use super::{Error, SavedLink};
 use thumb_asm::isa::{Operand, Reg};
 
 const SRAM: core::ops::Range<u32> = 0x02000000..0x02002000;
+/// Bytes before a committer call searched for its `r0` constant argument.
+const ARGUMENT_WINDOW: usize = 0x10;
+
+/// An `r0` constant: a [`constant_definition`] or a bare `mov r0,#imm`.
+fn argument_constant(image: &[u8], at: usize) -> Option<(u32, usize)> {
+    if let Some(found) = constant_definition(image, at, 0) {
+        return Some(found);
+    }
+    let ins = instruction(image, at)?;
+    match (ins.mnemonic, ins.operands.get(0), ins.operands.get(1)) {
+        ("mov", Some(Operand::Reg(dest)), Some(Operand::Imm(value))) if dest.num() == 0 => {
+            Some((u32::try_from(value).ok()?, at + ins.len()))
+        }
+        _ => None,
+    }
+}
 
 #[derive(Clone, Copy)]
 enum DmaValue {
@@ -250,18 +266,19 @@ impl<'a> ResponseIo<'a> {
             if thumb_asm::decode_bl(image, site) != Some(commit.entry as u32) {
                 continue;
             }
-            for definition in [site - 2, site - 4] {
-                let Some((offset, end)) = constant_definition(image, definition, 0) else {
+            let parent = SavedLink::detect_entry(image, site).ok();
+            for definition in (site.saturating_sub(ARGUMENT_WINDOW)..site).step_by(2) {
+                let Some((offset, end)) = argument_constant(image, definition) else {
                     continue;
                 };
-                if end != site || buffers.contains(&offset) {
+                if end > site || buffers.contains(&offset) {
                     continue;
                 }
-                if SavedLink::detect(image, site).is_ok_and(|parent| {
-                    parent
-                        .require_argument_definition(image, definition, end, 0)
+                let live = parent.is_some_and(|entry| {
+                    SavedLink::require_live_definition(image, entry, site, definition, end, 0)
                         .is_ok()
-                }) {
+                });
+                if live {
                     buffers.insert(offset);
                 } else {
                     unproven.insert(offset);
@@ -304,7 +321,7 @@ impl<'a> ResponseIo<'a> {
             }
             selected_offset = offset;
         }
-        if contested && writer.is_some() {
+        if contested {
             return Err(Error::Ambiguous);
         }
         Ok(Self {
