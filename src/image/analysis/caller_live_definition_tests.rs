@@ -155,3 +155,21 @@ fn stack_load_near_address_limit_does_not_overflow() {
     let image = asm.finish().unwrap();
     let _ = SavedLink::bind(&image, 0, site);
 }
+
+#[test]
+fn register_shift_uses_only_the_low_byte() {
+    // r1 = 0x100 shifts by zero, so r0 stays 5 and the udf path is live.
+    let words: [u16; 9] = [
+        0xb510, // push {r4, lr}
+        0x2005, // movs r0, #5
+        0x2101, // movs r1, #1
+        0x0209, // lsls r1, r1, #8
+        0x40c8, // lsrs r0, r1
+        0x2800, // cmp r0, #0 (site)
+        0xd000, // beq pop
+        0xde00, // udf
+        0xbd10, // pop {r4, pc}
+    ];
+    let image: Vec<u8> = words.into_iter().flat_map(u16::to_le_bytes).collect();
+    assert_eq!(SavedLink::bind(&image, 0, 10), Err(Error::InvalidContract));
+}

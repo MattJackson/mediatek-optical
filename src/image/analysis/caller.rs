@@ -110,8 +110,9 @@ pub(super) fn update_constants(ins: &thumb_asm::isa::Insn, values: &mut [Option<
         a.zip(b).and_then(|(a, b)| match ins.mnemonic {
             "add" => Some(a.wrapping_add(b)),
             "sub" => Some(a.wrapping_sub(b)),
-            "lsl" => a.checked_shl(b),
-            "lsr" => Some(if b >= 32 { 0 } else { a >> b }),
+            // Register-specified shifts use only the low byte of the amount.
+            "lsl" => a.checked_shl(b & 0xff),
+            "lsr" => Some(if b & 0xff >= 32 { 0 } else { a >> (b & 0xff) }),
             "and" => Some(a & b),
             _ => None,
         })
