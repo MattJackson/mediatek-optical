@@ -252,9 +252,11 @@ pub(super) fn coefficient(image: &[u8], start: usize, reverse: bool) -> Result<u
                 constant = None;
             }
         }
-        // Only Thumb-1 operations, calls and unconditional branches are
-        // modelled. Wide forms can write a second register (`ldrd`, `umull`)
-        // and any other PC write leaves the routine: refuse both.
+        // Only Thumb-1 operations, calls and `b` branches are modelled.
+        // Wide forms can write a second register (`ldrd`, `umull`) and any
+        // other PC write (`bx`, `pop {pc}`, `cbz`) leaves the routine: refuse
+        // both. Conditional `b<cc>` (including the grammar's own rejection
+        // branches) is followed on its fall-through path only.
         if (ins.len() == 4 && !ins.is_call() && ins.mnemonic != "b")
             || (ins.is_branch() && !ins.is_call() && ins.mnemonic != "b")
         {

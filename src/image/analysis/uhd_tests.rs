@@ -252,19 +252,34 @@ fn classic_auxiliary_gates_bind_shared_state_native_edges_and_saved_callers() {
         let contracts = super::ClassicConsumer::inspect(&bytes, state)
             .unwrap_or_else(|e| panic!("{} consumers: {e}", case["source_sha256"]));
         assert_eq!(contracts.len(), 11);
+        assert_eq!(expected.len(), 11);
+        let mut matched = std::collections::BTreeSet::new();
         for contract in &contracts {
-            let expected = expected
+            let (index, expected) = expected
                 .iter()
-                .find(|row| row["site"].as_u64() == Some(contract.selection.site() as u64))
+                .enumerate()
+                .find(|(_, row)| row["site"].as_u64() == Some(contract.selection.site() as u64))
                 .expect("source-bound expected consumer");
+            assert!(matched.insert(index), "expected consumer bound twice");
             assert_eq!(
                 contract.region,
                 expected["start"].as_u64().unwrap() as usize
             );
-            assert_eq!(
-                contract.selection.site(),
-                expected["site"].as_u64().unwrap() as usize
-            );
+            use super::ClassicConsumerKind as Kind;
+            let kind = match contract.kind {
+                Kind::Control18 => "control18",
+                Kind::DiMode => "di-mode",
+                Kind::ReadBoundary => "read-boundary",
+                Kind::ReadControl => "read-control",
+                Kind::MediaDefaults => "media-defaults",
+                Kind::Mode23 => "mode23",
+                Kind::ParameterClass => "parameter-class",
+                Kind::RequestArgument => "request-argument",
+                Kind::ReadValue => "read-value",
+                Kind::ReadStatus => "read-status",
+                Kind::InitializationBypass => "initialization-bypass",
+            };
+            assert_eq!(expected["kind"].as_str(), Some(kind));
             assert_eq!(
                 contract.caller.entry,
                 expected["caller"]["entry"].as_u64().unwrap() as usize

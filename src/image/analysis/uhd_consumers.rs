@@ -50,6 +50,10 @@ struct Definition {
     kind: ClassicConsumerKind,
     pattern: &'static [(u16, u16)],
     gate: usize,
+    /// Pinned conditional-branch target offset from the region. Not enforced
+    /// for `MediaDefaults` and `ReadStatus`, whose targets move between
+    /// builds and are bound positively in `inspect` instead; their values
+    /// record the reference build only.
     target: usize,
     target_accepts: bool,
 }
@@ -60,7 +64,7 @@ const DEFINITIONS: &[Definition] = &[
     Definition {
         kind: ClassicConsumerKind::MediaDefaults,
         gate: 6,
-        target: 228,
+        target: 228, // Reference build only; see `Definition::target`.
         target_accepts: false,
         pattern: &[
             (0x4f00, 0xff00),
@@ -277,7 +281,7 @@ const DEFINITIONS: &[Definition] = &[
     Definition {
         kind: ClassicConsumerKind::ReadStatus,
         gate: 6,
-        target: 38,
+        target: 38, // Reference build only; see `Definition::target`.
         target_accepts: false,
         pattern: &[
             (0x4800, 0xff00),
