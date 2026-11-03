@@ -128,3 +128,106 @@ fn resign_reports_an_inverted_range_over_its_digest_as_bad_range() {
         })
     );
 }
+
+/// Write `enabled` into entry `index` of the integrity table.
+fn set_enabled(img: &mut [u8], index: usize, enabled: u32) {
+    let at = cmac::TABLE_OFFSET + index * cmac::ENTRY_SIZE;
+    img[at..at + 4].copy_from_slice(&enabled.to_le_bytes());
+}
+
+#[test]
+fn cmac_refuses_unknown_enabled_words() {
+    for v in [0, 2, 0x0100_0001, 0x8000_0001, 0xFFFF_FFFE] {
+        let mut img = signed_image();
+        set_enabled(&mut img, 1, v);
+        let refused = cmac::CmacError::UnknownEnabled {
+            index: 1,
+            enabled: v,
+        };
+        assert_eq!(cmac::verify_detailed(&img).err(), Some(refused), "{v:#x}");
+        assert!(!cmac::verify(&img), "{v:#x}");
+        assert_eq!(cmac::resign(&img), Err(refused), "{v:#x}");
+    }
+    // The lowest unrecognised entry is reported.
+    let mut img = signed_image();
+    set_enabled(&mut img, 5, 7);
+    set_enabled(&mut img, 1, 0);
+    let lowest = cmac::CmacError::UnknownEnabled {
+        index: 1,
+        enabled: 0,
+    };
+    assert_eq!(cmac::verify_detailed(&img).err(), Some(lowest));
+    assert_eq!(cmac::resign(&img), Err(lowest));
+    let text = lowest.to_string();
+    assert!(text.contains('1') && text.contains("0x00000000"), "{text}");
+    assert_eq!(
+        cmac::CmacError::UnknownEnabled {
+            index: 13,
+            enabled: 0xDEAD_BEEF
+        }
+        .to_string(),
+        "CMAC entry 13 has unrecognised enabled word 0xdeadbeef"
+    );
+    // An unrecognised word is reported ahead of an inverted or out-of-range
+    // range, whether on the same entry or an active one.
+    for (start, end) in [(0x3000u32, 0x2000u32), (0x1000, 0xFFFF_FFF0)] {
+        let mut img = signed_image();
+        let at = cmac::TABLE_OFFSET + cmac::ENTRY_SIZE;
+        set_enabled(&mut img, 1, 2);
+        img[at + 4..at + 8].copy_from_slice(&start.to_le_bytes());
+        img[at + 8..at + 12].copy_from_slice(&end.to_le_bytes());
+        img[cmac::TABLE_OFFSET + 4..cmac::TABLE_OFFSET + 8].copy_from_slice(&start.to_le_bytes());
+        img[cmac::TABLE_OFFSET + 8..cmac::TABLE_OFFSET + 12].copy_from_slice(&end.to_le_bytes());
+        let refused = cmac::CmacError::UnknownEnabled {
+            index: 1,
+            enabled: 2,
+        };
+        assert_eq!(cmac::verify_detailed(&img).err(), Some(refused));
+        assert_eq!(cmac::resign(&img), Err(refused));
+    }
+    // A table too small to parse still reports its size first.
+    assert!(matches!(
+        cmac::verify_detailed(&[0u8; 16]),
+        Err(cmac::CmacError::ImageTooSmall { .. })
+    ));
+}
+
+#[test]
+fn disabling_the_table_covering_entry_is_refused() {
+    // Stock layout: data entries first, entry 15 covering the table itself
+    // (0x10400..=0x105af).
+    let mut img = signed_image();
+    let at = cmac::TABLE_OFFSET + 15 * cmac::ENTRY_SIZE;
+    let end = (cmac::TABLE_OFFSET + 15 * cmac::ENTRY_SIZE + 11) as u32;
+    assert_eq!(end, 0x105AF);
+    set_enabled(&mut img, 15, cmac::ENABLED);
+    img[at + 4..at + 8].copy_from_slice(&(cmac::TABLE_OFFSET as u32).to_le_bytes());
+    img[at + 8..at + 12].copy_from_slice(&end.to_le_bytes());
+    let img = cmac::resign(&img).unwrap();
+    assert!(cmac::verify(&img));
+    assert_eq!(cmac::verify_detailed(&img).unwrap().len(), 2);
+    let mut disabled = img.clone();
+    set_enabled(&mut disabled, 15, 0);
+    assert!(!cmac::verify(&disabled));
+    assert_eq!(
+        cmac::verify_detailed(&disabled).err(),
+        Some(cmac::CmacError::UnknownEnabled {
+            index: 15,
+            enabled: 0
+        })
+    );
+}
+
+#[test]
+fn tables_of_only_active_and_unused_entries_still_verify_and_resign_exactly() {
+    let img = signed_image();
+    assert!(
+        img[cmac::TABLE_OFFSET + cmac::ENTRY_SIZE..][..15 * cmac::ENTRY_SIZE]
+            .iter()
+            .all(|&b| b == 0xFF)
+    );
+    assert_eq!(cmac::UNUSED, 0xFFFF_FFFF);
+    assert!(cmac::verify(&img));
+    assert_eq!(cmac::verify_detailed(&img).unwrap().len(), 1);
+    assert_eq!(cmac::resign(&img).unwrap(), img);
+}

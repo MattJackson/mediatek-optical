@@ -44,7 +44,9 @@ record's, or a broken feature template.
 
 `envelope::Envelope::load(bytes)` recognizes plaintext and OEM AES input,
 validates the canonical image, and retains the original bytes and both hashes.
-Corrupt images, empty integrity tables and raw drive captures are rejected.
+Corrupt images, empty integrity tables, tables with an unrecognised entry
+enabled word (only 1 = active and 0xFFFFFFFF = unused are defined) and raw
+drive captures are rejected.
 Its `input_encoding()` describes the file only: the running receiver determines
 the required transfer encoding. Loading an envelope performs no drive I/O and
 does not authorize writing.

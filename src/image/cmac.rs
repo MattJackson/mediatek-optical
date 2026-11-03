@@ -5,7 +5,9 @@
 //!
 //! ```text
 //! struct cmac_entry {          // Python struct '<3L16s', size 28
-//!     u32 enabled;             // 0x00000001 = active, 0xFFFFFFFF = unused
+//!     u32 enabled;             // 0x00000001 = active, 0xFFFFFFFF = unused;
+//!                              // any other value is unrecognised and
+//!                              // verification and signing refuse the table
 //!     u32 start;               // file offset, inclusive
 //!     u32 end;                 // file offset, inclusive
 //!     u8  cmac[16];            // stored digest (byte-reversed, see below)
@@ -42,6 +44,10 @@ pub const ENTRY_COUNT: usize = 16;
 pub const ENTRY_SIZE: usize = 28;
 /// `enabled` sentinel for an active entry.
 pub const ENABLED: u32 = 0x0000_0001;
+/// `enabled` sentinel for an unused entry. Every `enabled` word other than
+/// [`ENABLED`] and `UNUSED` is unrecognised: [`verify_detailed`], [`verify`]
+/// and [`resign`] refuse a table that contains one.
+pub const UNUSED: u32 = 0xFFFF_FFFF;
 
 /// A parsed integrity-table entry.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -62,6 +68,9 @@ pub struct CmacEntry {
 
 impl CmacEntry {
     /// Whether this entry participates in verification / signing.
+    ///
+    /// An entry whose `enabled` word is neither [`ENABLED`] nor [`UNUSED`]
+    /// makes [`verify_detailed`], [`verify`] and [`resign`] refuse the whole table.
     pub fn is_active(&self) -> bool {
         self.enabled == ENABLED
     }
@@ -152,9 +161,31 @@ pub struct EntryVerdict {
     pub matches: bool,
 }
 
+/// Refuse a table holding an `enabled` word that is neither [`ENABLED`] nor
+/// [`UNUSED`], reporting the lowest such index.
+fn known_enabled(table: &[CmacEntry]) -> Result<(), CmacError> {
+    match table
+        .iter()
+        .find(|e| e.enabled != ENABLED && e.enabled != UNUSED)
+    {
+        Some(e) => Err(CmacError::UnknownEnabled {
+            index: e.index,
+            enabled: e.enabled,
+        }),
+        None => Ok(()),
+    }
+}
+
 /// Verify every active entry. Returns a per-entry verdict list.
+///
+/// Fails with [`CmacError::ImageTooSmall`] when the image cannot hold the
+/// table, then with [`CmacError::UnknownEnabled`] when any entry's `enabled`
+/// word is neither [`ENABLED`] nor [`UNUSED`] (before any digest is computed),
+/// then with [`CmacError::BadRange`] when an active range is inverted or out
+/// of bounds.
 pub fn verify_detailed(image: &[u8]) -> Result<Vec<EntryVerdict>, CmacError> {
     let table = parse_table(image)?;
+    known_enabled(&table)?;
     let mut verdicts = Vec::new();
     for entry in table {
         if !entry.is_active() {
@@ -170,9 +201,11 @@ pub fn verify_detailed(image: &[u8]) -> Result<Vec<EntryVerdict>, CmacError> {
     Ok(verdicts)
 }
 
-/// Return `true` iff the table has at least one active entry and every active
-/// entry's stored digest matches a fresh compute. An empty table, a malformed
-/// range or an image too small for the table returns `false`.
+/// Return `true` iff every entry's `enabled` word is [`ENABLED`] or
+/// [`UNUSED`], the table has at least one active entry and every active
+/// entry's stored digest matches a fresh compute. An empty table, an
+/// unrecognised `enabled` word, a malformed range or an image too small for the
+/// table returns `false`.
 pub fn verify(image: &[u8]) -> bool {
     match verify_detailed(image) {
         Ok(v) => !v.is_empty() && v.iter().all(|e| e.matches),
@@ -183,13 +216,18 @@ pub fn verify(image: &[u8]) -> bool {
 /// Recompute and write back every active entry's digest, returning the new image.
 ///
 /// Data ranges are signed first; any entry that covers the table region
-/// (`0x10400`) is signed last, over the already-updated table bytes. Fails with
-/// [`CmacError::BadRange`] when an active range is inverted or out of bounds,
-/// and with [`CmacError::CircularTable`] when more than one active entry covers the
-/// table or an active entry covers its own digest bytes.
+/// (`0x10400`) is signed last, over the already-updated table bytes. Checks run
+/// in this order and the first failure is returned:
+/// [`CmacError::ImageTooSmall`] when the image cannot hold the table;
+/// [`CmacError::UnknownEnabled`] when any entry's `enabled` word is neither
+/// [`ENABLED`] nor [`UNUSED`]; [`CmacError::BadRange`] when an active range is
+/// inverted or out of bounds; and [`CmacError::CircularTable`] when more than
+/// one active entry covers the table or an active entry covers its own digest
+/// bytes.
 pub fn resign(image: &[u8]) -> Result<Vec<u8>, CmacError> {
     let mut img = image.to_vec();
     let table = parse_table(&img)?;
+    known_enabled(&table)?;
     // Validate every active range first, so a malformed entry is reported as
     // `BadRange` rather than mistaken for one that covers the table.
     for e in table.iter().filter(|e| e.is_active()) {
@@ -250,6 +288,14 @@ pub enum CmacError {
     /// More than one active entry covers the table, or one covers its own
     /// digest bytes, so no digest can be written that its range still matches.
     CircularTable,
+    /// An entry's `enabled` word is neither [`ENABLED`] (active) nor
+    /// [`UNUSED`]; the table cannot be trusted to name what it protects.
+    UnknownEnabled {
+        /// Index of the lowest such entry (0..16).
+        index: usize,
+        /// The unrecognised `enabled` word.
+        enabled: u32,
+    },
 }
 
 impl std::fmt::Display for CmacError {
@@ -265,6 +311,12 @@ impl std::fmt::Display for CmacError {
                 write!(
                     f,
                     "CMAC entries cover each other's or their own digest in the integrity table"
+                )
+            }
+            CmacError::UnknownEnabled { index, enabled } => {
+                write!(
+                    f,
+                    "CMAC entry {index} has unrecognised enabled word 0x{enabled:08x}"
                 )
             }
         }

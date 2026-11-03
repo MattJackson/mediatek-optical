@@ -180,6 +180,8 @@ fn encode_transfer(
             let mut operations = vec![Operation::CheckDecrypted(contract.header_range())];
             // Integrity reads must never consume encrypted staging bytes. The
             // matched preservation branch excludes the separate boot CMAC.
+            // Callers reach this only after `cmac::verify` accepted the image,
+            // so every entry is either active or unused (`is_active` suffices).
             for entry in crate::image::cmac::parse_table(image)
                 .map_err(|_| update::PrepareError::Integrity)?
                 .into_iter()

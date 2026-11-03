@@ -10,6 +10,7 @@ pub(super) fn kind_for_code(code: &str) -> crate::operation::IssueKind {
         | "mediatek.cmac.image_too_small"
         | "mediatek.cmac.bad_range"
         | "mediatek.cmac.circular_table"
+        | "mediatek.cmac.unknown_enabled"
         | "mediatek.prepare.receiver_entry"
         | "mediatek.prepare.receiver_contract"
         | "mediatek.prepare.layout"

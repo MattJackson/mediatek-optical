@@ -45,3 +45,15 @@ fn execute_and_flash_errors_classify_by_their_cause() {
         IssueKind::Update
     );
 }
+
+#[cfg(feature = "image")]
+#[test]
+fn an_unrecognised_cmac_enabled_word_is_invalid_firmware() {
+    use crate::{image::cmac::CmacError, operation::IssueKind, CodedError};
+    let e = CmacError::UnknownEnabled {
+        index: 1,
+        enabled: 0,
+    };
+    assert_eq!(e.code(), "mediatek.cmac.unknown_enabled");
+    assert_eq!(e.kind(), IssueKind::InvalidFirmware);
+}

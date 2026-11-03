@@ -30,6 +30,14 @@ The WH16NS60 provenance explicitly includes a drive dump. These exercise the
 mirrored-readback/factory-template rejection path, not stock-file acceptance.
 A valid CMAC does not establish a stored factory boot page.
 
+Integrity-table `enabled` words (2026-11-03 survey of 2716 hoard files over
+66 KiB in `hoard/{oem,dump,mk,omni}/mediatek` and `hoard-bdplayer`, plus 370
+2 MiB Git LFS objects, raw and AES-decrypted): every image `Envelope::load`
+accepts (199 unique) uses only `1` (active) and `0xffffffff` (unused). Other
+values appear only where verification already fails (`961b6e23…` above and
+non-MT19xx or otherwise framed bytes at 0x10400). `cmac` therefore refuses any
+other value instead of treating it as unused.
+
 ## Added coverage
 
 * 124 individually named corpus tests; missing input is an error when invoked.
