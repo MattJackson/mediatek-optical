@@ -1,7 +1,7 @@
 //! Independent native disc-recognition/routing contracts. This is code-layout
 //! evidence, not a claim that a drive can physically read UHD media.
 use super::{half, matches, Error};
-use thumb_asm::isa::decode_at;
+use thumb_asm::isa::{decode_at, Operand};
 
 #[path = "uhd_layouts.rs"]
 mod layouts;
@@ -185,18 +185,36 @@ fn literal(image: &[u8], at: usize) -> Option<UhdLiteral> {
         value: word(image, ((at + 4) & !3) + usize::from(h & 255) * 4)?,
     })
 }
-fn coefficient(image: &[u8], start: usize, reverse: bool) -> Result<usize, Error> {
+pub(super) fn coefficient(image: &[u8], start: usize, reverse: bool) -> Result<usize, Error> {
     let mut pc = start;
     let mut visited = Vec::new();
-    let mut constant = false;
+    let mut constant: Option<u8> = None;
     for _ in 0..40 {
         if visited.contains(&pc) {
             return Err(Error::InvalidContract);
         }
         visited.push(pc);
         let ins = decode_at(image, pc).ok_or(Error::Truncated)?;
-        constant |= literal(image, pc).is_some_and(|v| v.value == 0x51b1);
-        if constant && matches!(ins.mnemonic, "add" | "sub") {
+        if let Some(live) = constant {
+            if matches!(ins.operands.get(0), Some(Operand::Reg(r)) if r.num() == live)
+                && (ins.mnemonic.starts_with("mov")
+                    || ins.mnemonic.starts_with("mvn")
+                    || ins.mnemonic.starts_with("ldr"))
+            {
+                constant = None;
+            }
+        }
+        if let Some(load) = literal(image, pc).filter(|v| v.value == 0x51b1) {
+            constant = Some(load.register);
+        }
+        // Only an add/sub that reads the register holding 0x51b1 continues it.
+        let reads_constant = |live: u8| {
+            let reads = |op: Option<Operand>| matches!(op, Some(Operand::Reg(r) | Operand::RegShifted(r, _)) if r.num() == live);
+            reads(ins.operands.get(1))
+                || reads(ins.operands.get(2))
+                || (ins.operands.get(2).is_none() && reads(ins.operands.get(0)))
+        };
+        if constant.is_some_and(reads_constant) && matches!(ins.mnemonic, "add" | "sub") {
             return if ins.mnemonic == if reverse { "sub" } else { "add" } {
                 Ok(pc)
             } else {

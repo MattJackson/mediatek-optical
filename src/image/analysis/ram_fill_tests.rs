@@ -201,3 +201,19 @@ fn word_copy_uses_literal_count_not_pointer_walk_iteration_budget() {
         assert_eq!(refs.bytes().contains(&0x02000dfb), length == 0x7f);
     }
 }
+
+#[test]
+fn unmodelled_branch_marks_the_pointer_seed_incomplete() {
+    let mut image = vec![0u8; 12];
+    for (i, h) in [0x4801u16, 0xb101, 0x4770, 0xbf00].iter().enumerate() {
+        image[i * 2..i * 2 + 2].copy_from_slice(&h.to_le_bytes());
+    }
+    image[8..12].copy_from_slice(&0x0200_0000u32.to_le_bytes());
+    let refs = super::super::RamReferences::inspect(&image);
+    assert!(refs.incomplete().contains(&0), "cbz path was silently lost");
+
+    // A plain `bx lr` return still completes the path.
+    image[2..4].copy_from_slice(&0x4770u16.to_le_bytes());
+    let refs = super::super::RamReferences::inspect(&image);
+    assert!(!refs.incomplete().contains(&0));
+}

@@ -529,3 +529,38 @@ fn read_completion_binds_native_fields_boundaries_and_saved_frames() {
     }
     assert_eq!(count, 4);
 }
+
+#[test]
+fn coefficient_requires_add_reading_the_loaded_constant() {
+    let code: [u16; 6] = [
+        0x4801, // ldr r0, [pc, #4] -> 0x51b1
+        0x18d1, // adds r1, r2, r3 (does not read r0)
+        0x1840, // adds r0, r0, r1 (reads r0)
+        0xbf00, 0x51b1, 0x0000,
+    ];
+    let mut image = vec![0u8; 16];
+    for (i, h) in code.iter().enumerate() {
+        image[i * 2..i * 2 + 2].copy_from_slice(&h.to_le_bytes());
+    }
+    // literal word at offset 8
+    image[8..12].copy_from_slice(&0x51b1u32.to_le_bytes());
+    assert_eq!(super::uhd::coefficient(&image, 0, false), Ok(4));
+    // An unrelated add must not count when the constant is overwritten first.
+    image[2..4].copy_from_slice(&0x2000u16.to_le_bytes()); // movs r0, #0
+    assert!(super::uhd::coefficient(&image, 0, false).is_err());
+}
+
+#[test]
+fn completion_scan_includes_pattern_at_last_offset() {
+    use super::uhd_completion::{locate, CONTROLLER};
+    let mut image = Vec::new();
+    for (value, _) in CONTROLLER {
+        image.extend_from_slice(&value.to_le_bytes());
+    }
+    // The pattern is the very last candidate; its literal is out of range, so
+    // the match must be seen (and refused), not silently skipped as absent.
+    assert_eq!(
+        locate(&image, CONTROLLER, 0x0200_0000),
+        Err(Error::InvalidContract)
+    );
+}

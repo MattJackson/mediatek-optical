@@ -185,6 +185,14 @@ pub fn verify(image: &[u8]) -> bool {
 pub fn resign(image: &[u8]) -> Result<Vec<u8>, CmacError> {
     let mut img = image.to_vec();
     let table = parse_table(&img)?;
+    if table
+        .iter()
+        .filter(|e| e.is_active() && e.covers_table())
+        .count()
+        > 1
+    {
+        return Err(CmacError::CircularTable);
+    }
 
     // Pass 1: data ranges (those that do not cover the table).
     for entry in table.iter().filter(|e| e.is_active() && !e.covers_table()) {
@@ -217,6 +225,8 @@ pub enum CmacError {
         /// Range end.
         end: usize,
     },
+    /// More than one active entry covers the table, so each digest would cover the other.
+    CircularTable,
 }
 
 impl std::fmt::Display for CmacError {
@@ -227,6 +237,9 @@ impl std::fmt::Display for CmacError {
             }
             CmacError::BadRange { start, end } => {
                 write!(f, "bad CMAC range: start=0x{start:x} end=0x{end:x}")
+            }
+            CmacError::CircularTable => {
+                write!(f, "multiple active CMAC entries cover the integrity table")
             }
         }
     }

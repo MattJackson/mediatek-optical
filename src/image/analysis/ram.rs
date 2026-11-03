@@ -228,6 +228,13 @@ impl RamReferences {
                         if ins.cond.is_some() && taken != Some(true) {
                             pending.push_back((next, values, zero));
                         }
+                    } else if !matches!(
+                        (ins.mnemonic, ins.operands.get(0)),
+                        ("bx", Some(Operand::Reg(reg))) if reg.num() == 14
+                    ) {
+                        // cbz/cbnz, indirect bx and table branches lose their
+                        // successors: the path is not fully observed.
+                        result.incomplete.insert(seed);
                     }
                 } else if !ins.writes_pc() {
                     pending.push_back((next, values, zero));

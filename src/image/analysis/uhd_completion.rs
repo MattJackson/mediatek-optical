@@ -33,7 +33,7 @@ pub struct ClassicReadCompletion {
     pub callers: [SavedLink; 3],
 }
 // Source 0x366d0..0x3673c; counterpart 0x26972..0x26aa6.
-const CONTROLLER: &[(u16, u16)] = &[
+pub(super) const CONTROLLER: &[(u16, u16)] = &[
     (0x4b00, 0xff00),
     (0x781e, 0xffff),
     (0x25c8, 0xffff),
@@ -327,9 +327,14 @@ fn literal(image: &[u8], at: usize) -> Option<u32> {
     let at = ((at + 4) & !3) + usize::from(op & 255) * 4;
     Some(u32::from_le_bytes(image.get(at..at + 4)?.try_into().ok()?))
 }
-fn locate(image: &[u8], pattern: &[(u16, u16)], state: u32) -> Result<usize, Error> {
+pub(super) fn locate(image: &[u8], pattern: &[(u16, u16)], state: u32) -> Result<usize, Error> {
     let mut found = None;
-    for at in (0..image.len().saturating_sub(pattern.len() * 2)).step_by(2) {
+    for at in (0..image
+        .len()
+        .saturating_sub(pattern.len() * 2)
+        .saturating_add(1))
+        .step_by(2)
+    {
         if matches(image, at, pattern) {
             if literal(image, at) != Some(state) {
                 return Err(Error::InvalidContract);
@@ -350,7 +355,12 @@ impl ClassicReadCompletion {
         for (pattern, state_register, request_register) in
             [(RECOVERY, 4u8, 5u8), (RECOVERY_R5, 5u8, 6u8)]
         {
-            for at in (0..image.len().saturating_sub(pattern.len() * 2)).step_by(2) {
+            for at in (0..image
+                .len()
+                .saturating_sub(pattern.len() * 2)
+                .saturating_add(1))
+                .step_by(2)
+            {
                 if !matches(image, at, pattern) {
                     continue;
                 }

@@ -96,8 +96,6 @@ impl AuthCell {
                 if read_at != load_at || read_register != value {
                     return Err(Error::InvalidContract);
                 }
-                let state = Some(state);
-                let state = state.ok_or(Error::InvalidContract)?;
                 if !(0x0100_0000..0x0300_0000).contains(&state) {
                     return Err(Error::InvalidContract);
                 }

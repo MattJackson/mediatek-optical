@@ -76,3 +76,17 @@ fn resign_orders_entries_that_overlap_the_table_without_covering_its_start() {
     let img = cmac::resign(&img).unwrap();
     assert!(cmac::verify(&img));
 }
+
+#[test]
+fn resign_refuses_two_entries_that_both_cover_the_table() {
+    let mut img = vec![0u8; layout::IMAGE_SIZE];
+    let table = cmac::TABLE_OFFSET;
+    img[table..table + cmac::ENTRY_COUNT * cmac::ENTRY_SIZE].fill(0xFF);
+    for (index, end) in [(0usize, 0x2FFFFu32), (1, 0x3FFFF)] {
+        let at = table + index * cmac::ENTRY_SIZE;
+        img[at..at + 4].copy_from_slice(&1u32.to_le_bytes());
+        img[at + 4..at + 8].copy_from_slice(&0x1041Cu32.to_le_bytes());
+        img[at + 8..at + 12].copy_from_slice(&end.to_le_bytes());
+    }
+    assert_eq!(cmac::resign(&img), Err(cmac::CmacError::CircularTable));
+}
