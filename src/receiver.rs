@@ -309,14 +309,25 @@ pub fn detect_encoding<T: Transport>(
     let mut found: Option<Receiver> = None;
     // 64-byte overlap preserves instructions spanning a read boundary.
     let mut block = [0; 1088];
-    let mut base = start;
+    // Begin 32 bytes early so a header-decrypt call at the window start still
+    // has its setup context; nothing before `start` is itself a candidate.
+    let mut base = start - 32;
     while base < end {
         let len = core::cmp::min(block.len(), (end - base) as usize);
-        drive::read_memory(t, base, &mut block[..len]).map_err(Error::Read)?;
+        // Read the leading context separately so every window byte still
+        // comes from a read starting inside the window.
+        let lead = (start - base.min(start)) as usize;
+        if lead != 0 {
+            drive::read_memory(t, base, &mut block[..lead]).map_err(Error::Read)?;
+        }
+        drive::read_memory(t, base + lead as u32, &mut block[lead..len]).map_err(Error::Read)?;
         // Inclusive of `len - 4`: a 4-byte call ending at the window end counts.
         for off in (0..len.saturating_sub(3)).step_by(2) {
             let bytes = &block[off..len];
             let address = base + off as u32;
+            if address < start {
+                continue;
+            }
             let mut candidate = None;
             for pattern in [PLAIN_DIRECT, PLAIN_APP, PLAIN_BOOT, PLAIN_LOGGED] {
                 if matches(bytes, pattern) {

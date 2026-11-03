@@ -162,5 +162,25 @@
     "source_offset": "0x17f9c",
     "fixture_bytes": 216,
     "fixture_sha256": "1ee7c60baa1f9e4cbf9323b8329a380bcb21bede173904eb9ec53a92ade7140b"
+  },
+  {
+    "name": "intm-scratch-header",
+    "model": "BD-RE BH16NS40",
+    "rev": "INTM",
+    "sha256": "c3a18eed17251d1508964647e833ffdfe01b13c28dff9a717dfac6336e7c70e6",
+    "source_offset": "0x9d320",
+    "leading_padding": 0,
+    "fixture_bytes": 1280,
+    "fixture_sha256": "79f38f2041dbf14b471624e489feb6c3c4b2d7c6a7c43660f9123f6ff6719505"
+  },
+  {
+    "name": "intm-aes-prologue",
+    "model": "BD-RE BH16NS40",
+    "rev": "INTM",
+    "sha256": "c3a18eed17251d1508964647e833ffdfe01b13c28dff9a717dfac6336e7c70e6",
+    "source_offset": "0x9b024",
+    "leading_padding": 0,
+    "fixture_bytes": 48,
+    "fixture_sha256": "0de77675d5c175c45fb6c630e067017b4f430b03ae4f3295e787260665dc0b09"
   }
 ]

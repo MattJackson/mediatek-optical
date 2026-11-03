@@ -143,6 +143,37 @@ fn header_call_ending_at_the_window_end_is_examined() {
     ));
 }
 #[test]
+fn header_call_at_the_window_start_is_examined() {
+    // The call's setup precedes the BOOT window; the call itself is inside it.
+    let mut dev = Device::new(Mode::Boot);
+    let call = 0x3404;
+    let target = 0x5500;
+    dev.image[call - 12..call]
+        .copy_from_slice(&[0xeb, 0x69, 0x10, 0x22, 1, 0xa9, 3, 0x20, 0, 3, 0x18, 0x18]);
+    let delta = target - call - 4;
+    dev.image[call..call + 2].copy_from_slice(&(0xf000u16 | ((delta >> 12) as u16)).to_le_bytes());
+    dev.image[call + 2..call + 4]
+        .copy_from_slice(&(0xf800u16 | ((delta >> 1) as u16 & 2047)).to_le_bytes());
+    dev.stamp(target, AES);
+    let mode = detect_mode(&mut dev).unwrap();
+    let receiver = detect_encoding(&mut dev, &mode).unwrap();
+    assert_eq!(receiver.encoding(), Encoding::Encrypted);
+    assert!(receiver.revalidate(&mut dev).is_ok());
+    // A plaintext signature elsewhere conflicts instead of winning.
+    dev.stamp(0x3600, PLAIN_BOOT);
+    assert!(matches!(
+        detect_encoding(&mut dev, &mode),
+        Err(Error::Conflict)
+    ));
+    // Code before the window is context only, never a candidate itself.
+    let mut dev = Device::new(Mode::Boot);
+    dev.stamp(0x33e0, PLAIN_DIRECT);
+    assert!(matches!(
+        detect_encoding(&mut dev, &mode),
+        Err(Error::Unknown)
+    ));
+}
+#[test]
 fn signature_across_read_boundary_is_found() {
     let mut dev = Device::new(Mode::Firmware);
     dev.stamp(0x983fa, PLAIN_APP);
