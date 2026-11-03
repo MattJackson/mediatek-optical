@@ -103,21 +103,5 @@ pub(crate) fn inspect_state_slot(
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn native_blx_alignment_and_destination_are_checked() {
-        assert_eq!(
-            blx(&[0x58, 0xf7, 0xce, 0xed], 0xa7736, 0xa7736),
-            Some(0x2d4)
-        );
-        assert_eq!(
-            blx(&[0x58, 0xf7, 0xc0, 0xec], 0xa7948, 0xa7948),
-            Some(0x2cc)
-        );
-        assert_eq!(blx(&[0x58, 0xf7, 0xcf, 0xed], 0xa7736, 0xa7736), None);
-        assert_eq!(blx(&[0x58, 0xf7, 0xce], 0xa7736, 0xa7736), None);
-        assert_eq!(blx(&[0x58, 0xf7, 0xce, 0xfd], 0xa7736, 0xa7736), None);
-    }
-}
+#[path = "state_slot_tests.rs"]
+mod tests;

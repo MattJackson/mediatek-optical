@@ -847,3 +847,36 @@ fn zero_range_readback_is_never_complete() {
         Err(FlashError::Incomplete { checked: 0, .. })
     ));
 }
+
+impl crate::update::PreparedUpdate {
+    /// Write the update and prove it: PROBE, TEST UNIT READY, PREPARE, the
+    /// transfer in STREAM chunks, COMMIT, TEST UNIT READY and REQUEST SENSE;
+    /// then poll TEST UNIT READY until the drive has programmed, REQUEST SENSE
+    /// again, and read back every chunk, comparing the integrity-protected
+    /// ranges with the image.
+    ///
+    /// First capture a backup, enforce tray and consent policy and exclude
+    /// other users of the drive. A failure stops at once; nothing is retried.
+    pub(crate) fn flash<R, W, H>(
+        &self,
+        io: FlashTransport<'_, R, W>,
+        runtime: &mut H,
+    ) -> Result<Verified, FlashError<W::Error>>
+    where
+        W: Transport,
+        R: Transport<Error = W::Error>,
+        H: FlashRuntime<W::Error>,
+    {
+        crate::update::flash::Payload {
+            class: self.class,
+            image: &self.image,
+            transfer: self.transfer(),
+        }
+        .flash(
+            io,
+            runtime,
+            crate::update::flash::ExecutionMode::Flash,
+            crate::cdb::Prepare::ModeOne,
+        )
+    }
+}
