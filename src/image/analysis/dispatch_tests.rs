@@ -468,3 +468,166 @@ fn response_with_only_an_unproven_writer_is_ambiguous() {
         Some(super::Error::Ambiguous)
     );
 }
+
+#[test]
+fn response_census_ignores_dead_committer_argument_definitions() {
+    use super::super::ResponseIo;
+    let image = with_response();
+    // push {lr}; movs r0,#0x80; movs r0,#0x40; bl commit; pop {pc}
+    let mut overwritten = image.clone();
+    put(&mut overwritten, 0x380, &[0xb500, 0x2080, 0x2040]);
+    put_bl(&mut overwritten, 0x386, 0x280);
+    put(&mut overwritten, 0x38a, &[0xbd00]);
+    // A previous function's tail `movs r0,#0x80; pop {pc}`, then
+    // push {lr}; bl commit; pop {pc}.
+    let mut returned = image.clone();
+    put(&mut returned, 0x380, &[0x2080, 0xbd00, 0xb500]);
+    put_bl(&mut returned, 0x386, 0x280);
+    put(&mut returned, 0x38a, &[0xbd00]);
+    // push {lr}; movs r0,#0x80; bl other; movs r0,#0x40; bl commit; pop {pc}
+    let mut called = image;
+    put(&mut called, 0x380, &[0xb500, 0x2080]);
+    put_bl(&mut called, 0x384, 0x3f0);
+    put(&mut called, 0x388, &[0x2040]);
+    put_bl(&mut called, 0x38a, 0x280);
+    put(&mut called, 0x38e, &[0xbd00]);
+    put(&mut called, 0x3f0, &[0x4770]);
+    for image in [&overwritten, &returned, &called] {
+        let io = ResponseIo::inspect(image).expect("native response");
+        assert_eq!((io.writer(), io.buffer_offset()), (0x300, 0x40));
+    }
+}
+
+#[test]
+fn response_census_keeps_definitions_that_may_reach_the_call() {
+    use super::super::ResponseIo;
+    // movs r0,#0x80; beq call; movs r0,#0x40; call: bl commit: the taken
+    // branch still passes 0x80, so the 0x80 writer is contested.
+    let mut image = with_response();
+    put(&mut image, 0x380, &[0x2080, 0xd000, 0x2040]);
+    put_bl(&mut image, 0x386, 0x280);
+    put(&mut image, 0x38a, &[0xe7fe]);
+    assert_eq!(
+        ResponseIo::inspect(&image).err(),
+        Some(super::Error::Ambiguous)
+    );
+}
+
+#[test]
+fn response_writer_with_bare_offset_prefix_is_not_dropped() {
+    use super::super::ResponseIo;
+    let mut image = with_response();
+    // The 0x80 writer loads its offset with nop; movs r2,#0x80...
+    put(&mut image, 0x340, &[0xbf00, 0x2280]);
+    // ...and a proven caller passes 0x80, so both writers are live.
+    put(&mut image, 0x380, &[0xb500, 0x2080]);
+    put_bl(&mut image, 0x384, 0x280);
+    put(&mut image, 0x388, &[0xbd00]);
+    assert_eq!(
+        ResponseIo::inspect(&image).err(),
+        Some(super::Error::Ambiguous)
+    );
+}
+
+#[test]
+fn response_census_counts_a_committer_call_ending_the_image() {
+    use super::super::ResponseIo;
+    // movs r0,#1; lsls r0,#7; bl commit as the final image bytes.
+    let mut image = with_response();
+    put(&mut image, 0x3f8, &[0x2001, 0x01c0]);
+    put_bl(&mut image, 0x3fc, 0x280);
+    assert_eq!(image.len(), 0x400);
+    assert_eq!(
+        ResponseIo::inspect(&image).err(),
+        Some(super::Error::Ambiguous)
+    );
+}
+
+#[test]
+fn registrar_call_ending_the_image_refuses() {
+    let mut image = registered();
+    // nop; movs r1,#0; bl registrar as the final image bytes.
+    image.resize(0x248, 0);
+    put(&mut image, 0x240, &[0xbf00, 0x2100]);
+    put_bl(&mut image, 0x244, 0x100);
+    assert_eq!(roots(&image), Err(super::Error::InvalidContract));
+}
+
+#[test]
+fn array_loop_ending_the_image_refuses() {
+    // push {r4,lr}; bl scanner; pop {r4,pc}, plus an unbound array loop
+    // `lsl r0,r1,#2; ldr r0,[r4,r0]; cmp r0,#0; bne site` as the final bytes.
+    let mut image = registered();
+    image.resize(0x260, 0);
+    put(&mut image, 0x240, &[0xb510]);
+    put_bl(&mut image, 0x242, 0);
+    put(&mut image, 0x246, &[0xbd10]);
+    put(&mut image, 0x258, &[0x0088, 0x5820, 0x2800, 0xd1f0]);
+    assert_eq!(roots(&image), Err(super::Error::InvalidContract));
+}
+
+#[test]
+fn immediate_blx_to_the_thumb_registrar_is_not_a_registration() {
+    use thumb_asm::isa::{encode_bytes, Insn, Operand, Width};
+    // push {r4,lr}; ldr r0,=0x1e0; mov r1,#0; blx 0x100; pop {r4,pc}: BLX
+    // enters ARM state, so the Thumb registrar never runs.
+    let mut image = registered();
+    put(&mut image, 0x1c0, &[0xb510, 0x4803, 0x2100]);
+    let call = Insn {
+        mnemonic: "blx",
+        encoding: "T2",
+        addr: 0x1c6,
+        width: Width::Wide,
+        cond: None,
+        sets_flags: false,
+        explicit_width: false,
+        operands: [Operand::Target(0x100)].into_iter().collect(),
+    };
+    image[0x1c6..0x1ca].copy_from_slice(&encode_bytes(&call).expect("blx"));
+    put(&mut image, 0x1ca, &[0xbd10]);
+    put_word(&mut image, 0x1d0, 0x1e0);
+    assert_eq!(roots(&image), Ok(vec![0x1a0]));
+}
+
+#[test]
+fn switch_helper_cut_off_by_the_input_end_is_truncated() {
+    use thumb_asm::isa::{encode_bytes, Insn, Operand, Width};
+    let body = crate::compiler::ARM_BYTE_SWITCH;
+    let call = Insn {
+        mnemonic: "blx",
+        encoding: "T2",
+        addr: 0,
+        width: Width::Wide,
+        cond: None,
+        sets_flags: false,
+        explicit_width: false,
+        operands: [Operand::Target(0x18)].into_iter().collect(),
+    };
+    let mut image = vec![0; 0x20];
+    image[..4].copy_from_slice(&encode_bytes(&call).expect("blx"));
+    image[0x18..].copy_from_slice(&body[..8]);
+    assert_eq!(
+        super::super::switch::targets(&image, 0),
+        Err(super::Error::Truncated)
+    );
+    // Bytes that differ from the helper are an ordinary call.
+    image[0x18] ^= 1;
+    assert_eq!(super::super::switch::targets(&image, 0), Ok(None));
+}
+
+#[test]
+fn response_census_sees_an_argument_defined_early() {
+    use super::super::ResponseIo;
+    // push {lr}; ldr r0,=0x80; nine nops; bl commit; pop {pc}: the argument
+    // is defined 0x14 bytes before the call, as the INQUIRY search allows.
+    let mut image = with_response();
+    put(&mut image, 0x380, &[0xb500, 0x4807]);
+    put(&mut image, 0x384, &[0xbf00; 9]);
+    put_bl(&mut image, 0x396, 0x280);
+    put(&mut image, 0x39a, &[0xbd00]);
+    put_word(&mut image, 0x3a0, 0x80);
+    assert_eq!(
+        ResponseIo::inspect(&image).err(),
+        Some(super::Error::Ambiguous)
+    );
+}

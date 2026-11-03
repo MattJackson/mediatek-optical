@@ -1,24 +1,89 @@
 //! Native response I/O, bound to native callers rather than instruction-address rank.
 use super::decoded::{constant_definition, exact, instruction, literal_load, memory_is, transfer};
 use super::{Error, SavedLink};
-use thumb_asm::isa::{Operand, Reg};
+use thumb_asm::isa::{decode_at, Insn, Operand, Reg};
 
 const SRAM: core::ops::Range<u32> = 0x02000000..0x02002000;
 /// Bytes before a committer call searched for its `r0` constant argument.
-const ARGUMENT_WINDOW: usize = 0x10;
+const ARGUMENT_WINDOW: usize = 0x60;
 
-/// An `r0` constant: a [`constant_definition`] or a bare `mov r0,#imm`.
-fn argument_constant(image: &[u8], at: usize) -> Option<(u32, usize)> {
-    if let Some(found) = constant_definition(image, at, 0) {
+/// A `register` constant: a [`constant_definition`] or a bare `mov rN,#imm`.
+fn argument_constant(image: &[u8], at: usize, register: u8) -> Option<(u32, usize)> {
+    if let Some(found) = constant_definition(image, at, register) {
         return Some(found);
     }
     let ins = instruction(image, at)?;
     match (ins.mnemonic, ins.operands.get(0), ins.operands.get(1)) {
-        ("mov", Some(Operand::Reg(dest)), Some(Operand::Imm(value))) if dest.num() == 0 => {
+        ("mov", Some(Operand::Reg(dest)), Some(Operand::Imm(value))) if dest.num() == register => {
             Some((u32::try_from(value).ok()?, at + ins.len()))
         }
         _ => None,
     }
+}
+
+/// Whether this instruction certainly replaces `r0`'s value.
+fn writes_r0(ins: &Insn) -> bool {
+    match ins.mnemonic {
+        "pop" | "ldm" | "ldmia" | "ldmdb" => ins
+            .operands
+            .as_slice()
+            .any(|op| matches!(op, Operand::RegList(bits) if bits & 1 != 0)),
+        "cmp" | "cmn" | "tst" | "teq" | "push" | "nop" => false,
+        m if m.starts_with("str") || m.starts_with("stm") => false,
+        "mov" if ins.operands.get(1) == Some(Operand::Reg(Reg(0))) => false,
+        _ => ins.operands.get(0) == Some(Operand::Reg(Reg(0))),
+    }
+}
+
+/// Whether `r0`, as left at `from`, may still hold that value at the call at
+/// `site`: unless every path from `from` within `from..=site` is shown to
+/// write `r0`, call, return, or run past the call, it may.
+fn may_reach(image: &[u8], from: usize, site: usize) -> bool {
+    let mut pending = vec![from];
+    let mut seen = std::collections::BTreeSet::new();
+    while let Some(pc) = pending.pop() {
+        if pc == site {
+            return true;
+        }
+        // Falling past `site` means this instruction stream skips the call.
+        if pc > site || !seen.insert(pc) {
+            continue;
+        }
+        let Some(ins) = decode_at(image, pc) else {
+            return true;
+        };
+        if ins.mnemonic == "it" {
+            return true;
+        }
+        if ins.is_call() {
+            // A byte-table switch keeps r0; other calls clobber it.
+            if !matches!(super::switch::targets(image, pc), Ok(None)) {
+                return true;
+            }
+            continue;
+        }
+        if ins.is_branch() {
+            let returns = ins.mnemonic == "pop"
+                || (ins.mnemonic == "bx" && ins.operands.get(0) == Some(Operand::Reg(Reg::LR)));
+            if returns {
+                continue;
+            }
+            match ins.branch_target().map(|target| target as usize) {
+                Some(target) if ins.mnemonic == "b" && (from..=site).contains(&target) => {
+                    pending.push(target);
+                }
+                _ => return true,
+            }
+            if ins.cond.is_some() {
+                pending.push(pc + ins.len());
+            }
+            continue;
+        }
+        if !writes_r0(&ins) {
+            pending.push(pc + ins.len());
+        }
+    }
+    false
 }
 
 #[derive(Clone, Copy)]
@@ -226,7 +291,8 @@ impl<'a> ResponseIo<'a> {
                 continue;
             }
             let mut argument = None;
-            for definition in (site.saturating_sub(0x60).max(prologue)..site).step_by(2) {
+            for definition in (site.saturating_sub(ARGUMENT_WINDOW).max(prologue)..site).step_by(2)
+            {
                 let Some((offset, end)) = constant_definition(image, definition, 0) else {
                     continue;
                 };
@@ -258,20 +324,54 @@ impl<'a> ResponseIo<'a> {
             });
         }
         let (_, commit) = pairs.pop().ok_or(Error::UnknownLayout)?;
+        let mut writers = Vec::new();
+        for at in (0..image.len().saturating_sub(22) + 1).step_by(2) {
+            let Some((upper, lower)) = writer_tail(image, at) else {
+                continue;
+            };
+            let mut prefix = None;
+            for start in [at.checked_sub(2), at.checked_sub(4)].into_iter().flatten() {
+                if let Some((offset, end)) = argument_constant(image, start, 2) {
+                    if end == at && prefix.replace((start, offset)).is_some() {
+                        return Err(Error::Ambiguous);
+                    }
+                }
+            }
+            let Some((start, offset)) = prefix else {
+                continue;
+            };
+            if upper != commit.source_cell
+                || lower.checked_add(4) != Some(upper)
+                || !SRAM.contains(&lower)
+            {
+                continue;
+            }
+            writers.push((start, offset));
+        }
+        // Only writer offsets are consulted, so other caller arguments are
+        // not proven.
+        let offsets: std::collections::BTreeSet<u32> =
+            writers.iter().map(|&(_, offset)| offset).collect();
         let mut buffers = std::collections::BTreeSet::new();
         // Offsets passed by callers whose argument cannot be proven still
         // count as writer candidates, so they refuse instead of disappearing.
         let mut unproven = std::collections::BTreeSet::new();
-        for site in (4..image.len().saturating_sub(4)).step_by(2) {
+        for site in (4..image.len().saturating_sub(3)).step_by(2) {
             if thumb_asm::decode_bl(image, site) != Some(commit.entry as u32) {
                 continue;
             }
             let parent = SavedLink::detect_entry(image, site).ok();
             for definition in (site.saturating_sub(ARGUMENT_WINDOW)..site).step_by(2) {
-                let Some((offset, end)) = argument_constant(image, definition) else {
+                let Some((offset, end)) = argument_constant(image, definition, 0) else {
                     continue;
                 };
-                if end > site || buffers.contains(&offset) {
+                // A definition every path overwrites, or that returns or calls
+                // before this call, is not its argument.
+                if end > site
+                    || !offsets.contains(&offset)
+                    || buffers.contains(&offset)
+                    || !may_reach(image, end, site)
+                {
                     continue;
                 }
                 let live = parent.is_some_and(|entry| {
@@ -288,27 +388,7 @@ impl<'a> ResponseIo<'a> {
         let mut writer = None;
         let mut contested = false;
         let mut selected_offset = 0;
-        for at in (0..image.len().saturating_sub(22) + 1).step_by(2) {
-            let Some((upper, lower)) = writer_tail(image, at) else {
-                continue;
-            };
-            let mut prefix = None;
-            for start in [at.checked_sub(2), at.checked_sub(4)].into_iter().flatten() {
-                if let Some((offset, end)) = constant_definition(image, start, 2) {
-                    if end == at && prefix.replace((start, offset)).is_some() {
-                        return Err(Error::Ambiguous);
-                    }
-                }
-            }
-            let Some((start, offset)) = prefix else {
-                continue;
-            };
-            if upper != commit.source_cell
-                || lower.checked_add(4) != Some(upper)
-                || !SRAM.contains(&lower)
-            {
-                continue;
-            }
+        for (start, offset) in writers {
             if !buffers.contains(&offset) {
                 contested |= unproven.contains(&offset);
                 continue;

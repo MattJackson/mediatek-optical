@@ -77,7 +77,7 @@ fn arrays(image: &[u8], scanner: &CommandScanner) -> Result<BTreeSet<u32>, Error
         // An unprovable scanner caller could own an array whose roots would
         // otherwise vanish from the table graph.
         let parent = SavedLink::detect_entry(image, site).map_err(unproven_error)?;
-        for at in (parent..(site + 0x100).min(image.len().saturating_sub(8))).step_by(2) {
+        for at in (parent..(site + 0x100).min(image.len().saturating_sub(7))).step_by(2) {
             let Some(shift) = instruction(image, at) else {
                 continue;
             };
@@ -164,11 +164,12 @@ pub(super) fn roots(image: &[u8], scanner: &CommandScanner) -> Result<BTreeSet<u
     }
     let mut roots = BTreeSet::new();
     let mut unproven = Vec::new();
-    for at in (4..image.len().saturating_sub(4)).step_by(2) {
+    for at in (4..image.len().saturating_sub(3)).step_by(2) {
         let Some(ins) = decode_at(image, at) else {
             continue;
         };
-        if !ins.is_call()
+        // An immediate BLX enters ARM state, so it never runs the Thumb registrar.
+        if ins.mnemonic != "bl"
             || ins.cond.is_some()
             || !ins
                 .branch_target()
