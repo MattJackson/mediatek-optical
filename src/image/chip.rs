@@ -1,7 +1,7 @@
 //! Chip generation and identity detection from image bytes.
 //!
 //! The authoritative signal for the chip generation (MT1959 vs MT1939) is the
-//! **boot loader banner** at image offset `0x3000` ([`layout::BANNER`], 16
+//! **boot loader banner** at image offset `0x3000` ([`layout::BANNER`], 32
 //! bytes), e.g. `"MT1959 Boot JB8 "` or `"MT1939 Boot Code"`. The family is
 //! decided by [`Chip::from_banner`] over that banner and by nothing else.
 //!

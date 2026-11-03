@@ -136,10 +136,10 @@ pub fn family(image: &[u8]) -> Option<Family> {
 /// and consistent:
 ///
 /// - the image is exactly [`layout::IMAGE_SIZE`] bytes;
-/// - it names a chip (descriptor tag, else boot banner) and its boot banner
-///   reads `MT19xx Boot <loader>`;
-/// - the code area holds exactly one hardware record, whose tag names the same
-///   chip;
+/// - its boot banner names the chip and reads `MT19xx Boot <loader>`; the
+///   descriptor and record tags never decide the chip;
+/// - the code area holds exactly one hardware record, whose tag parses as an
+///   MT19xx label (it may disagree with the banner chip);
 /// - a tagged descriptor carries the record's platform code at `+0x46`;
 /// - the platform code is printable;
 /// - the feature template ends exactly at the record, starts with the Profile

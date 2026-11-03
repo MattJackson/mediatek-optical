@@ -130,11 +130,13 @@ impl Candidate {
         ) {
             return None;
         }
+        // The loop's PC-relative literal pools assume a word-aligned start.
         branch_link(
             wrapper,
             self.wrapper_address,
             self.wrapper_address.checked_add(0x13e)?,
         )
+        .filter(|target| target & 3 == 0)
     }
 
     pub(super) fn bind(

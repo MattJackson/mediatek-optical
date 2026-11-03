@@ -236,21 +236,40 @@ fn candidate(w: &Window<'_>, start: u32) -> Option<LegacyCandidate> {
 /// Truncated, unknown and ambiguous windows return `None`. This performs no I/O
 /// and grants no permission to issue PREPARE or ignore its result.
 pub fn inspect_boot_legacy(bytes: &[u8], address: u32) -> Option<LegacyCandidate> {
+    match scan_legacy(bytes, address) {
+        Scan::Unique(hit) => Some(hit),
+        Scan::Absent | Scan::Ambiguous => None,
+    }
+}
+
+/// Outcome of scanning a window for one grammar.
+enum Scan<T> {
+    Absent,
+    Unique(T),
+    Ambiguous,
+}
+
+fn scan_legacy(bytes: &[u8], address: u32) -> Scan<LegacyCandidate> {
     let w = Window {
         bytes,
         base: address,
     };
-    let mut found = None;
+    let mut found = Scan::Absent;
     for index in (0..bytes.len().saturating_sub(9)).step_by(2) {
-        let at = address.checked_add(u32::try_from(index).ok()?)?;
+        let Some(at) = u32::try_from(index)
+            .ok()
+            .and_then(|index| address.checked_add(index))
+        else {
+            return Scan::Absent;
+        };
         if at & 1 != 0 {
             continue;
         }
         if let Some(hit) = candidate(&w, at) {
-            if found.is_some() {
-                return None;
+            if matches!(found, Scan::Unique(_)) {
+                return Scan::Ambiguous;
             }
-            found = Some(hit);
+            found = Scan::Unique(hit);
         }
     }
     found
@@ -373,24 +392,44 @@ fn dual_candidate(w: &Window<'_>, start: u32) -> Option<DualCandidate> {
 /// buffer 0x67, MMIO destination and the complete flag-copy control flow.
 /// Unknown, truncated or ambiguous windows return `None`; this does no I/O.
 pub fn inspect_boot_dual(bytes: &[u8], address: u32) -> Option<DualCandidate> {
+    match scan_dual(bytes, address) {
+        Scan::Unique(hit) => Some(hit),
+        Scan::Absent | Scan::Ambiguous => None,
+    }
+}
+
+fn scan_dual(bytes: &[u8], address: u32) -> Scan<DualCandidate> {
     let w = Window {
         bytes,
         base: address,
     };
-    let mut found = None;
+    let mut found = Scan::Absent;
     for index in (0..bytes.len()).step_by(2) {
-        let at = address.checked_add(u32::try_from(index).ok()?)?;
+        let Some(at) = u32::try_from(index)
+            .ok()
+            .and_then(|index| address.checked_add(index))
+        else {
+            return Scan::Absent;
+        };
         if at & 1 != 0 {
             continue;
         }
         if let Some(hit) = dual_candidate(&w, at) {
-            if found.is_some() {
-                return None;
+            if matches!(found, Scan::Unique(_)) {
+                return Scan::Ambiguous;
             }
-            found = Some(hit);
+            found = Scan::Unique(hit);
         }
     }
     found
+}
+
+/// True when exactly one BOOT grammar matches (positively accepting mode one).
+pub(super) fn boot_grammar_accepted(bytes: &[u8], address: u32) -> bool {
+    matches!(
+        (scan_legacy(bytes, address), scan_dual(bytes, address)),
+        (Scan::Unique(_), Scan::Absent) | (Scan::Absent, Scan::Unique(_))
+    )
 }
 
 #[cfg(test)]

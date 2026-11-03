@@ -14,3 +14,30 @@ fn every_declared_code_has_a_deliberate_host_category() {
         }
     }
 }
+
+#[cfg(all(feature = "drive", feature = "image", feature = "enc"))]
+#[test]
+fn execute_and_flash_errors_classify_by_their_cause() {
+    use crate::{
+        operation::IssueKind,
+        receiver::{self, ExecuteError},
+        update::{FlashError, StartupError},
+        CodedError,
+    };
+    // A pre-write receiver refusal never attempted a write.
+    let refused = ExecuteError::<()>::Receiver(receiver::Error::Changed);
+    assert_eq!(refused.kind(), IssueKind::ReceiverMismatch);
+    let flash = ExecuteError::<()>::Flash(FlashError::Startup(StartupError::TargetMismatch));
+    assert_eq!(flash.kind(), IssueKind::Verification);
+    // The stage code stays stable.
+    assert_eq!(refused.code(), "mediatek.execute.receiver");
+    assert_eq!(flash.code(), "mediatek.execute.flash");
+    let mismatch = FlashError::<()>::Startup(StartupError::TargetMismatch);
+    assert_eq!(mismatch.kind(), IssueKind::Verification);
+    let identity = FlashError::<()>::Startup(StartupError::Read(crate::drive::Error::Oversize(1)));
+    assert_eq!(identity.kind(), IssueKind::Connection);
+    assert_eq!(
+        FlashError::<()>::ReadyTimeout(crate::drive::Error::Oversize(1)).kind(),
+        IssueKind::Update
+    );
+}

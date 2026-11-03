@@ -117,9 +117,11 @@ impl Chip {
 
     /// The chip named by a boot banner such as `MT1939 Boot JB7`. This is the
     /// source used by live identity and image analysis, even when a descriptor
-    /// carries a conflicting [`Chip::from_tag`] label.
+    /// carries a conflicting [`Chip::from_tag`] label. Only bytes before the
+    /// first NUL are considered.
     pub fn from_banner(banner: &[u8]) -> Option<Self> {
-        banner
+        let end = banner.iter().position(|&b| b == 0).unwrap_or(banner.len());
+        banner[..end]
             .windows(6)
             .filter(|w| w.starts_with(b"MT19"))
             .find_map(|w| Self::from_digits(w[4], w[5]))
@@ -223,7 +225,8 @@ impl DriveClass {
     }
 }
 
-/// Trim trailing ASCII spaces and NULs and decode as UTF-8; `""` if invalid.
+/// Trim leading ASCII spaces and trailing spaces and NULs, then decode as
+/// UTF-8; `""` if invalid.
 fn field(raw: &[u8]) -> &str {
     let start = raw.iter().position(|&b| b != b' ').unwrap_or(raw.len());
     let raw = &raw[start..];

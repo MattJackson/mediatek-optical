@@ -129,6 +129,12 @@ impl<E> CodedError for crate::receiver::Error<E> {
 
 #[cfg(all(feature = "drive", feature = "image"))]
 impl<E> CodedError for crate::update::FlashError<E> {
+    fn kind(&self) -> crate::operation::IssueKind {
+        match self {
+            Self::Startup(error) => error.kind(),
+            _ => kind_for_code(self.code()),
+        }
+    }
     fn code(&self) -> &'static str {
         match self {
             Self::Entry(_) => "mediatek.flash.entry",
@@ -155,6 +161,12 @@ impl<E> CodedError for crate::update::StartupError<E> {
 
 #[cfg(all(feature = "drive", feature = "image", feature = "enc"))]
 impl<E> CodedError for crate::receiver::ExecuteError<E> {
+    fn kind(&self) -> crate::operation::IssueKind {
+        match self {
+            Self::Receiver(error) => error.kind(),
+            Self::Flash(error) => error.kind(),
+        }
+    }
     fn code(&self) -> &'static str {
         match self {
             Self::Receiver(_) => "mediatek.execute.receiver",

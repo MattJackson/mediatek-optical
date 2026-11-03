@@ -7,6 +7,7 @@ struct Device {
     inquiry: [u8; 36],
     reads: usize,
     short: bool,
+    fail_at: Option<usize>,
 }
 impl Device {
     fn new(mode: Mode) -> Self {
@@ -19,6 +20,7 @@ impl Device {
             inquiry,
             reads: 0,
             short: false,
+            fail_at: None,
         }
     }
     fn stamp(&mut self, at: usize, pattern: &[u16]) {
@@ -46,6 +48,9 @@ impl Transport for Device {
             return Ok(0);
         }
         let off = ((cdb[3] as usize) << 16) | ((cdb[4] as usize) << 8) | cdb[5] as usize;
+        if self.fail_at == Some(off) {
+            return Err("injected read failure");
+        }
         let src = self.image.get(off..off + buf.len()).ok_or("unmapped")?;
         buf.copy_from_slice(src);
         Ok(buf.len())
@@ -81,7 +86,7 @@ fn missing_short_and_conflicting_code_never_mean_plaintext() {
     dev.short = true;
     assert!(matches!(
         detect_encoding(&mut dev, &mode),
-        Err(Error::Unknown)
+        Err(Error::Read(_))
     ));
     dev.short = false;
     dev.stamp(0xa3000, PLAIN_APP);
@@ -174,4 +179,39 @@ fn recovery_protocol_evidence_is_independent_of_inquiry_brand() {
     assert!(crate::recovery::Receiver::identify(&mut dev)
         .unwrap()
         .is_none());
+}
+
+#[test]
+fn a_failed_scan_or_routine_read_is_an_error_not_partial_evidence() {
+    // The plaintext signature sits in the failing block: it must not be
+    // reported as "no receiver" (or chosen from the other blocks).
+    let mut dev = Device::new(Mode::Boot);
+    dev.stamp(0x36c4, PLAIN_DIRECT);
+    let mode = detect_mode(&mut dev).unwrap();
+    dev.fail_at = Some(0x3400);
+    assert!(matches!(
+        detect_encoding(&mut dev, &mode),
+        Err(Error::Read(_))
+    ));
+    // A failing AES routine read must not leave the header call unvalidated.
+    let mut dev = Device::new(Mode::Boot);
+    let call = 0x35d2;
+    let target = 0x5500;
+    dev.image[call - 12..call]
+        .copy_from_slice(&[0xeb, 0x69, 0x10, 0x22, 1, 0xa9, 3, 0x20, 0, 3, 0x18, 0x18]);
+    let delta = target - call - 4;
+    dev.image[call..call + 2].copy_from_slice(&(0xf000u16 | ((delta >> 12) as u16)).to_le_bytes());
+    dev.image[call + 2..call + 4]
+        .copy_from_slice(&(0xf800u16 | ((delta >> 1) as u16 & 2047)).to_le_bytes());
+    dev.stamp(target, AES);
+    let mode = detect_mode(&mut dev).unwrap();
+    assert_eq!(
+        detect_encoding(&mut dev, &mode).unwrap().encoding(),
+        Encoding::Encrypted
+    );
+    dev.fail_at = Some(target);
+    assert!(matches!(
+        detect_encoding(&mut dev, &mode),
+        Err(Error::Read(_))
+    ));
 }

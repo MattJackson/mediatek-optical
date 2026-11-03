@@ -39,3 +39,27 @@ fn native_mode_three_stores_bind_to_the_actual_loop_cells() {
         );
     }
 }
+
+#[test]
+fn unaligned_loop_address_is_rejected() {
+    let mut image = fixture();
+    let program = include_bytes!("../../../tests/fixtures/analysis/uh12-program.bin");
+    // Move the loop two bytes: its PC-relative literal pools would no longer
+    // be word aligned at run time, so the evidence cannot apply.
+    image[0x17000..0x17000 + program.len() + 2].fill(0);
+    image[0x17002..0x17002 + program.len()].copy_from_slice(program);
+    let at = 0x17c44e + 0x13e;
+    let delta = 0x17002i64 - (at as i64 + 4);
+    let high = 0xf000u16 | ((delta >> 12) & 0x7ff) as u16;
+    let low = 0xf800u16 | ((delta >> 1) & 0x7ff) as u16;
+    image[at..at + 2].copy_from_slice(&high.to_le_bytes());
+    image[at + 2..at + 4].copy_from_slice(&low.to_le_bytes());
+    let pool = 0x17c44e..0x17c44e + 0x400;
+    let literal = image[pool.clone()]
+        .windows(4)
+        .position(|w| w == 0x17001u32.to_le_bytes())
+        .unwrap()
+        + pool.start;
+    image[literal..literal + 4].copy_from_slice(&0x17003u32.to_le_bytes());
+    assert!(inspect_mode_three_wrapper(&image, 0, 0x17c44e).is_none());
+}

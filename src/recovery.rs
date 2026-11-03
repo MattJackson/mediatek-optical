@@ -65,7 +65,8 @@ impl<E: core::fmt::Debug + 'static> std::error::Error for Error<E> {
 
 impl Receiver {
     /// Recognize a MediaTek receiver without MMC features or application metadata.
-    /// Returns `None` for a readable non-MediaTek banner. Reads no backup.
+    /// Returns `None` when the device does not identify as a MediaTek receiver
+    /// (an `InvalidIdentity` INQUIRY shape or a non-MediaTek banner). Reads no backup.
     pub fn identify<T: Transport>(t: &mut T) -> Result<Option<Self>, Error<T::Error>> {
         let mode = match receiver::detect_mode(t) {
             Ok(mode) => mode,
@@ -75,7 +76,7 @@ impl Receiver {
         let mut banner = [0; layout::BANNER.len];
         drive::read_memory(t, layout::BANNER.start as u32, &mut banner).map_err(Error::Read)?;
         let Some(evidence) = crate::protocol::Evidence::parse(mode.inquiry(), &banner)
-            .map_err(|_| Error::Changed)?
+            .map_err(|_| Error::Receiver(receiver::Error::InvalidIdentity))?
         else {
             return Ok(None);
         };

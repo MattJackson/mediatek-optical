@@ -122,7 +122,8 @@ pub fn inspect_integrity_walker(
     Some(crypto)
 }
 
-/// Both branches of the legacy application's update-bit-zero range selection.
+/// Both branches of an update-bit-zero range selection, recognized in the
+/// legacy application or in the shared-selection form.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Selection {
     /// First instruction of the checked range-selection block.

@@ -175,3 +175,44 @@ fn both_real_dual_entry_compiler_forms_bind_modes_and_flag_paths() {
         assert!(inspect_boot_dual(&bytes, u32::MAX - 16).is_none());
     }
 }
+
+// The first real dual-entry compiler form, as a 0x600-byte window at 0x3400.
+fn dual_window() -> std::vec::Vec<u8> {
+    let mut bytes = std::vec![0xff; 0x600];
+    for (address, hex) in [
+        (0x3544, "de49f0b5487885b00007000f4870487808220423022401280bd0d74d0a3d022801d0062879d14878062824d18878672821d1d348"),
+        (0x38bc, "8a0d0002fc0d000240200004"),
+        (0x365e, "7ce0"),
+        (0x375a, "01262e7121e7"),
+    ] {
+        for i in (0..hex.len()).step_by(2) {
+            bytes[address - 0x3400 + i / 2] = u8::from_str_radix(&hex[i..i + 2], 16).unwrap();
+        }
+    }
+    bytes[0x3576 - 0x3400..0x3576 - 0x3400 + DUAL_LOCAL.len()].copy_from_slice(DUAL_LOCAL);
+    bytes[0x3576 - 0x3400] = 0xd3;
+    bytes
+}
+
+#[test]
+fn boot_acceptance_requires_exactly_one_unambiguous_grammar() {
+    let legacy = v9_window();
+    let dual = dual_window();
+    assert!(boot_grammar_accepted(&legacy, 0x3400));
+    assert!(boot_grammar_accepted(&dual, 0x3400));
+    assert!(!boot_grammar_accepted(&[0xff; 0x600], 0x3400));
+    // Two legacy matches are ambiguous, not absent: a unique dual match
+    // elsewhere in the window must not rescue them.
+    let mut mixed = legacy.clone();
+    mixed.extend_from_slice(&legacy);
+    mixed.extend_from_slice(&dual);
+    assert!(inspect_boot_legacy(&mixed, 0x3400).is_none());
+    assert!(inspect_boot_dual(&mixed, 0x3400).is_some());
+    assert!(!boot_grammar_accepted(&mixed, 0x3400));
+    // Likewise for two dual matches beside one legacy match.
+    let mut mixed = dual.clone();
+    mixed.extend_from_slice(&dual);
+    mixed.extend_from_slice(&legacy);
+    assert!(inspect_boot_legacy(&mixed, 0x3400).is_some());
+    assert!(!boot_grammar_accepted(&mixed, 0x3400));
+}
