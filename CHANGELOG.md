@@ -7,6 +7,7 @@
 - `analysis::Diagnostic::source()` now returns the underlying cause.
 - `RamReferences::incomplete()` now includes seeds whose path reaches an unmodelled branch (`cbz`/`cbnz`, table branches, indirect `bx`/`blx`); function returns still end a path normally.
 - Tighten analysis grammars: `TST`/`CMN`/`TEQ` invalidate cached comparisons; a UHD coefficient continuation must read the register holding `0x51b1` and any other write to it or a call ends the constant; scans now include the last offset; missing literal evidence no longer matches.
+- The legacy BOOT grammar's return must unwind exactly the proven frame (`ADD SP` matching the prologue's `SUB SP`, then `POP {r4-r7,pc}`). Mixed scratch-header contracts require the integrity walker at its literal-pool alignment. Read-back verification no longer compares a reply that reports a full transfer without filling the buffer against the previous chunk's bytes; it is a mismatch.
 - `detect_encoding` propagates read failures instead of choosing an encoding from partial evidence. `Chip::from_banner` ignores bytes after the first NUL. Ambiguous BOOT grammars are refused, unaligned programming-loop targets are rejected, and recovery identification reports a malformed identity as `InvalidIdentity`.
 
 - Restrict boot-mirror readback detection to complete 2 MiB MT19xx images; older 512 KiB OEM firmware and partial fragments are not raw MT19xx captures.

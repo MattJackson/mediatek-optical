@@ -72,8 +72,9 @@ impl Window<'_> {
 
 // Verify the complete local prologue, rather than finding useful bytes in an
 // otherwise unconstrained prefix. This also proves r0 is still the CDB pointer
-// and whether r7 really carries the bit-zero constant.
-fn prologue(w: &Window<'_>, start: u32) -> Option<bool> {
+// and whether r7 really carries the bit-zero constant. Also returns the
+// proven `SUB SP` so the return can be bound to the same frame.
+fn prologue(w: &Window<'_>, start: u32) -> Option<(bool, u16)> {
     for distance in [14, 16, 18] {
         let Some(mut p) = start.checked_sub(distance) else {
             continue;
@@ -89,9 +90,9 @@ fn prologue(w: &Window<'_>, start: u32) -> Option<bool> {
             continue;
         }
         p += 4;
-        if !matches!(w.word(p), Some(0xb085 | 0xb089)) {
+        let Some(stack @ (0xb085 | 0xb089)) = w.word(p) else {
             continue;
-        }
+        };
         p += 2;
         let mut one = false;
         let mut state = false;
@@ -116,7 +117,7 @@ fn prologue(w: &Window<'_>, start: u32) -> Option<bool> {
             && w.word(p) == Some(0x2a00)
             && w.conditional(p + 2, 0xd100).is_some()
         {
-            return Some(one);
+            return Some((one, stack));
         }
     }
     None
@@ -127,7 +128,7 @@ fn candidate(w: &Window<'_>, start: u32) -> Option<LegacyCandidate> {
     if w.bytes(start, 10)? != [0x42, 0x78, 0x12, 0x07, 0x12, 0x0f, 0x42, 0x70, 0x42, 0x78] {
         return None;
     }
-    let preloaded_one = prologue(w, start)?;
+    let (preloaded_one, stack) = prologue(w, start)?;
     let mut p = start.checked_add(10)?;
     // The first literal runs before `CMP r2,#1`, so it may not clobber the CDB
     // pointer (r0), the compared mode nibble (r2) or the preloaded bit-zero one
@@ -221,7 +222,9 @@ fn candidate(w: &Window<'_>, start: u32) -> Option<LegacyCandidate> {
             return None;
         }
     }
-    if w.word(p)? & 0xff80 != 0xb000 || w.word(p.checked_add(2)?)? & 0xff00 != 0xbd00 {
+    // The return must unwind exactly the proven frame: ADD SP by the prologue's
+    // SUB SP amount, then POP {r4-r7,pc} matching PUSH {r4-r7,lr}.
+    if w.word(p)? != 0xb000 | (stack & 0x7f) || w.word(p.checked_add(2)?)? != 0xbdf0 {
         return None;
     }
     Some(LegacyCandidate {

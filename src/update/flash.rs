@@ -353,6 +353,12 @@ impl Payload<'_> {
             ));
             let offset = index * chunk;
             let got = &mut buf[..piece.len()];
+            // Poison with values that cannot match, so a reply that reports a
+            // full count without filling the buffer is a mismatch rather than
+            // a comparison against the previous chunk's read-back.
+            for (slot, &wrote) in got.iter_mut().zip(piece) {
+                *slot = !wrote;
+            }
             match drive::read_memory(reads, offset as u32, got) {
                 Ok(()) => {
                     for (i, (&read, &wrote)) in got.iter().zip(piece).enumerate() {

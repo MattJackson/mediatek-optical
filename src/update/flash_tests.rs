@@ -40,6 +40,8 @@ struct Drive {
     /// Answer the read of the chunk at this offset short.
     short_at: Option<usize>,
     short_after_commit: bool,
+    /// Report a full read of the chunk at this offset without filling it.
+    unfilled_at: Option<usize>,
     committed: bool,
     inquiry_revision: Option<[u8; 4]>,
 }
@@ -126,6 +128,9 @@ impl Drive {
             }
             (0x3C, Data::In(buf)) => {
                 let off = u32::from_be_bytes([0, cdb[3], cdb[4], cdb[5]]) as usize;
+                if self.unfilled_at == Some(off) {
+                    return Ok(buf.len());
+                }
                 let n =
                     if self.short_at == Some(off) && (self.committed || !self.short_after_commit) {
                         buf.len() - 1
@@ -657,6 +662,27 @@ fn an_unreadable_protected_chunk_is_incomplete() {
     let (drive, update, _) = setup();
     drive.borrow_mut().short_at = Some(0x4_0000);
     run(&drive, &update, &mut Clock::default()).unwrap();
+}
+
+#[test]
+fn a_full_count_without_data_never_verifies_stale_bytes() {
+    // 0x2_4000 and 0x2_8000 hold identical protected bytes; a read of the
+    // second that reports a full count but writes nothing must not be counted
+    // as matching the previous chunk's read-back.
+    let (drive, update, target) = setup();
+    assert!(target[0x2_4000..0x2_8000] == target[0x2_8000..0x2_C000]);
+    drive.borrow_mut().unfilled_at = Some(0x2_8000);
+    let error = run(&drive, &update, &mut Clock::default()).unwrap_err();
+    assert!(
+        matches!(
+            error,
+            FlashError::Mismatch {
+                address: 0x2_8000,
+                ..
+            }
+        ),
+        "{error:?}"
+    );
 }
 
 #[cfg(feature = "enc")]
