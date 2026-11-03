@@ -364,3 +364,20 @@ fn overlong_loader_tokens_are_refused_not_truncated() {
     assert_eq!(loader(b"MT1959 Boot ABCDEFGH1"), None);
     assert_eq!(loader(b"MT1959 Boot ABCDEFGH2"), None);
 }
+
+#[test]
+fn a_second_banner_word_is_refused_not_dropped() {
+    // Stock banners pad the loader with spaces up to the NUL or code bytes.
+    assert_eq!(
+        loader(b"MT1959 Boot JB8 \0\0\0\xea").as_deref(),
+        Some("JB8")
+    );
+    assert_eq!(loader(b"MT1959 Boot JB8   ").as_deref(), Some("JB8"));
+    assert_eq!(
+        loader(b"MT1959 Boot Code\0\0\0\xea").as_deref(),
+        Some("Code")
+    );
+    // A further word would otherwise share JB8's family.
+    assert_eq!(loader(b"MT1959 Boot JB8 A\0"), None);
+    assert_eq!(loader(b"MT1959 Boot ABCDEFGH IJ\0"), None);
+}
