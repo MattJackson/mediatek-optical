@@ -574,6 +574,6 @@ fn live_detection_selects_prepare_and_encoding_for_every_published_receiver() {
         transfer_counts.get("header_Encrypted_body_Plaintext"),
         Some(&2)
     );
-    std::fs::write("target/receiver-transfer-coverage.json", serde_json::to_vec_pretty(&serde_json::json!({"published_members":136,"receiver_modes":272,"transfer_combinations":transfer_counts,"cases":transfer_cases})).unwrap()).unwrap();
+    std::fs::write(concat!(env!("CARGO_TARGET_TMPDIR"), "/receiver-transfer-coverage.json"), serde_json::to_vec_pretty(&serde_json::json!({"published_members":136,"receiver_modes":272,"transfer_combinations":transfer_counts,"cases":transfer_cases})).unwrap()).unwrap();
     eprintln!("272 live receiver mode/encoding/PREPARE selections and stale-binding refusals passed; no device writes");
 }

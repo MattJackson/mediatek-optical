@@ -25,9 +25,11 @@ fn wide_form_has_distinct_skip_and_role_checked_relocations() {
         {
             continue;
         }
-        let mut changed = WIDE.to_vec();
-        changed[at] ^= 1;
-        assert!(inspect_program_loop(&changed).is_none(), "{at:#x}");
+        for byte in [at, at + 1] {
+            let mut changed = WIDE.to_vec();
+            changed[byte] ^= 1;
+            assert!(inspect_program_loop(&changed).is_none(), "{byte:#x}");
+        }
     }
     for bad in [0x02000cacu32, 0x02000ca5, 0x04011000] {
         let mut changed = WIDE.to_vec();
@@ -66,9 +68,14 @@ fn every_nonrelocatable_halfword_is_load_bearing() {
         {
             continue;
         }
-        let mut changed = HELD.to_vec();
-        changed[at] ^= 1;
-        assert!(inspect_compact_program_loop(&changed).is_none(), "{at:#x}");
+        for byte in [at, at + 1] {
+            let mut changed = HELD.to_vec();
+            changed[byte] ^= 1;
+            assert!(
+                inspect_compact_program_loop(&changed).is_none(),
+                "{byte:#x}"
+            );
+        }
     }
     assert!(inspect_compact_program_loop(&HELD[..HELD.len() - 1]).is_none());
 }

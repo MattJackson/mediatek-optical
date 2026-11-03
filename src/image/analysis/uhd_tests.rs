@@ -133,11 +133,14 @@ fn classic_reverse_selector_binds_the_shared_forward_rejection_gate() {
 }
 
 #[test]
+#[ignore = "requires private MTK_UHD_AREA_CORPUS and MTK_UHD_AREA_HOARD"]
 fn uhd_contracts_corpus_matches_inventory_without_chip_or_model_selection() {
-    let Ok(path) = std::env::var("MTK_UHD_AREA_CORPUS") else {
-        return;
-    };
-    let hoard = std::path::PathBuf::from(std::env::var("MTK_UHD_AREA_HOARD").unwrap());
+    let path = std::env::var("MTK_UHD_AREA_CORPUS")
+        .expect("MTK_UHD_AREA_CORPUS must be set for this ignored test");
+    let hoard = std::path::PathBuf::from(
+        std::env::var("MTK_UHD_AREA_HOARD")
+            .expect("MTK_UHD_AREA_HOARD must be set for this ignored test"),
+    );
     let inventory: serde_json::Value =
         serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
     for row in inventory["images"].as_array().unwrap() {

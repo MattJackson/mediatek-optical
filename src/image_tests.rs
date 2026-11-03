@@ -27,13 +27,20 @@ fn cmac_signs_and_detects_tampering() {
 
 #[test]
 fn cmac_digest_is_byte_exact() {
-    // Independently computed: AES-CMAC under the public key over sixteen
-    // block-reversed 0x5A blocks, digest byte-reversed for storage.
+    // Known answer computed outside this crate (Python `cryptography` AES-CMAC):
+    // key BD209408E35E526A36235234434FE8AB over 4096 bytes of 0x5A (each
+    // block-reversed, which leaves 0x5A blocks unchanged), digest byte-reversed
+    // for storage.
+    const EXPECTED: [u8; 16] = [
+        0x49, 0x0B, 0x03, 0xED, 0x4D, 0xC7, 0x23, 0x4B, 0x0D, 0x0A, 0xEB, 0x6C, 0x05, 0x5E, 0x65,
+        0xAD,
+    ];
     let img = signed_image();
     let digest = cmac::compute_stored_digest(&img, 0x2000, 0x2FFF).unwrap();
+    assert_eq!(digest, EXPECTED);
     assert_eq!(
         &img[cmac::TABLE_OFFSET + 12..cmac::TABLE_OFFSET + 28],
-        &digest
+        &EXPECTED
     );
     assert!(cmac::compute_stored_digest(&img, 0x10, 0x0F).is_err());
 }
