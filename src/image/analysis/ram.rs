@@ -335,19 +335,15 @@ impl RamReferences {
     }
 }
 
-/// A PC-writing function return: `pop {.., pc}`, `ldm sp.., {.., pc}`,
-/// `mov pc, lr`, `ldr pc, [sp..]` and `bx lr`.
+/// A 16-bit PC-writing function return: `pop {.., pc}`, `mov pc, lr` and
+/// `bx lr`. 32-bit returns (`ldr.w pc, [sp], #4`, `ldmia.w sp!, {.., pc}`)
+/// never reach this check; the walk reports them as incomplete.
 fn is_return(ins: &thumb_asm::isa::Insn) -> bool {
     let reg = |op: Option<Operand>, n: u8| matches!(op, Some(Operand::Reg(r)) if r.num() == n);
     match ins.mnemonic {
         "bx" => reg(ins.operands.get(0), 14),
         "pop" => ins.writes_pc(),
         "mov" => reg(ins.operands.get(0), 15) && reg(ins.operands.get(1), 14),
-        "ldr" => {
-            reg(ins.operands.get(0), 15)
-                && matches!(ins.operands.get(1), Some(Operand::Mem(m)) if m.base.num() == 13)
-        }
-        "ldm" | "ldmia" | "ldmdb" => ins.writes_pc() && reg(ins.operands.get(0), 13),
         _ => false,
     }
 }

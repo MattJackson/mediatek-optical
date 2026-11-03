@@ -173,3 +173,46 @@ fn register_shift_uses_only_the_low_byte() {
     let image: Vec<u8> = words.into_iter().flat_map(u16::to_le_bytes).collect();
     assert_eq!(SavedLink::bind(&image, 0, 10), Err(Error::InvalidContract));
 }
+
+fn thumb(words: &[u16]) -> Vec<u8> {
+    words.iter().copied().flat_map(u16::to_le_bytes).collect()
+}
+
+#[test]
+fn stack_pointer_spills_beyond_the_tracked_bound_are_refused() {
+    // Nine `stmia r1!, {r0-r7}` of stack aliases spill 288 pointer bytes into
+    // a 400-byte local frame, more than any native frame is modelled to hold.
+    let mut words = vec![0xb510, 0xb0e4];
+    words.extend((0..8).map(|rd| 0x4668 | rd));
+    words.extend([0xc1ff; 9]);
+    words.extend([0xb064, 0x46c0, 0xbd10]);
+    let site = (words.len() - 2) * 2;
+    let image = thumb(&words);
+    assert_eq!(
+        SavedLink::bind(&image, 0, site),
+        Err(Error::InvalidContract)
+    );
+    // The same frame spilling eight stack pointers remains provable.
+    let mut words = vec![0xb510, 0xb0e4];
+    words.extend((0..8).map(|rd| 0x4668 | rd));
+    words.extend([0xc1ff, 0xb064, 0x46c0, 0xbd10]);
+    let site = (words.len() - 2) * 2;
+    assert!(SavedLink::bind(&thumb(&words), 0, site).is_ok());
+}
+
+#[test]
+fn looping_stack_pointer_spills_stay_bounded() {
+    // push {r4,lr}; mov r0..r7, sp; loop: subs r1,#64; stmia r1!,{r0-r7}; b loop.
+    // Every iteration spills 32 fresh pointer bytes, so no state repeats.
+    let mut words = vec![0xb510];
+    words.extend((0..8).map(|rd| 0x4668 | rd));
+    words.extend([0x3940, 0xc1ff, 0xe7fc]);
+    let mut image = thumb(&words);
+    image.resize(0x2000, 0);
+    let started = std::time::Instant::now();
+    assert_eq!(
+        SavedLink::bind(&image, 0, 0x100),
+        Err(Error::InvalidContract)
+    );
+    eprintln!("looping spill bind: {:?}", started.elapsed());
+}

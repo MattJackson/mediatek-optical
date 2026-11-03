@@ -3,6 +3,11 @@ use super::Error;
 use std::collections::BTreeMap;
 use thumb_asm::isa::{AddrMode, Insn, Mem, Operand};
 
+/// Stack-pointer bytes a native frame may hold. Every bounded walk state
+/// clones this provenance, so a loop that keeps spilling pointers to fresh
+/// stack addresses is refused instead of growing memory quadratically.
+const MAX_SPILLED_BYTES: usize = 256;
+
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord)]
 enum Alias {
     #[default]
@@ -72,6 +77,9 @@ impl StackFlow {
                     } else {
                         self.bytes.insert(byte, value);
                     }
+                }
+                if self.bytes.len() > MAX_SPILLED_BYTES {
+                    return Err(Error::InvalidContract);
                 }
                 Ok(())
             }

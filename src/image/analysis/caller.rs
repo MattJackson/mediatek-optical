@@ -46,8 +46,12 @@ pub(super) fn scalar_operand(
 }
 pub(super) fn update_constants(ins: &thumb_asm::isa::Insn, values: &mut [Option<u32>; 16]) {
     if ins.is_call() {
-        for reg in [0, 1, 2, 3, 12] {
-            values[reg] = None;
+        // Callers that recognize the byte-switch helper apply its narrower set.
+        let clobbers = super::switch::clobbers(false);
+        for (reg, value) in values.iter_mut().enumerate() {
+            if clobbers & (1 << reg) != 0 {
+                *value = None;
+            }
         }
         return;
     }
