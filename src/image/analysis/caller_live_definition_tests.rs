@@ -214,5 +214,6 @@ fn looping_stack_pointer_spills_stay_bounded() {
         SavedLink::bind(&image, 0, 0x100),
         Err(Error::InvalidContract)
     );
-    eprintln!("looping spill bind: {:?}", started.elapsed());
+    // Unbounded spill tracking took over 10 s and several GB here.
+    assert!(started.elapsed() < std::time::Duration::from_secs(5));
 }

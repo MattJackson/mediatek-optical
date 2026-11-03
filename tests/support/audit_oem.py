@@ -38,7 +38,8 @@ for chip in ('MT1939', 'MT1959'):
         extra = dict(mirrored_boot=data[:0x400] == data[0x10000:0x10400])
         # Same rule as cmac.rs covers_table: the range overlaps the table.
         covers_table = lambda e: e['start'] < 0x10400 + 16 * 28 and e['end'] >= 0x10400
-        if all(e['matches'] for e in entries):
+        # Only images with a data range outside the table can be mutated and re-signed.
+        if all(e['matches'] for e in entries) and any(not covers_table(e) for e in entries):
             changed = bytearray(data)
             # Mutate an authenticated data range, then independently re-sign the
             # data tags before the tag covering the integrity table.
