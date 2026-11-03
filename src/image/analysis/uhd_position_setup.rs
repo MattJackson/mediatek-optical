@@ -177,7 +177,7 @@ impl ClassicPositionSetup {
     pub fn detect(image: &[u8], state: u32) -> Result<Self, Error> {
         let length = PATTERN.len() * 2;
         if image.len() < length {
-            return Err(Error::Truncated);
+            return Err(Error::UnknownLayout);
         }
         let mut result = None;
         for entry in (0..=image.len() - length).step_by(2) {

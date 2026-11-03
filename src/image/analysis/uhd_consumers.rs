@@ -471,6 +471,9 @@ impl ClassicConsumer {
                             .ok_or(Error::InvalidContract)?;
                         if !(region + 0x24..=region + 0x80).contains(&target)
                             || !matches(image, target, pattern)
+                            // The tail rejoins after the fall-through flag
+                            // load, so that load must also define r0.
+                            || half(image, region + 30).map(|op| op & 0xff00) != Some(0x4800)
                             || !literal(image, target)
                                 .is_some_and(|v| Some(v) == literal(image, region + 30))
                             || conditional(image, target + 6, thumb_asm::Cond::Ne) != Some(join)
