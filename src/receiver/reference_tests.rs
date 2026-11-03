@@ -3,6 +3,9 @@ use super::*;
 struct Restricted {
     image: Vec<u8>,
     reads: usize,
+    // Once the descriptor is read, INQUIRY reports this revision.
+    revision_after_descriptor: Option<[u8; 4]>,
+    revision: Option<[u8; 4]>,
 }
 impl Transport for Restricted {
     type Error = &'static str;
@@ -21,6 +24,9 @@ impl Transport for Restricted {
             bytes[8..36].copy_from_slice(
                 &self.image[layout::DESCRIPTOR.start..layout::DESCRIPTOR.start + 28],
             );
+            if let Some(revision) = self.revision {
+                bytes[32..36].copy_from_slice(&revision);
+            }
         } else {
             let address =
                 ((command[3] as usize) << 16) | ((command[4] as usize) << 8) | command[5] as usize;
@@ -31,6 +37,9 @@ impl Transport for Restricted {
                 return Err("physical code reads unavailable");
             }
             bytes.copy_from_slice(&self.image[address..address + bytes.len()]);
+            if address == layout::DESCRIPTOR.start {
+                self.revision = self.revision_after_descriptor.or(self.revision);
+            }
         }
         Ok(bytes.len())
     }
@@ -47,7 +56,15 @@ fn fixture() -> (Envelope, Restricted) {
     }
     let image = crate::fixtures::sign(image);
     let envelope = Envelope::load(&image).unwrap();
-    (envelope, Restricted { image, reads: 0 })
+    (
+        envelope,
+        Restricted {
+            image,
+            reads: 0,
+            revision_after_descriptor: None,
+            revision: None,
+        },
+    )
 }
 
 #[test]
@@ -128,4 +145,25 @@ fn offline_reference_defects_classify_as_firmware_not_connection() {
         Error::Analysis(super::super::Error::InvalidIdentity)
     ));
     assert_eq!(error.kind(), IssueKind::InvalidFirmware);
+}
+
+#[test]
+fn reference_revalidation_rechecks_identity_after_metadata() {
+    let (envelope, mut live) = fixture();
+    let receiver = detect(&mut live, &envelope).unwrap();
+    live.revision_after_descriptor = Some(*b"BOOT");
+    assert!(matches!(
+        receiver.revalidate(&mut live),
+        Err(super::super::Error::Changed)
+    ));
+    assert_eq!(live.revision, Some(*b"BOOT"));
+    // The offline-stage receiver has the same trailing check.
+    let (_, mut live) = fixture();
+    let receiver = Receiver::from_firmware(&envelope).unwrap();
+    receiver.revalidate(&mut live).unwrap();
+    live.revision_after_descriptor = Some(*b"INTN");
+    assert!(matches!(
+        receiver.revalidate(&mut live),
+        Err(super::super::Error::Changed)
+    ));
 }

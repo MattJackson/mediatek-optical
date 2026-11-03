@@ -335,7 +335,8 @@ The encoding detector and entry analyzer now consume the same immutable code
 window captured once. Finishing detection checks physical INQUIRY and the small
 matched signature; it does not immediately repeat the full snapshot capture.
 Execution still re-reads every snapshot from the physical transport before any
-update-session command. The temporary analysis source cannot escape into the
+update-session command, then re-reads INQUIRY: snapshot bytes are flash
+contents and match whichever receiver (BOOT or application) is running. The temporary analysis source cannot escape into the
 stored Receiver or execution. The application test fixture now performs 560
 one-KiB code/table reads during detection, with no extra 1088-byte scan; the
 mandatory execution check performs those 560 reads again.

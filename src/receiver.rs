@@ -217,9 +217,15 @@ impl Receiver {
     }
     /// Re-read identity and matched instructions immediately before writing.
     ///
+    /// INQUIRY identity is read first and again after every receiver byte:
+    /// READ BUFFER returns the same flash from BOOT and the application, so
+    /// only INQUIRY binds the running receiver, and a change during the
+    /// code/table re-read is refused with [`Error::Changed`].
+    ///
     /// A reference-bound receiver (`Provenance::CurrentReference`, built by
     /// `Receiver::from_firmware`) re-reads only INQUIRY identity, the boot banner
-    /// and build metadata; its instruction evidence is not re-read.
+    /// and build metadata, then INQUIRY identity again; its instruction evidence
+    /// is not re-read.
     pub fn revalidate<T: Transport>(&self, t: &mut T) -> Result<(), Error<T::Error>> {
         #[cfg(all(feature = "image", feature = "enc"))]
         if let Some(reference) = &self.reference {
@@ -230,11 +236,34 @@ impl Receiver {
         if let Some(profile) = &self.profile {
             profile.revalidate(t)?;
         }
+        self.revalidate_live_identity(t)
+    }
+
+    /// Re-read INQUIRY and require the identity bound by detection. This is
+    /// the last command of [`Receiver::revalidate`].
+    #[cfg(all(feature = "image", feature = "enc"))]
+    pub(crate) fn revalidate_identity<T: Transport>(
+        &self,
+        t: &mut T,
+    ) -> Result<(), Error<T::Error>> {
+        // `from_firmware` holds a synthetic INQUIRY; reference receivers bind
+        // only the mode and identity bytes.
+        if let Some(reference) = &self.reference {
+            return reference.revalidate_identity(t);
+        }
+        self.revalidate_live_identity(t)
+    }
+
+    fn revalidate_live_identity<T: Transport>(&self, t: &mut T) -> Result<(), Error<T::Error>> {
+        if detect_mode(t)? != self.identity {
+            return Err(Error::Changed);
+        }
         Ok(())
     }
 
     // Detection finishes with a small coherence check. The complete snapshot
-    // is checked separately, immediately before any mutating execution.
+    // and a trailing identity check run immediately before any mutating
+    // execution, through `revalidate`.
     fn revalidate_signature<T: Transport>(&self, t: &mut T) -> Result<(), Error<T::Error>> {
         if detect_mode(t)? != self.identity {
             return Err(Error::Changed);

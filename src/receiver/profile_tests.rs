@@ -6,6 +6,10 @@ struct Device {
     reads: BTreeMap<(u32, usize), usize>,
     writes: usize,
     change_after_capture: bool,
+    // Once this address is read, INQUIRY reports these identity bytes;
+    // flash contents are untouched.
+    identity_after: Option<(u32, [u8; 28])>,
+    identity: Option<[u8; 28]>,
 }
 impl Transport for Device {
     type Error = &'static str;
@@ -24,12 +28,20 @@ impl Transport for Device {
             out[8..36].copy_from_slice(
                 &self.image[layout::DESCRIPTOR.start..layout::DESCRIPTOR.start + 28],
             );
+            if let Some(identity) = self.identity {
+                out[8..36].copy_from_slice(&identity);
+            }
         } else {
             let address = u32::from_be_bytes([0, command[3], command[4], command[5]]);
             *self.reads.entry((address, out.len())).or_default() += 1;
             out.copy_from_slice(&self.image[address as usize..address as usize + out.len()]);
             if self.change_after_capture && address == 0x1afc00 {
                 self.image[0x9a300] ^= 1;
+            }
+            if let Some((after, identity)) = self.identity_after {
+                if address == after {
+                    self.identity = Some(identity);
+                }
             }
         }
         Ok(out.len())
@@ -49,6 +61,8 @@ fn device() -> Device {
         reads: BTreeMap::new(),
         writes: 0,
         change_after_capture: false,
+        identity_after: None,
+        identity: None,
     }
 }
 struct Runtime;
@@ -147,5 +161,51 @@ impl Profile {
             mixed: None,
             snapshots: Vec::new(),
         }
+    }
+}
+
+#[test]
+fn execution_refuses_identity_change_during_snapshot_revalidation() {
+    // READ BUFFER returns the same flash from BOOT and the application, so a
+    // receiver change during the long snapshot re-read is visible only to a
+    // trailing INQUIRY. 0x1afc00 is the last snapshot chunk.
+    let base = device();
+    let live_identity: [u8; 28] = base.image
+        [layout::DESCRIPTOR.start..layout::DESCRIPTOR.start + 28]
+        .try_into()
+        .unwrap();
+    let mut boot = live_identity;
+    boot[24..28].copy_from_slice(b"BOOT");
+    let mut vendor = live_identity;
+    vendor[..8].copy_from_slice(b"PIONEER ");
+    for changed in [boot, vendor] {
+        let mut live = device();
+        let mode = crate::receiver::detect_mode(&mut live).unwrap();
+        let receiver = detect(&mut live, &mode).unwrap();
+        let image = live.image.clone();
+        let identity = Identity::parse(
+            &[0; INQUIRY_LEN],
+            layout::BANNER.of(&image).unwrap(),
+            layout::DESCRIPTOR.of(&image).unwrap(),
+        )
+        .unwrap();
+        let update = update::PreparedUpdate::prepare_without_installed(&image, &identity).unwrap();
+        let prepared = receiver.bind_prepared(&update).unwrap();
+        live.identity_after = Some((0x1afc00, changed));
+        let mut writes = device();
+        let result = prepared.flash_completed(
+            update::FlashTransport {
+                reads: &mut live,
+                writes: &mut writes,
+            },
+            &mut Runtime,
+        );
+        assert_eq!(live.identity, Some(changed), "change during snapshots");
+        assert!(matches!(
+            result,
+            Err(crate::receiver::ExecuteError::Receiver(Error::Changed))
+        ));
+        assert_eq!(writes.writes, 0);
+        assert!(writes.reads.is_empty());
     }
 }
