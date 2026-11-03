@@ -23,7 +23,10 @@ pub(super) fn targets(image: &[u8], pc: usize) -> Result<Option<Vec<usize>>, Err
     let Some(target) = ins.branch_target().map(|t| t as usize) else {
         return Ok(None);
     };
-    if image.get(target..target + BODY.len()) != Some(BODY) {
+    let Some(end) = target.checked_add(BODY.len()) else {
+        return Ok(None);
+    };
+    if image.get(target..end) != Some(BODY) {
         return Ok(None);
     }
     let table = pc + ins.len();

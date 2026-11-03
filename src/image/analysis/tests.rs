@@ -194,3 +194,30 @@ fn diagnostic_preserves_its_typed_cause() {
     let source = std::error::Error::source(&diagnostic).expect("cause retained");
     assert_eq!(source.to_string(), Error::Ambiguous.to_string());
 }
+
+#[test]
+fn refusal_store_base_must_be_the_loaded_literal_register() {
+    for source in [BU_AUTH, WH_AUTH] {
+        let cell = AuthCell::detect(source).unwrap();
+        let deny = cell.deny();
+        let first = u16::from_le_bytes([source[deny], source[deny + 1]]);
+        let store = u16::from_le_bytes([source[deny + 2], source[deny + 3]]);
+        if first & 0xf800 != 0x4800 || store & 0xffc0 != 0x7000 {
+            continue;
+        }
+        // The literal is loaded into a register other than the store base.
+        let mut image = source.to_vec();
+        image[deny + 1] = 0x4b;
+        assert!(
+            AuthCell::detect(&image).is_err(),
+            "accepted a store through a base the literal load did not define"
+        );
+        // No literal load: r0 still holds a value, not a state pointer.
+        let mut image = source.to_vec();
+        image.copy_within(deny + 2..deny + 6, deny);
+        assert!(
+            AuthCell::detect(&image).is_err(),
+            "accepted an r0 store without a live pointer"
+        );
+    }
+}

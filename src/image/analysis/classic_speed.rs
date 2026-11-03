@@ -1,6 +1,6 @@
 //! Native read-speed policy, bound to its RMAX producer and OPTM consumer.
 use super::{half, Error};
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 /// A pure native read-speed selector whose result is consumed as OPTM.
 /// This establishes a code/data contract, not a measured physical read rate.
@@ -263,7 +263,14 @@ impl ClassicSpeed {
     /// Every reachable instruction is checked; calls, stores, loops, unknown
     /// pointer loads and branches that bypass the common return hook are refused.
     pub fn detect(image: &[u8]) -> Result<Self, Error> {
-        let roles = setters(image);
+        // Index roles by OPTM cell and memoize selector walks by entry, so
+        // many consumers of one selector or many unrelated setter pairs stay
+        // near-linear. Iteration order within each OPTM cell is preserved.
+        let mut roles: BTreeMap<u32, Vec<u32>> = BTreeMap::new();
+        for (maximum_cell, opt) in setters(image) {
+            roles.entry(opt).or_default().push(maximum_cell);
+        }
+        let mut selectors = BTreeMap::new();
         let mut found = None;
         for at in (0..image.len().saturating_sub(8)).step_by(2) {
             if half(image, at + 6) != Some(0x7008) {
@@ -275,12 +282,19 @@ impl ClassicSpeed {
             let Some(entry) = thumb_asm::decode_bl(image, at).map(|v| v as usize) else {
                 continue;
             };
-            let Some((site, media_cell, reads)) = selector(image, entry) else {
+            let Some(maximums) = roles.get(&optimum_cell) else {
                 continue;
             };
-            for &(maximum_cell, opt) in &roles {
-                if opt != optimum_cell
-                    || media_cell == maximum_cell
+            let Some((site, media_cell, reads)) = selectors
+                .entry(entry)
+                .or_insert_with(|| selector(image, entry))
+                .as_ref()
+            else {
+                continue;
+            };
+            let (site, media_cell, opt) = (*site, *media_cell, optimum_cell);
+            for &maximum_cell in maximums {
+                if media_cell == maximum_cell
                     || media_cell == opt
                     || reads.contains(&opt)
                     || reads.len() < 2

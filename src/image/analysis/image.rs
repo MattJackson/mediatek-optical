@@ -46,7 +46,9 @@ impl Role {
 /// a missing address. Its source digest belongs to the enclosing analysis.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Diagnostic {
-    /// Role whose contract was unavailable or conflicting.
+    /// Role whose contract was unavailable or conflicting. A role that depends
+    /// on another (authentication on VID, response on commands) reports the
+    /// prerequisite's cause under its own role.
     pub role: Role,
     /// Typed reason, including ambiguity versus absence.
     pub cause: Error,

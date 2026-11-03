@@ -5,6 +5,7 @@
 - `FlashError::Startup` now takes its `IssueKind` from the `StartupError` it wraps: `TargetMismatch` is `Verification`, `Read` is `Connection` and `Identity` is `Update`. `ExecuteError` delegates its kind to its cause, so receiver refusals are reported as `ReceiverMismatch`, `Connection` and so on instead of `IssueKind::Update`.
 - Add `CmacError::CircularTable`; `cmac::resign` now refuses tables with more than one active table-covering entry.
 - `analysis::Diagnostic::source()` now returns the underlying cause.
+- `AuthCell` refusal stores must go through the register their literal load defines; an `r0`-based store without a literal load is refused.
 - `RamReferences::incomplete()` now includes seeds whose path reaches an unmodelled branch (`cbz`/`cbnz`, table branches, indirect `bx`/`blx`); function returns still end a path normally.
 - Tighten analysis grammars: `TST`/`CMN`/`TEQ` invalidate cached comparisons; a UHD coefficient continuation must read the register holding `0x51b1` and any other write to it or a call ends the constant; scans now include the last offset; missing literal evidence no longer matches.
 - `detect_encoding` propagates read failures instead of choosing an encoding from partial evidence. `Chip::from_banner` ignores bytes after the first NUL. Ambiguous BOOT grammars are refused, unaligned programming-loop targets are rejected, and recovery identification reports a malformed identity as `InvalidIdentity`.

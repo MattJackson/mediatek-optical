@@ -108,7 +108,9 @@ impl<'a> VidGate<'a> {
     pub fn agid_address(&self) -> Result<u32, Error> {
         self.agid_base(self.image)
     }
-    /// Unique nearest producer prologue preceding this gate.
+    /// Nearest `push {r4-r7, lr}` (0xb5f0) producer prologue within 0x200
+    /// bytes preceding this gate. This is a positional search: it does not
+    /// prove uniqueness or recognize other prologue forms.
     pub fn producer(&self, image: &[u8]) -> Result<usize, Error> {
         if image != self.image {
             return Err(Error::InvalidContract);
