@@ -378,12 +378,19 @@ impl PreparedUpdate {
         &self.image
     }
 
-    /// The bytes streamed: the image, or its transport envelope.
+    /// The plaintext image as this receiver-independent preparation knows it.
+    /// The wire bytes (for example an AES transport envelope) depend on the
+    /// live receiver and are chosen when binding it; with the `drive` and `enc`
+    /// features read them from the bound `crate::receiver` plan instead.
     pub fn transfer(&self) -> &[u8] {
         self.transfer.as_deref().unwrap_or(&self.image)
     }
 
-    /// The commands of the update session; see [`DriveClass::steps`].
+    /// The OEM reference command sequence for this dialect; see
+    /// [`DriveClass::steps`]. This is not the receiver-bound session: binding
+    /// the live receiver may substitute the PREPARE command and, for recovery,
+    /// drop PROBE/READY. With the `drive` and `enc` features read the commands
+    /// actually sent from the bound `crate::receiver` prepared update.
     pub fn steps(&self) -> Vec<Step> {
         self.class.steps()
     }

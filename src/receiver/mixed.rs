@@ -145,8 +145,14 @@ impl Candidate {
         integrity: &[u8],
         program: &[u8],
     ) -> Option<MixedContract> {
+        // program_address already ties the wrapper to its literal alignment
+        // (an aligned loop target implies a wrapper at 2 mod 4). The integrity
+        // walker's PC-relative literals (staging cell, MMIO) resolve to the
+        // receiver's operands only at 2 mod 4; elsewhere the same halfwords
+        // load different words.
         self.program_address(wrapper)?;
-        if !words_match(integrity, 0, 0, self.form.integrity)
+        if self.integrity_address & 3 != 2
+            || !words_match(integrity, 0, 0, self.form.integrity)
             || !words_match(program, 0, 0, self.form.program)
         {
             return None;

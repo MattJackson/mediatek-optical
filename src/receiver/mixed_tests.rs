@@ -118,3 +118,39 @@ fn unaligned_program_loop_target_is_not_handed_out() {
         );
     }
 }
+
+// Both forms' wrapper and integrity literal pools resolve to the receiver's
+// operands (mode-3 MMIO 0x04002240, staging cell) only at addresses 2 mod 4;
+// the same halfwords at a word-aligned address load different words.
+#[test]
+fn wrapper_and_integrity_bind_only_at_their_literal_alignment() {
+    for form in FORMS.iter() {
+        let wrapper: Vec<u8> = form.wrapper.iter().flat_map(|w| w.to_le_bytes()).collect();
+        let integrity: Vec<u8> = form
+            .integrity
+            .iter()
+            .flat_map(|w| w.to_le_bytes())
+            .collect();
+        let program: Vec<u8> = form.program.iter().flat_map(|w| w.to_le_bytes()).collect();
+        let candidate = |wrapper_address, integrity_address| Candidate {
+            form,
+            wrapper_address,
+            integrity_address,
+        };
+        assert!(candidate(0x1002, 0x2002)
+            .program_address(&wrapper)
+            .is_some());
+        assert!(candidate(0x1002, 0x2002)
+            .bind(&wrapper, &integrity, &program)
+            .is_some());
+        assert!(candidate(0x1000, 0x2002)
+            .program_address(&wrapper)
+            .is_none());
+        assert!(candidate(0x1000, 0x2002)
+            .bind(&wrapper, &integrity, &program)
+            .is_none());
+        assert!(candidate(0x1002, 0x2000)
+            .bind(&wrapper, &integrity, &program)
+            .is_none());
+    }
+}

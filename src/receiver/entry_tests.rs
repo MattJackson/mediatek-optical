@@ -216,3 +216,36 @@ fn boot_acceptance_requires_exactly_one_unambiguous_grammar() {
     assert!(inspect_boot_legacy(&mixed, 0x3400).is_some());
     assert!(!boot_grammar_accepted(&mixed, 0x3400));
 }
+
+#[test]
+fn legacy_return_must_unwind_the_proven_frame() {
+    // V9: PUSH {r4-r7,lr}; SUB SP,#36 ... ADD SP,#36; POP {r4-r7,pc}.
+    let bytes = v9_window();
+    assert!(inspect_boot_legacy(&bytes, 0x3400).is_some());
+    let put = |bytes: &mut std::vec::Vec<u8>, address: usize, op: u16| {
+        bytes[address - 0x3400..address - 0x3400 + 2].copy_from_slice(&op.to_le_bytes());
+    };
+    // ADD SP of a different size, or a POP that does not restore r4-r7,
+    // pops a frame word into PC instead of returning to the caller.
+    for (add, pop) in [
+        (0xb001, 0xbdf0),
+        (0xb005, 0xbdf0),
+        (0xb009, 0xbd00),
+        (0xb001, 0xbd00),
+    ] {
+        let mut changed = bytes.clone();
+        put(&mut changed, 0x361c, add);
+        put(&mut changed, 0x361e, pop);
+        assert!(
+            inspect_boot_legacy(&changed, 0x3400).is_none(),
+            "{add:#x} {pop:#x}"
+        );
+    }
+    // The same return is accepted for a 20-byte frame when it unwinds 20 bytes.
+    let mut small = bytes.clone();
+    put(&mut small, 0x3530, 0xb085);
+    put(&mut small, 0x361c, 0xb005);
+    assert!(inspect_boot_legacy(&small, 0x3400).is_some());
+    put(&mut small, 0x361c, 0xb009);
+    assert!(inspect_boot_legacy(&small, 0x3400).is_none());
+}
