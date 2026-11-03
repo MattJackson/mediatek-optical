@@ -109,3 +109,15 @@ fn protocol_incomplete_is_a_coded_displayable_error() {
     );
     assert!(!crate::protocol::Incomplete.to_string().is_empty());
 }
+
+#[test]
+fn banner_chip_ignores_bytes_after_the_first_nul() {
+    let mut banner = [0u8; layout::BANNER.len];
+    banner[..15].copy_from_slice(b"MT1959 Boot JB8");
+    banner[20..26].copy_from_slice(b"MT1939");
+    assert_eq!(Chip::from_banner(&banner), Some(Chip::Mt1959));
+    let mut stale = [0u8; layout::BANNER.len];
+    stale[..4].copy_from_slice(b"Boot");
+    stale[20..26].copy_from_slice(b"MT1939");
+    assert_eq!(Chip::from_banner(&stale), None);
+}

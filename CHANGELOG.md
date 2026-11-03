@@ -2,6 +2,9 @@
 
 ## 1.2.0 — Unreleased
 
+- Classify `ExecuteError` by its cause: a pre-write receiver refusal is no longer reported as `IssueKind::Update`. `FlashError::Startup` now reports the startup error's kind, so a target mismatch after flashing is `IssueKind::Verification`.
+- Receiver detection now fails with a read error instead of choosing an encoding from partial evidence; BOOT entry matching refuses ambiguous grammars; unaligned programming-loop targets are rejected; `Chip::from_banner` ignores bytes after the banner NUL; recovery identification reports a malformed identity as `InvalidIdentity`.
+
 - Restrict boot-mirror readback detection to complete 2 MiB MT19xx images; older 512 KiB OEM firmware and partial fragments are not raw MT19xx captures.
 
 - Add immutable, source-bound image analysis with cached role outcomes and typed

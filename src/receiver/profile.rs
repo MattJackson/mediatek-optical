@@ -69,9 +69,7 @@ impl Profile {
         let mut mixed = None;
         let prepare = match receiver.mode() {
             Mode::Boot => {
-                let legacy = entry::inspect_boot_legacy(&code.bytes, code.address);
-                let dual = entry::inspect_boot_dual(&code.bytes, code.address);
-                if legacy.is_some() == dual.is_some() {
+                if !entry::boot_grammar_accepted(&code.bytes, code.address) {
                     return Err(Error::UnknownEntry);
                 }
                 snapshots.push(code);

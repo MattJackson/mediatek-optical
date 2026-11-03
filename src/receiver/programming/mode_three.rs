@@ -62,6 +62,9 @@ pub fn inspect_mode_three_wrapper(
     }
     let geometry = literal(bytes, base, at(0x32)?, 1)?;
     let loop_address = branch_link(bytes, base, at(0x13e)?)?;
+    if loop_address & 3 != 0 {
+        return None;
+    }
     let offset = usize::try_from(loop_address.checked_sub(base)?).ok()?;
     let program = super::inspect_program_loop(bytes.get(offset..)?)?;
     if geometry != program.flash_status_cell

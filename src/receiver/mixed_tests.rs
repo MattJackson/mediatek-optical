@@ -90,3 +90,31 @@ fn held_mixed_receivers_bind_flag_header_integrity_and_programming_code() {
             .is_none());
     }
 }
+
+#[test]
+fn unaligned_program_loop_target_is_not_handed_out() {
+    for form in FORMS.iter() {
+        let wrapper: Vec<u8> = form.wrapper.iter().flat_map(|w| w.to_le_bytes()).collect();
+        let targets: Vec<Option<u32>> = [0x1000, 0x1002]
+            .into_iter()
+            .map(|wrapper_address| {
+                Candidate {
+                    form,
+                    wrapper_address,
+                    integrity_address: 0,
+                }
+                .program_address(&wrapper)
+            })
+            .collect();
+        // Moving the wrapper by two bytes moves its relative-branch target
+        // by two: exactly one of the two placements is word aligned.
+        let aligned = targets
+            .iter()
+            .filter(|t| matches!(t, Some(a) if a & 3 == 0));
+        assert_eq!(aligned.count(), 1, "{targets:?}");
+        assert!(
+            targets.iter().all(|t| t.map_or(true, |a| a & 3 == 0)),
+            "{targets:?}"
+        );
+    }
+}

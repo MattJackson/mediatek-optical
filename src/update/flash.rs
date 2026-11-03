@@ -76,7 +76,8 @@ pub trait FlashRuntime<E> {
 pub struct Verified {
     /// Protected bytes compared, all equal.
     pub checked: usize,
-    /// Protected ranges in the image; `0` when it has none to compare.
+    /// Protected ranges in the image; always at least one, as verification
+    /// without a protected range is refused.
     pub ranges: usize,
 }
 
