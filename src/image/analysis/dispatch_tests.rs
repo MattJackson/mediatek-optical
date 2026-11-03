@@ -364,3 +364,48 @@ fn response_writer_with_unproven_caller_is_not_dropped() {
         Some(super::Error::Ambiguous)
     );
 }
+
+#[test]
+fn response_writer_with_other_caller_argument_forms_is_not_dropped() {
+    use super::super::ResponseIo;
+    let image = with_response();
+    // A bare `movs r0,#0x80` in a provable frame makes the 0x80 writer live.
+    let mut bare = image.clone();
+    put(&mut bare, 0x380, &[0xb500, 0x2080]);
+    put_bl(&mut bare, 0x384, 0x280);
+    put(&mut bare, 0x388, &[0xbd00]);
+    // `ldr r0,=0x80; movs r1,#0; bl commit`: the argument is defined before
+    // the instruction ahead of the call, in a provable frame...
+    let mut early = image.clone();
+    put(&mut early, 0x380, &[0xb500, 0x4807, 0x2100]);
+    put_bl(&mut early, 0x386, 0x280);
+    put(&mut early, 0x38a, &[0xbd00]);
+    put_word(&mut early, 0x3a0, 0x80);
+    // ...and without one.
+    let mut unproven = image;
+    put(&mut unproven, 0x380, &[0x4807, 0x2100]);
+    put_bl(&mut unproven, 0x384, 0x280);
+    put(&mut unproven, 0x388, &[0xe7fe]);
+    put_word(&mut unproven, 0x3a0, 0x80);
+    let ambiguous = Some(super::Error::Ambiguous);
+    assert_eq!(
+        [&bare, &early, &unproven].map(|image| ResponseIo::inspect(image).err()),
+        [ambiguous, ambiguous, ambiguous]
+    );
+}
+
+#[test]
+fn response_with_only_an_unproven_writer_is_ambiguous() {
+    use super::super::ResponseIo;
+    let mut image = with_response();
+    // Remove the proven 0x40 writer; only the 0x80 writer remains, and its
+    // offset is passed by a caller whose frame cannot be proven.
+    image[0x300..0x324].fill(0);
+    put(&mut image, 0x380, &[0x2001, 0x01c0]);
+    put_bl(&mut image, 0x384, 0x280);
+    put(&mut image, 0x388, &[0xe7fe]);
+    assert_eq!(
+        ResponseIo::inspect(&image).err(),
+        Some(super::Error::Ambiguous)
+    );
+}
