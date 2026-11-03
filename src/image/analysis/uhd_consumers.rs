@@ -318,7 +318,7 @@ impl ClassicConsumer {
         for def in DEFINITIONS {
             let length = def.pattern.len() * 2;
             if image.len() < length {
-                return Err(Error::Truncated);
+                return Err(Error::UnknownLayout);
             }
             let mut hit = None;
             for region in (0..=image.len() - length).step_by(2) {

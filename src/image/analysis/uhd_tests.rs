@@ -910,3 +910,61 @@ fn read_completion_reports_a_duplicated_veneer_boundary_as_ambiguous() {
         Err(Error::Ambiguous)
     );
 }
+
+#[test]
+fn consumer_inspection_reports_a_short_image_as_unknown_layout() {
+    assert_eq!(
+        super::ClassicConsumer::inspect(&[0u8; 16], 0x0200_0000).map(|c| c.len()),
+        Err(Error::UnknownLayout)
+    );
+}
+
+#[test]
+fn calibration_reports_an_image_shorter_than_its_routine_as_unknown_layout() {
+    // Relocate one real native getter into an image too short for the
+    // calibration routine, re-pointing its literals at in-image tables.
+    let (root, cases) = fixtures();
+    let mut checked = 0;
+    for case in cases {
+        if case["calibration_entry"].as_u64().is_none() {
+            continue;
+        }
+        let bytes = image(&root, &case);
+        let state = case["state"].as_u64().unwrap() as u32;
+        let getter = super::ClassicParameter::detect(&bytes, state).unwrap();
+        let shift = getter.entry & !3;
+        let mut short = bytes[shift..shift + 0x180].to_vec();
+        let pools: Vec<usize> = (0..0x100)
+            .step_by(2)
+            .filter_map(|at| {
+                let op = u16::from_le_bytes([short[at], short[at + 1]]);
+                (op & 0xf800 == 0x4800).then(|| ((at + 4) & !3) + usize::from(op & 255) * 4)
+            })
+            .filter(|pool| pool + 4 <= short.len())
+            .collect();
+        for pool in pools {
+            let value = u32::from_le_bytes(short[pool..pool + 4].try_into().unwrap());
+            let local = if value as usize == getter.rates {
+                0x40
+            } else if value != state
+                && (value as usize..value as usize + 0x100).contains(&getter.coefficients)
+            {
+                0x100 - (getter.coefficients - value as usize)
+            } else {
+                continue;
+            };
+            short[pool..pool + 4].copy_from_slice(&(local as u32).to_le_bytes());
+        }
+        let Ok(relocated) = super::ClassicParameter::detect(&short, state) else {
+            continue;
+        };
+        assert_eq!(relocated.entry, getter.entry - shift);
+        assert!(short.len() < 0x200);
+        assert_eq!(
+            super::ClassicCalibration::detect(&short, state).map(|c| c.site),
+            Err(Error::UnknownLayout)
+        );
+        checked += 1;
+    }
+    assert!(checked > 0);
+}
