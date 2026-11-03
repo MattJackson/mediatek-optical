@@ -224,6 +224,8 @@ fn frameless_scanner_caller_refuses() {
     put_bl(&mut image, 0x1c0, 0);
     put(&mut image, 0x1c4, &[0xe7fe]);
     assert_eq!(roots(&image), Err(super::Error::InvalidContract));
+}
+
 /// The registered fixture with `records` at its root (0x1a0), a terminal
 /// record after them, and a `push {lr}; pop {pc}` handler body at 0x1c0.
 fn with_records(records: &[(u8, u8, u32)]) -> Vec<u8> {
