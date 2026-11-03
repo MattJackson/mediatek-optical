@@ -137,12 +137,27 @@ impl CommandScanner {
             .map_err(|_| Error::InvalidContract)?;
         Ok(found)
     }
-    /// Flash table roots registered into the array consumed by native callers.
+    /// Flash table roots registered by proven `BL` calls into the array
+    /// consumed by native callers.
+    ///
+    /// The rest of the statically modelled table graph is validated as part
+    /// of this call, though its tables are not returned: tail-call (`B`)
+    /// registrations that switch the root per media mode must be shaped
+    /// `ldr r0,=table; movs r1,#0` with an aligned in-image table, and a
+    /// scanner call that indexes no array must pass a live literal naming a
+    /// flash table or the registrar's lookup cache. Any other branch to the
+    /// registrar or the scanner is `InvalidContract`.
     pub fn table_roots(&self, image: &[u8]) -> Result<std::collections::BTreeSet<usize>, Error> {
+        let tables = self.tables(image)?;
+        tables.extra?;
+        Ok(tables.initial)
+    }
+    /// The initial roots and the other modelled tables, bound to this source.
+    pub(super) fn tables(&self, image: &[u8]) -> Result<super::dispatch_roots::Tables, Error> {
         if <[u8; 32]>::from(Sha256::digest(image)) != self.source {
             return Err(Error::InvalidContract);
         }
-        super::dispatch_roots::roots(image, self)
+        super::dispatch_roots::tables(image, self)
     }
     /// Native scanner entry.
     pub fn entry(&self) -> usize {

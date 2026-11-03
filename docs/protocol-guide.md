@@ -161,6 +161,32 @@ Offsets are 24-bit big-endian.
 The drive erases and programs flash when the last chunk of a complete 2 MiB
 image lands. The commit is a trailing handshake.
 
+### Native command dispatch (static-analysis model)
+
+The `analysis` feature models how drive firmware selects a command handler.
+This is a static-analysis model derived from one disassembly, BH16NS40 1.04
+(SHA-256 `86a46340da93d1f5a1596ab6e42918a9d4e7cb46394408b5ae8fa60f41e0c22f`;
+the copy `bc4e6126b880475d58c21e8639ea81f33facc3d4c8284bf6a739d8e8f6c75921`
+has the same layout). It has not been verified on hardware.
+
+- The dispatcher scans one array root at a time. A registrar called with `BL`
+  sets the initial root. Tail-call (`B`) registrations, one per media type,
+  replace it.
+- It first scans a RAM lookup cache that the registrar initialises. It assumes
+  that a hit in a registered table is copied into the cache, so the cache holds
+  no record that the flash tables do not already hold. This copy-on-hit
+  behaviour is a modelling assumption.
+- In a restricted state it scans only one flash table, which it is handed
+  directly.
+
+`CommandDispatch::record()` computes uniqueness over every table in the model,
+and requires the selected record to be reached from the initial root and from
+every media-type root. The model does not cover:
+
+- whether a tail-call site is live;
+- writers of the array or the cache other than the registrar;
+- indirect registrations.
+
 ## Safety
 
 An update session writes drive firmware. A wrong image, or an interrupted

@@ -54,6 +54,12 @@ fn checked_agid_reads_through_low_registers_share_the_base() {
         for (n, (op, _)) in VID_GATE_SIG.iter().enumerate() {
             image[0x20 + 2 * n..0x22 + 2 * n].copy_from_slice(&op.to_le_bytes());
         }
+        // Both gate outcomes (fall-through and the `bne` target) return, so a
+        // walk past the reads ends inside the producer.
+        let after = 0x20 + 2 * VID_GATE_SIG.len();
+        for at in [after, after + 2] {
+            image[at..at + 2].copy_from_slice(&0xbdf0u16.to_le_bytes());
+        }
         image[0x40..0x44].copy_from_slice(&0x0200_0100u32.to_le_bytes());
         image[0x44..0x48].copy_from_slice(&second.to_le_bytes());
         image
