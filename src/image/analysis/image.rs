@@ -128,6 +128,9 @@ impl<'a> ImageAnalysis<'a> {
         )
     }
     /// Native registered command table graph, excluding orphan data tables.
+    /// Covers the `BL`-registered roots, tail-call (media mode) roots and flash
+    /// tables handed to the scanner directly; see [`CommandDispatch::record`]
+    /// for how lookups use them.
     pub fn commands(&self) -> Result<&CommandDispatch<'a>, Diagnostic> {
         outcome(
             self.commands

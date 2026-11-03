@@ -468,3 +468,195 @@ fn response_with_only_an_unproven_writer_is_ambiguous() {
         Some(super::Error::Ambiguous)
     );
 }
+
+/// Unconditional 16-bit `b target` at `at`.
+fn put_b(image: &mut [u8], at: usize, target: usize) {
+    let offset = (target as isize - (at as isize + 4)) / 2;
+    assert!((-1024..1024).contains(&offset));
+    put(image, at, &[0xe000 | (offset as u16 & 0x7ff)]);
+}
+
+/// Records at 0x200 with zero padding, without a terminal record.
+fn put_table(image: &mut [u8], records: &[(u8, u8, u32)]) {
+    for (n, &(opcode, flags, handler)) in records.iter().enumerate() {
+        let at = 0x200 + 8 * n;
+        image[at..at + 4].copy_from_slice(&[opcode, flags, 0, 0]);
+        put_word(image, at + 4, handler);
+    }
+}
+
+/// A frameless media-mode arm at 0x1e0, as on stock:
+/// `ldr r0,=table; movs r1,#0; b registrar`, table literal at 0x1ec.
+fn with_tail_registration(mut image: Vec<u8>, table: u32) -> Vec<u8> {
+    put(&mut image, 0x1e0, &[0x4802, 0x2100]);
+    put_b(&mut image, 0x1e4, 0x100);
+    put_word(&mut image, 0x1ec, table);
+    image
+}
+
+/// A proven frame at 0x1e0 passing a literal table straight to the scanner:
+/// `push {r4,lr}; ldr r0,=table; bl scanner; pop {r4,pc}`.
+fn with_direct_scan(mut image: Vec<u8>, table: u32) -> Vec<u8> {
+    put(&mut image, 0x1e0, &[0xb510, 0x4802]);
+    put_bl(&mut image, 0x1e4, 0);
+    put(&mut image, 0x1e8, &[0xbd10]);
+    put_word(&mut image, 0x1ec, table);
+    image
+}
+
+fn lookup(image: &[u8], opcode: u8, flags: u8) -> Result<(usize, u32), super::Error> {
+    let commands = super::super::CommandDispatch::inspect(image)?;
+    commands
+        .record(opcode, flags)
+        .map(|record| (record.off, record.handler))
+}
+
+#[test]
+fn tail_registration_shadowing_the_requested_opcode_is_ambiguous() {
+    // A media mode's root serves 3c/1 itself before linking to the root, so
+    // the root record is not the one the scanner runs in that mode.
+    let mut image = with_tail_registration(with_records(&[(0x3c, 1, 0x1c1)]), 0x200);
+    put_table(&mut image, &[(0x3c, 1, 0x1c1), (0, 4, 0x1a0)]);
+    assert_eq!(lookup(&image, 0x3c, 1), Err(super::Error::Ambiguous));
+}
+
+#[test]
+fn response_refuses_inquiry_shadowed_by_tail_table() {
+    use super::super::ResponseIo;
+    assert!(ResponseIo::inspect(&with_response()).is_ok());
+    let mut image = with_tail_registration(with_response(), 0x200);
+    put_table(&mut image, &[(0x12, 7, 0x241), (0, 4, 0x1a0)]);
+    assert_eq!(
+        ResponseIo::inspect(&image).err(),
+        Some(super::Error::Ambiguous)
+    );
+}
+
+#[test]
+fn direct_flash_table_with_matching_record_is_ambiguous() {
+    let mut image = with_direct_scan(with_records(&[(0x3c, 1, 0x1c1)]), 0x200);
+    put_table(&mut image, &[(0x3c, 1, 0x1c1), (0, 3, 0)]);
+    assert_eq!(lookup(&image, 0x3c, 1), Err(super::Error::Ambiguous));
+}
+
+#[test]
+fn unshaped_tail_registration_refuses() {
+    let mut image = with_records(&[(0x3c, 1, 0x1c1)]);
+    put(&mut image, 0x1e0, &[0xbf00, 0xbf00]);
+    put_b(&mut image, 0x1e4, 0x100);
+    assert_eq!(roots(&image), Err(super::Error::InvalidContract));
+    assert_eq!(lookup(&image, 0x3c, 1), Err(super::Error::InvalidContract));
+}
+
+#[test]
+fn conditional_branch_to_registrar_refuses() {
+    // `beq registrar` after a shaped argument.
+    let mut image = with_tail_registration(with_records(&[(0x3c, 1, 0x1c1)]), 0x1a0);
+    put(&mut image, 0x1e4, &[0xd08c]);
+    assert_eq!(roots(&image), Err(super::Error::InvalidContract));
+    // `cbz r0, registrar` after a shaped argument.
+    let mut image = with_records(&[(0x3c, 1, 0x1c1)]);
+    put(&mut image, 0xe0, &[0x4802, 0x2100, 0xb160]);
+    put_word(&mut image, 0xec, 0x1a0);
+    assert_eq!(roots(&image), Err(super::Error::InvalidContract));
+}
+
+#[test]
+fn scanner_call_without_bound_table_refuses() {
+    // `push {r4,lr}; mov r0,r4; bl scanner; pop {r4,pc}`
+    let mut image = with_records(&[(0x3c, 1, 0x1c1)]);
+    put(&mut image, 0x1e0, &[0xb510, 0x4620]);
+    put_bl(&mut image, 0x1e4, 0);
+    put(&mut image, 0x1e8, &[0xbd10]);
+    assert_eq!(roots(&image), Err(super::Error::InvalidContract));
+    assert_eq!(lookup(&image, 0x3c, 1), Err(super::Error::InvalidContract));
+}
+
+#[test]
+fn direct_scan_of_unknown_ram_table_refuses() {
+    let image = with_direct_scan(with_records(&[(0x3c, 1, 0x1c1)]), 0x0200_0700);
+    assert_eq!(roots(&image), Err(super::Error::InvalidContract));
+    assert_eq!(lookup(&image, 0x3c, 1), Err(super::Error::InvalidContract));
+}
+
+#[test]
+fn non_call_branch_to_scanner_refuses() {
+    let mut image = with_records(&[(0x3c, 1, 0x1c1)]);
+    put(&mut image, 0x1e0, &[0x4802, 0x2100]);
+    put_b(&mut image, 0x1e4, 0);
+    put_word(&mut image, 0x1ec, 0x200);
+    assert_eq!(roots(&image), Err(super::Error::InvalidContract));
+    assert_eq!(lookup(&image, 0x3c, 1), Err(super::Error::InvalidContract));
+}
+
+#[test]
+fn tail_table_cycle_refuses() {
+    let mut image = with_tail_registration(with_records(&[(0x3c, 1, 0x1c1)]), 0x200);
+    put_table(&mut image, &[(0x12, 0, 0x1c1), (0, 4, 0x200)]);
+    assert_eq!(lookup(&image, 0x3c, 1), Err(super::Error::InvalidContract));
+}
+
+#[test]
+fn tail_registration_of_unaligned_or_outside_table_refuses() {
+    for table in [0x202, 0x0010_0000] {
+        let image = with_tail_registration(with_records(&[(0x3c, 1, 0x1c1)]), table);
+        assert_eq!(roots(&image), Err(super::Error::InvalidContract));
+        assert_eq!(lookup(&image, 0x3c, 1), Err(super::Error::InvalidContract));
+    }
+}
+
+#[test]
+fn blx_registration_refuses() {
+    // A shaped `blx registrar` repeating the proven root: BLX would enter the
+    // Thumb registrar in ARM state, so it is not a modelled registration.
+    let mut image = with_records(&[(0x3c, 1, 0x1c1)]);
+    put(&mut image, 0x1e0, &[0x4802, 0x2100]);
+    put_bl(&mut image, 0x1e4, 0x100);
+    image[0x1e7] &= !0x10; // BL -> BLX (H bit already clear: 4-aligned site)
+    put_word(&mut image, 0x1ec, 0x1a0);
+    let blx = thumb_asm::isa::decode_at(&image, 0x1e4).expect("blx");
+    assert_eq!((blx.mnemonic, blx.branch_target()), ("blx", Some(0x100)));
+    assert_eq!(roots(&image), Err(super::Error::InvalidContract));
+}
+
+#[test]
+fn tail_table_not_reaching_root_record_refuses() {
+    // In this media mode the scanner never reaches the root's 3c/1 record.
+    let mut image = with_tail_registration(with_records(&[(0x3c, 1, 0x1c1)]), 0x200);
+    put_table(&mut image, &[(0x12, 0, 0x1c1), (0, 3, 0)]);
+    assert_eq!(lookup(&image, 0x3c, 1), Err(super::Error::UnknownLayout));
+}
+
+#[test]
+fn record_only_in_tail_table_is_not_selected() {
+    let mut image = with_tail_registration(with_records(&[(0x12, 7, 0x1c1)]), 0x200);
+    put_table(&mut image, &[(0x3c, 1, 0x1c1), (0, 4, 0x1a0)]);
+    assert_eq!(lookup(&image, 0x3c, 1), Err(super::Error::UnknownLayout));
+}
+
+#[test]
+fn tail_linking_to_root_keeps_lookup() {
+    let mut image = with_tail_registration(with_records(&[(0x3c, 1, 0x1c1)]), 0x200);
+    put_table(&mut image, &[(0x46, 0, 0x1c1), (0, 4, 0x1a0)]);
+    assert_eq!(roots(&image), Ok(vec![0x1a0]));
+    assert_eq!(lookup(&image, 0x3c, 1), Ok((0x1a0, 0x1c1)));
+    let commands = super::super::CommandDispatch::inspect(&image).expect("native graph");
+    assert!(commands.records().iter().any(|record| record.off == 0x1a0));
+}
+
+#[test]
+fn direct_scan_of_registrar_cache_is_accepted() {
+    let image = with_direct_scan(with_records(&[(0x3c, 1, 0x1c1)]), 0x0200_0600);
+    assert_eq!(roots(&image), Ok(vec![0x1a0]));
+    assert_eq!(lookup(&image, 0x3c, 1), Ok((0x1a0, 0x1c1)));
+}
+
+#[test]
+fn tail_record_with_unlisted_flags_and_nonzero_padding_is_walked() {
+    // The native scanner reads neither the padding nor a flags whitelist.
+    let mut image = with_tail_registration(with_records(&[(0x3c, 1, 0x1c1)]), 0x200);
+    put_table(&mut image, &[(0x46, 0x8d, 0x1c1), (0, 4, 0x1a0)]);
+    image[0x202..0x204].copy_from_slice(&[0xf9, 0x01]);
+    assert!(super::super::CommandDispatch::inspect(&image).is_ok());
+    assert_eq!(lookup(&image, 0x3c, 1), Ok((0x1a0, 0x1c1)));
+}

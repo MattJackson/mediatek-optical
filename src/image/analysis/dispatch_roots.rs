@@ -22,11 +22,14 @@ fn multiple(image: &[u8], at: usize, mnemonic: &str, base: u8, list: u16) -> boo
 
 /// This native variadic registrar saves r0-r3, initializes the cache, then copies
 /// the original r0 and subsequent arguments into the scanner's array slots 1+.
-/// Returns the array it fills.
-fn registrar(image: &[u8], at: usize) -> Option<u32> {
+/// Returns the array it fills and the SRAM lookup cache it initializes.
+fn registrar(image: &[u8], at: usize) -> Option<(u32, u32)> {
     use Operand::{Imm, Reg as R};
     let r = |n| R(Reg(n));
     let (Reg(5), array) = literal_load(image, at + 4)? else {
+        return None;
+    };
+    let (Reg(2), cache) = literal_load(image, at + 28)? else {
         return None;
     };
     (exact(image,at,"push",&[Operand::RegList(15)])
@@ -67,16 +70,29 @@ fn registrar(image: &[u8], at: usize) -> Option<u32> {
         && exact(image,at+70,"pop",&[Operand::RegList(1<<3)])
         && exact(image,at+72,"add",&[r(13),Imm(16)])
         && exact(image,at+74,"bx",&[r(3)]))
-    .then_some(array)
+    .then_some((array, cache))
 }
 
-fn arrays(image: &[u8], scanner: &CommandScanner) -> Result<BTreeSet<u32>, Error> {
+/// A scanner call that does not index a registered array: the native scanner
+/// is handed one table directly. Classified only after the initial roots are
+/// proven, so today's refusals keep their error kind.
+struct DirectCall {
+    parent: usize,
+    site: usize,
+}
+
+fn arrays(
+    image: &[u8],
+    scanner: &CommandScanner,
+) -> Result<(BTreeSet<u32>, Vec<DirectCall>), Error> {
     use Operand::{Imm, Reg as R};
     let mut arrays = BTreeSet::new();
+    let mut direct = Vec::new();
     for site in thumb_asm::find_bl_sites(image, scanner.entry() as u32) {
         // An unprovable scanner caller could own an array whose roots would
         // otherwise vanish from the table graph.
         let parent = SavedLink::detect_entry(image, site).map_err(unproven_error)?;
+        let mut owned = false;
         for at in (parent..(site + 0x100).min(image.len().saturating_sub(8))).step_by(2) {
             let Some(shift) = instruction(image, at) else {
                 continue;
@@ -106,6 +122,7 @@ fn arrays(image: &[u8], scanner: &CommandScanner) -> Result<BTreeSet<u32>, Error
             {
                 continue;
             }
+            owned = true;
             let mut bound = false;
             for definition in (parent..at).step_by(2) {
                 let Some((reg, value)) = literal_load(image, definition) else {
@@ -136,11 +153,14 @@ fn arrays(image: &[u8], scanner: &CommandScanner) -> Result<BTreeSet<u32>, Error
                 return Err(Error::InvalidContract);
             }
         }
+        if !owned {
+            direct.push(DirectCall { parent, site });
+        }
     }
     if arrays.is_empty() {
         return Err(Error::UnknownLayout);
     }
-    Ok(arrays)
+    Ok((arrays, direct))
 }
 
 /// A native call into a proven role whose own contract cannot be proven.
@@ -151,40 +171,103 @@ fn unproven_error(error: Error) -> Error {
     }
 }
 
-pub(super) fn roots(image: &[u8], scanner: &CommandScanner) -> Result<BTreeSet<usize>, Error> {
-    let arrays = arrays(image, scanner)?;
+/// Every flash table the native scanner can be handed, as far as it is modelled.
+pub(super) struct Tables {
+    /// Proven `BL` registrations into the scanner's array (unchanged meaning of
+    /// [`CommandScanner::table_roots`]).
+    pub(super) initial: BTreeSet<usize>,
+    /// Mode and direct tables, or the refusal found while binding them. It is
+    /// reported only after the initial roots' own evidence, so an image refused
+    /// for its initial roots keeps that error.
+    pub(super) extra: Result<Extra, Error>,
+}
+
+/// Tables the native scanner reaches besides the initial roots.
+pub(super) struct Extra {
+    /// Tail-call (`b registrar`) registrations that replace the array root,
+    /// one per media mode.
+    pub(super) modes: BTreeSet<usize>,
+    /// Flash tables passed straight to the scanner (`ldr r0,=table; bl scanner`).
+    pub(super) direct: BTreeSet<usize>,
+}
+
+/// A registration argument: `ldr r0,=table; movs r1,#0` ending at `at`.
+fn registration(image: &[u8], at: usize) -> Option<u32> {
+    let shaped = exact(
+        image,
+        at.checked_sub(2)?,
+        "mov",
+        &[Operand::Reg(Reg(1)), Operand::Imm(0)],
+    );
+    let (Reg(0), root) = literal_load(image, at.checked_sub(4)?).filter(|_| shaped)? else {
+        return None;
+    };
+    Some(root)
+}
+
+pub(super) fn tables(image: &[u8], scanner: &CommandScanner) -> Result<Tables, Error> {
+    let (arrays, direct) = arrays(image, scanner)?;
     let mut registrars = BTreeSet::new();
+    let mut caches = BTreeSet::new();
     for at in (0..image.len().saturating_sub(76)).step_by(2) {
         if !exact(image, at, "push", &[Operand::RegList(15)]) {
             continue;
         }
-        if registrar(image, at).is_some_and(|array| arrays.contains(&array)) {
+        if let Some((_, cache)) = registrar(image, at).filter(|(array, _)| arrays.contains(array)) {
             registrars.insert(at);
+            caches.insert(cache);
         }
     }
     let mut roots = BTreeSet::new();
     let mut unproven = Vec::new();
+    // Evidence about other call forms is held back until the initial roots
+    // are proven, so an image refused today keeps its error kind.
+    let mut modes = BTreeSet::new();
+    let mut deferred = None;
+    let scan = scanner.entry() as u32 & !1;
     for at in (4..image.len().saturating_sub(4)).step_by(2) {
         let Some(ins) = decode_at(image, at) else {
             continue;
         };
-        if !ins.is_call()
-            || ins.cond.is_some()
-            || !ins
-                .branch_target()
-                .is_some_and(|target| registrars.contains(&(target as usize)))
-        {
+        let Some(target) = ins.branch_target() else {
             continue;
+        };
+        if target & !1 == scan && thumb_asm::decode_bl(image, at).map(|t| t & !1) != Some(scan) {
+            // A branch, conditional call or BLX into the scanner is not one of
+            // the `BL` callers analysed above and could hand it any table.
+            deferred.get_or_insert(Error::InvalidContract);
+            continue;
+        }
+        if !registrars.contains(&(target as usize)) {
+            continue;
+        }
+        if !ins.is_call() || ins.cond.is_some() {
+            // A tail-call registration (`ldr r0,=table; movs r1,#0; b
+            // registrar`) replaces the array root for one media mode. Any
+            // other branch form (conditional, cbz/cbnz) or a conditional
+            // call is not a modelled registration.
+            match registration(image, at) {
+                Some(root)
+                    if ins.mnemonic == "b"
+                        && ins.cond.is_none()
+                        && (root as usize) < image.len()
+                        && root & 3 == 0 =>
+                {
+                    modes.insert(root as usize);
+                }
+                _ => {
+                    deferred.get_or_insert(Error::InvalidContract);
+                }
+            }
+            continue;
+        }
+        if ins.mnemonic != "bl" {
+            // BLX would enter the Thumb registrar in ARM state.
+            deferred.get_or_insert(Error::InvalidContract);
         }
         // A registration whose caller cannot be proven must repeat a proven
         // root; an unknown extra table could make a record lookup ambiguous.
-        let shaped = exact(
-            image,
-            at - 2,
-            "mov",
-            &[Operand::Reg(Reg(1)), Operand::Imm(0)],
-        );
-        let Some((Reg(0), root)) = literal_load(image, at - 4).filter(|_| shaped) else {
+        let Some(root) = registration(image, at) else {
             return Err(Error::InvalidContract);
         };
         if root as usize >= image.len() || root & 3 != 0 {
@@ -214,5 +297,51 @@ pub(super) fn roots(image: &[u8], scanner: &CommandScanner) -> Result<BTreeSet<u
     if let Some((_, error)) = unproven.iter().find(|(root, _)| !roots.contains(root)) {
         return Err(unproven_error(*error));
     }
-    Ok(roots)
+    let extra = deferred.map_or_else(
+        || {
+            let mut tables = BTreeSet::new();
+            for call in &direct {
+                let Some(table) = direct_table(image, call, &caches)? else {
+                    continue;
+                };
+                tables.insert(table);
+            }
+            Ok(Extra {
+                modes,
+                direct: tables,
+            })
+        },
+        Err,
+    );
+    Ok(Tables {
+        initial: roots,
+        extra,
+    })
+}
+
+/// Bind a scanner call that indexes no array to the table it passes in `r0`.
+/// The registrar-initialized SRAM lookup cache holds copies of records already
+/// reached through the registered tables (a modelling assumption), so it adds
+/// no records; any other SRAM or out-of-image table is unknown evidence.
+fn direct_table(
+    image: &[u8],
+    call: &DirectCall,
+    caches: &BTreeSet<u32>,
+) -> Result<Option<usize>, Error> {
+    let Some((Reg(0), table)) = call
+        .site
+        .checked_sub(2)
+        .and_then(|at| literal_load(image, at))
+    else {
+        return Err(Error::InvalidContract);
+    };
+    SavedLink::require_live_definition(image, call.parent, call.site, call.site - 2, call.site, 0)
+        .map_err(|_| Error::InvalidContract)?;
+    if (table as usize) < image.len() && table & 3 == 0 {
+        return Ok(Some(table as usize));
+    }
+    if caches.contains(&table) {
+        return Ok(None);
+    }
+    Err(Error::InvalidContract)
 }
