@@ -1,7 +1,7 @@
 //! Independent native disc-recognition/routing contracts. This is code-layout
 //! evidence, not a claim that a drive can physically read UHD media.
 use super::{half, matches, Error};
-use thumb_asm::isa::{decode_at, Operand};
+use thumb_asm::isa::{decode_at, AddrMode, Operand};
 
 #[path = "uhd_layouts.rs"]
 mod layouts;
@@ -67,11 +67,15 @@ impl C7Selection {
     pub fn site(&self) -> usize {
         self.site
     }
-    /// Original operations that must execute on both routes.
+    /// Original operations that must execute on both routes. A displaced
+    /// PC-relative load inside [`span`](Self::span) cannot be replayed verbatim
+    /// and is carried by the owning contract instead
+    /// ([`ClassicConsumer::relocated_load`](super::ClassicConsumer::relocated_load)).
     pub fn replay(&self) -> &[u16] {
         &self.replay
     }
-    /// Total original operation/branch bytes.
+    /// Total original operation/branch bytes replaced at [`site`](Self::site),
+    /// including any relocated load not present in [`replay`](Self::replay).
     pub fn span(&self) -> usize {
         self.span
     }
@@ -218,7 +222,19 @@ pub(super) fn coefficient(image: &[u8], start: usize, reverse: bool) -> Result<u
                     .operands
                     .as_slice()
                     .any(|op| matches!(op, Operand::RegList(bits) if bits & (1 << live) != 0));
+            // Base writeback (`ldmia r1!`, `[r1, #4]!`, `[r1], #4`) also replaces it.
+            let writes_back_live = ins.operands.as_slice().any(|op| match op {
+                Operand::Text(text) => {
+                    text.strip_prefix('r')
+                        .and_then(|s| s.strip_suffix('!'))
+                        .and_then(|s| s.parse::<u8>().ok())
+                        == Some(live)
+                }
+                Operand::Mem(m) => m.mode != AddrMode::Offset && m.base.num() == live,
+                _ => false,
+            });
             let writes_live = loads_live
+                || writes_back_live
                 || match ins.operands.get(0) {
                     Some(Operand::Reg(r)) => {
                         r.num() == live
@@ -234,15 +250,20 @@ pub(super) fn coefficient(image: &[u8], start: usize, reverse: bool) -> Result<u
                 constant = None;
             }
         }
+        // Only Thumb-1 operations, calls and unconditional branches are
+        // modelled. Wide forms can write a second register (`ldrd`, `umull`)
+        // and any other PC write leaves the routine: refuse both.
+        if (ins.len() == 4 && !ins.is_call() && ins.mnemonic != "b")
+            || (ins.is_branch() && !ins.is_call() && ins.mnemonic != "b")
+        {
+            return Err(Error::InvalidContract);
+        }
         if let Some(load) = literal(image, pc).filter(|v| v.value == 0x51b1) {
             constant = Some(load.register);
         }
         // The fall-through CC-mask path skips calls and follows unconditional
         // branches over literal pools. No symbolic state or hardware is guessed.
-        if ins.mnemonic == "b"
-            && ins.cond.is_none()
-            && half(image, pc).is_some_and(|h| h & 0xf800 == 0xe000)
-        {
+        if ins.mnemonic == "b" && ins.cond.is_none() {
             pc = ins.branch_target().ok_or(Error::InvalidContract)? as usize;
         } else {
             pc = pc.checked_add(ins.len()).ok_or(Error::Truncated)?;
@@ -292,6 +313,23 @@ fn bind(image: &[u8], def: &Definition, site: usize) -> Result<UhdAreaContract, 
         )?),
         _ => None,
     };
+    // The explicit-C7 calculation grammars hold no C7 test themselves: their
+    // first C8-class rejection must land on `cmp r0, #0xc7` over the state
+    // byte (forward: r0 already holds it; reverse: r0 still holds the cell).
+    if def.handling == UhdHandling::ExplicitC7 {
+        let c7_test: Option<(usize, &[(u16, u16)])> = match def.area {
+            UhdArea::ForwardCalculation => Some((12, &[(0x28c7, 0xffff)])),
+            UhdArea::ReverseCalculation => Some((14, &[(0x7800, 0xffff), (0x28c7, 0xffff)])),
+            _ => None,
+        };
+        if let Some((bne, test)) = c7_test {
+            let target = super::conditional(image, site + bne, thumb_asm::Cond::Ne)
+                .ok_or(Error::InvalidContract)?;
+            if !matches(image, target, test) {
+                return Err(Error::InvalidContract);
+            }
+        }
+    }
     let selection = def
         .selection
         .as_ref()

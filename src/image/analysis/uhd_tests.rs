@@ -791,3 +791,107 @@ fn whole_routine_detectors_report_short_images_as_unknown_layout() {
         Err(Error::UnknownLayout)
     );
 }
+
+fn coefficient_image(code: &[u16], literal_at: usize) -> Vec<u8> {
+    let mut image = vec![0u8; literal_at + 4];
+    for (i, h) in code.iter().enumerate() {
+        image[i * 2..i * 2 + 2].copy_from_slice(&h.to_le_bytes());
+    }
+    image[literal_at..].copy_from_slice(&0x51b1u32.to_le_bytes());
+    image
+}
+
+#[test]
+fn coefficient_refuses_a_return_before_the_operation() {
+    // ldr r1,=0x51b1; pop {r4,pc}; subs r0,r0,r1 (next function).
+    let image = coefficient_image(&[0x4902, 0xbd10, 0x1a40, 0xbf00, 0xbf00, 0xbf00], 12);
+    assert_eq!(
+        super::uhd::coefficient(&image, 0, true),
+        Err(Error::InvalidContract)
+    );
+}
+
+#[test]
+fn coefficient_follows_a_wide_unconditional_branch() {
+    // ldr r1,=0x51b1; b.w 10; adds r0,r0,r1 (skipped); nop; subs r0,r0,r1.
+    let image = coefficient_image(
+        &[
+            0x4903, 0xf000, 0xb802, 0x1840, 0xbf00, 0x1a40, 0xbf00, 0xbf00,
+        ],
+        16,
+    );
+    assert_eq!(super::uhd::coefficient(&image, 0, true), Ok(10));
+}
+
+#[test]
+fn coefficient_constant_ends_on_base_writeback() {
+    // ldr r1,=0x51b1; ldmia r1!,{r2,r3}; adds r0,r0,r1.
+    let image = coefficient_image(&[0x4902, 0xc90c, 0x1840, 0xbf00, 0xbf00, 0xbf00], 12);
+    assert!(super::uhd::coefficient(&image, 0, false).is_err());
+}
+
+#[test]
+fn coefficient_constant_ends_on_a_second_destination() {
+    // ldr r1,=0x51b1; ldrd r0,r1,[sp,#8]; adds r0,r0,r1.
+    let image = coefficient_image(&[0x4902, 0xe9dd, 0x0102, 0x1840, 0xbf00, 0xbf00], 12);
+    assert!(super::uhd::coefficient(&image, 0, false).is_err());
+}
+
+#[test]
+fn modern_calculations_claim_c7_only_when_the_rejection_tests_c7() {
+    let (root, cases) = fixtures();
+    let mut count = 0;
+    for case in cases {
+        let bytes = image(&root, &case);
+        let areas = UhdAreas::inspect(&bytes);
+        for (role, bne, compare) in [
+            (UhdArea::ForwardCalculation, 12, 0),
+            (UhdArea::ReverseCalculation, 14, 2),
+        ] {
+            let contract = areas.area(role).unwrap();
+            if contract.variant() != "modern" {
+                continue;
+            }
+            assert_eq!(contract.selects_c7(), Some(true));
+            let edge = contract
+                .edges()
+                .iter()
+                .find(|e| e.instruction == contract.site() + bne)
+                .unwrap();
+            let at = edge.target + compare;
+            assert_eq!(&bytes[at..at + 2], &0x28c7u16.to_le_bytes());
+            let mut bad = bytes.clone();
+            bad[at..at + 2].copy_from_slice(&0x28c6u16.to_le_bytes()); // cmp r0,#0xc6
+            assert_eq!(
+                UhdAreas::inspect(&bad).area(role),
+                Err(Error::InvalidContract)
+            );
+            count += 1;
+        }
+    }
+    assert_eq!(count, 8);
+}
+
+#[test]
+fn read_completion_reports_a_duplicated_veneer_boundary_as_ambiguous() {
+    let (root, cases) = fixtures();
+    let case = cases
+        .iter()
+        .find(|c| c["source_sha256"].as_str().unwrap().starts_with("0b2cdb82"))
+        .unwrap();
+    let mut bytes = image(&root, case);
+    let state = case["state"].as_u64().unwrap() as u32;
+    let from = case["read_completion"]["boundary_region"].as_u64().unwrap() as usize;
+    let to = 0x1d0000 + from % 4;
+    bytes.copy_within(from..from + 0x500, to);
+    use super::uhd_completion::{locate, BOUNDARY_VENEER};
+    assert_eq!(
+        locate(&bytes, BOUNDARY_VENEER, state),
+        Err(Error::Ambiguous)
+    );
+    // The plain grammar is absent; that absence must not hide the conflict.
+    assert_eq!(
+        super::ClassicReadCompletion::inspect(&bytes, state).map(|c| c.boundary_region),
+        Err(Error::Ambiguous)
+    );
+}

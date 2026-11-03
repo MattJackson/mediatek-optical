@@ -460,7 +460,8 @@ impl ClassicReadCompletion {
             (Ok(_), Ok(_)) => return Err(Error::Ambiguous),
             (Ok(at), Err(Error::UnknownLayout)) => (at, BOUNDARY.len() * 2),
             (Err(Error::UnknownLayout), Ok(at)) => (at, BOUNDARY_VENEER.len() * 2),
-            (Err(e), _) | (_, Err(e)) => return Err(e),
+            // Conflicting evidence from either grammar outranks the other's absence.
+            (Err(Error::UnknownLayout), Err(e)) | (Err(e), _) | (_, Err(e)) => return Err(e),
         };
         let shift = if boundary_length == BOUNDARY.len() * 2 {
             0
