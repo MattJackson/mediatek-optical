@@ -35,3 +35,37 @@ fn producer_window_matches_the_authentication_gate_window() {
     let gate = VidGate::inspect(&outside).unwrap();
     assert_eq!(gate.producer(&outside), Err(Error::UnknownLayout));
 }
+
+#[test]
+fn checked_agid_reads_through_low_registers_share_the_base() {
+    // push {r4-r7,lr}; ldr r4,=0x02000100; ldrb r1,[r4,#10]; lsrs r1,#6;
+    // cmp r1,#2; bcs; ldr r2,=second; ldrb r1,[r2,#10]; lsrs r1,#6;
+    // cmp r1,#2; bcs; then the auth-state gate. Each bcs targets the next
+    // instruction, so both reads are reached with their definitions live.
+    let image = |second: u32| {
+        let mut image = vec![0u8; 0x48];
+        let code = [
+            0xb5f0u16, 0x4c0f, 0x7aa1, 0x0989, 0x2902, 0xd2ff, 0x4a0d, 0x7a91, 0x0989, 0x2902,
+            0xd2ff,
+        ];
+        for (n, op) in code.iter().enumerate() {
+            image[2 * n..2 * n + 2].copy_from_slice(&op.to_le_bytes());
+        }
+        for (n, (op, _)) in VID_GATE_SIG.iter().enumerate() {
+            image[0x20 + 2 * n..0x22 + 2 * n].copy_from_slice(&op.to_le_bytes());
+        }
+        image[0x40..0x44].copy_from_slice(&0x0200_0100u32.to_le_bytes());
+        image[0x44..0x48].copy_from_slice(&second.to_le_bytes());
+        image
+    };
+    let same = image(0x0200_0100);
+    assert_eq!(
+        VidGate::inspect(&same).unwrap().agid_address(),
+        Ok(0x0200_0100)
+    );
+    let other = image(0x0200_0200);
+    assert_eq!(
+        VidGate::inspect(&other).unwrap().agid_address(),
+        Err(Error::Ambiguous)
+    );
+}

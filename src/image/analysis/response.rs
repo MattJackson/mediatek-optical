@@ -243,6 +243,9 @@ impl<'a> ResponseIo<'a> {
         }
         let (_, commit) = pairs.pop().ok_or(Error::UnknownLayout)?;
         let mut buffers = std::collections::BTreeSet::new();
+        // Offsets passed by callers whose argument cannot be proven still
+        // count as writer candidates, so they refuse instead of disappearing.
+        let mut unproven = std::collections::BTreeSet::new();
         for site in (4..image.len().saturating_sub(4)).step_by(2) {
             if thumb_asm::decode_bl(image, site) != Some(commit.entry as u32) {
                 continue;
@@ -254,18 +257,19 @@ impl<'a> ResponseIo<'a> {
                 if end != site || buffers.contains(&offset) {
                     continue;
                 }
-                let Ok(parent) = SavedLink::detect(image, site) else {
-                    continue;
-                };
-                if parent
-                    .require_argument_definition(image, definition, end, 0)
-                    .is_ok()
-                {
+                if SavedLink::detect(image, site).is_ok_and(|parent| {
+                    parent
+                        .require_argument_definition(image, definition, end, 0)
+                        .is_ok()
+                }) {
                     buffers.insert(offset);
+                } else {
+                    unproven.insert(offset);
                 }
             }
         }
         let mut writer = None;
+        let mut contested = false;
         let mut selected_offset = 0;
         for at in (0..image.len().saturating_sub(22) + 1).step_by(2) {
             let Some((upper, lower)) = writer_tail(image, at) else {
@@ -289,6 +293,7 @@ impl<'a> ResponseIo<'a> {
                 continue;
             }
             if !buffers.contains(&offset) {
+                contested |= unproven.contains(&offset);
                 continue;
             }
             if offset == 0 || offset >= 0x01000000 || offset & 3 != 0 {
@@ -298,6 +303,9 @@ impl<'a> ResponseIo<'a> {
                 return Err(Error::Ambiguous);
             }
             selected_offset = offset;
+        }
+        if contested && writer.is_some() {
+            return Err(Error::Ambiguous);
         }
         Ok(Self {
             image,

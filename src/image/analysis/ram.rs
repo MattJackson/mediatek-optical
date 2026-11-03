@@ -293,9 +293,10 @@ impl RamReferences {
                             pending.push_back((next, values, zero));
                         }
                     } else if !is_return(&ins) {
-                        // cbz/cbnz, indirect bx/blx and table branches lose
+                        // cbz/cbnz, indirect bx and table branches lose
                         // their successors: the path is not fully observed.
-                        // Returns simply end the path.
+                        // Returns simply end the path. An indirect `blx rN`
+                        // is a call and continues at its return address.
                         result.incomplete.insert(seed);
                     }
                 } else if !ins.writes_pc() {

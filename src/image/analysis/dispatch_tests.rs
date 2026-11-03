@@ -276,3 +276,91 @@ fn response_uses_the_validated_inquiry_record() {
         Some(super::Error::Ambiguous)
     );
 }
+
+/// INQUIRY handler at 0x240 passing offset 0x40 to a native committer at
+/// 0x280, with byte writers for offsets 0x40 (0x300) and 0x80 (0x340).
+fn with_response() -> Vec<u8> {
+    let mut image = with_records(&[(0x12, 7, 0x241)]);
+    image.resize(0x400, 0);
+    // push {lr}; movs r0,#1; lsls r0,#6; bl commit; pop {pc}
+    put(&mut image, 0x240, &[0xb500, 0x2001, 0x0180]);
+    put_bl(&mut image, 0x246, 0x280);
+    put(&mut image, 0x24a, &[0xbd00]);
+    put(
+        &mut image,
+        0x280,
+        &[
+            0x490d, 0xb510, 0x680a, 0x4c0d, 0x1810, 0x62a0, 0x480c, 0x8801, 0x8801, 0x4b0c, 0x4299,
+            0xd102, 0x8801, 0x1e49, 0x8001, 0x8801, 0x07c9, 0xd002, 0x8801, 0x1c49, 0x8001, 0x8801,
+            0x4806, 0x6141, 0x4906, 0x2001, 0x7008, 0xbd10,
+        ],
+    );
+    for (n, word) in [
+        0x0200_0200,
+        0x0403_00c0,
+        0x0200_0210,
+        0xffff,
+        0x0404_2140,
+        0x0200_020c,
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        put_word(&mut image, 0x2b8 + 4 * n, word);
+    }
+    for (at, shift) in [(0x300, 6u16), (0x340, 7)] {
+        // movs r2,#1; lsls r2,#shift; adds r0,r0,r2; ldr r2,=upper; ldr r2,[r2];
+        // adds r0,r2,r0; ldr r2,=lower; lsls r0,#8; ldr r2,[r2]; lsrs r0,#8;
+        // adds r0,r0,r2; strb r1,[r0]; bx lr
+        put(
+            &mut image,
+            at,
+            &[
+                0x2201,
+                0x0012 | shift << 6,
+                0x1880,
+                0x4a05,
+                0x6812,
+                0x1810,
+                0x4a04,
+                0x0200,
+                0x6812,
+                0x0a00,
+                0x1880,
+                0x7001,
+                0x4770,
+            ],
+        );
+        put_word(&mut image, at + 0x1c, 0x0200_0200);
+        put_word(&mut image, at + 0x20, 0x0200_01fc);
+    }
+    image
+}
+
+#[test]
+fn response_writer_with_unproven_caller_is_not_dropped() {
+    use super::super::ResponseIo;
+    let image = with_response();
+    let io = ResponseIo::inspect(&image).expect("native response");
+    assert_eq!((io.writer(), io.buffer_offset()), (0x300, 0x40));
+    // Both callers pass 0x80 = 1 << 7 to the committer.
+    // A second committer caller in a provable frame makes both writers live.
+    let mut proven = image.clone();
+    put(&mut proven, 0x380, &[0xb500, 0x2001, 0x01c0]);
+    put_bl(&mut proven, 0x386, 0x280);
+    put(&mut proven, 0x38a, &[0xbd00]);
+    assert_eq!(
+        ResponseIo::inspect(&proven).err(),
+        Some(super::Error::Ambiguous)
+    );
+    // The same caller without a provable frame must not make the competing
+    // 0x80 writer disappear.
+    let mut unproven = image;
+    put(&mut unproven, 0x380, &[0x2001, 0x01c0]);
+    put_bl(&mut unproven, 0x384, 0x280);
+    put(&mut unproven, 0x388, &[0xe7fe]);
+    assert_eq!(
+        ResponseIo::inspect(&unproven).err(),
+        Some(super::Error::Ambiguous)
+    );
+}

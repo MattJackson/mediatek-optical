@@ -82,3 +82,29 @@ fn changed_clamp_branch_or_maximum_binding_is_refused() {
         assert!(NativeSpeedPolicy::detect(&changed).is_err());
     }
 }
+#[test]
+fn a_second_clamp_at_the_end_of_the_image_is_ambiguous() {
+    // push; ldr r2,=maximum; ldrb r1,[r2]; cmp r0,r1; bls +0; ldrb r0,[r2];
+    // pop; literal pool. The whole clamp fits in 16 bytes.
+    let clamp = |maximum: u32| {
+        let mut bytes = Vec::new();
+        for op in [0xb5f8u16, 0x4a02, 0x7811, 0x4288, 0xd900, 0x7810] {
+            bytes.extend_from_slice(&op.to_le_bytes());
+        }
+        bytes.extend_from_slice(&maximum.to_le_bytes());
+        bytes
+    };
+    let maximum = 0x0200_0100;
+    let mut image = vec![0xff; 0x100];
+    image[0x10..0x20].copy_from_slice(&clamp(maximum));
+    assert_eq!(
+        RequestedRateClamp::detect(&image, maximum).unwrap().entry,
+        0x10
+    );
+    let tail = image.len() - 16;
+    image[tail..].copy_from_slice(&clamp(maximum));
+    assert_eq!(
+        RequestedRateClamp::detect(&image, maximum),
+        Err(super::Error::Ambiguous)
+    );
+}

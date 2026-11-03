@@ -104,9 +104,28 @@ fn broken_auth_preparation_does_not_fall_back_to_the_later_nibble_check() {
 }
 
 #[test]
+fn auth_preparation_call_must_be_reached_from_the_gate() {
+    assert!(AuthCell::inspect(WH_AUTH, 2, 0x58).is_ok());
+    // An unconditional branch right after `cmp r0,#6; bne` means the auth==6
+    // path never reaches the matched `bl; cmp r0,#0; bne start` block.
+    let mut image = WH_AUTH.to_vec();
+    image[0x5c..0x5e].copy_from_slice(&0xe7feu16.to_le_bytes());
+    assert_eq!(
+        AuthCell::inspect(&image, 2, 0x58),
+        Err(Error::InvalidContract)
+    );
+}
+
+#[test]
 fn truncated_inputs_never_panic_or_claim_support() {
+    let full = AuthCell::inspect(WH_AUTH, 2, 0x58).unwrap();
     for len in 0..WH_AUTH.len() {
-        let _ = AuthCell::inspect(&WH_AUTH[..len], 2, 0x58);
+        // A prefix may only succeed once it holds the whole validated exit
+        // (the denial store and its narrow B), and then with the same result.
+        if let Ok(cell) = AuthCell::inspect(&WH_AUTH[..len], 2, 0x58) {
+            assert!(len >= full.refusal() + 4, "len {len:#x} claimed support");
+            assert_eq!(cell, full);
+        }
     }
     for len in 0..0x46 {
         assert!(MediaGate::inspect(&WH_MEDIA[..len]).is_err());

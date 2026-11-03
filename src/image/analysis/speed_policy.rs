@@ -106,7 +106,7 @@ impl RequestedRateClamp {
     /// continuations through register/address data flow, without model dispatch.
     pub fn detect(image: &[u8], maximum: u32) -> Result<Self, Error> {
         let mut found = None;
-        for entry in (0..image.len().saturating_sub(32)).step_by(2) {
+        for entry in (0..image.len()).step_by(2) {
             if let Some(contract) = clamp(image, entry, maximum) {
                 if found.replace(contract).is_some() {
                     return Err(Error::Ambiguous);

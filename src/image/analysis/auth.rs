@@ -53,6 +53,19 @@ impl AuthCell {
         {
             return Err(Error::InvalidContract);
         }
+        // The auth==6 fall-through must reach the preparation call: only
+        // straight-line code and returning direct calls may precede it.
+        let mut pc = gate + 4;
+        while pc < reject - 8 {
+            let ins = thumb_asm::isa::decode_at(image, pc).ok_or(Error::InvalidContract)?;
+            if (ins.is_branch() || ins.writes_pc()) && ins.mnemonic != "bl" {
+                return Err(Error::InvalidContract);
+            }
+            pc += ins.width.bytes();
+        }
+        if pc != reject - 8 {
+            return Err(Error::InvalidContract);
+        }
         let start =
             conditional(image, reject - 2, thumb_asm::Cond::Ne).ok_or(Error::InvalidContract)?;
         if start <= reject || start - reject > 0x80 {

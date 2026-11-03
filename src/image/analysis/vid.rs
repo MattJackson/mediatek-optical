@@ -141,9 +141,6 @@ impl<'a> VidGate<'a> {
             }
             let pointer = ((op >> 3) & 7) as u8;
             let value = (op & 7) as u8;
-            if pointer < 4 {
-                continue;
-            }
             let shift = half(image, read + 2).ok_or(Error::Truncated)?;
             if shift & 0xffc0 != 0x0980 || ((shift >> 3) & 7) as u8 != value {
                 continue;
