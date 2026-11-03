@@ -23,7 +23,11 @@ impl StackFlow {
     fn address(&self, mem: Mem, scalars: &[Option<u32>; 16]) -> Result<Alias, Error> {
         let base = self.aliases[usize::from(mem.base.num())];
         if base == Alias::Plain {
-            return Ok(base);
+            // A stack-derived index makes the effective address stack-relative.
+            let indexed = mem
+                .index
+                .is_some_and(|(reg, _)| self.aliases[usize::from(reg.num())] != Alias::Plain);
+            return Ok(if indexed { Alias::Unknown } else { base });
         }
         if mem.mode != AddrMode::Offset {
             return Err(Error::InvalidContract);
@@ -82,7 +86,10 @@ impl StackFlow {
                 Alias::Plain
             };
         };
-        let values: Vec<_> = (start..start + width)
+        let Some(end) = start.checked_add(width) else {
+            return Alias::Unknown;
+        };
+        let values: Vec<_> = (start..end)
             .map(|at| self.bytes.get(&at).copied().unwrap_or_default())
             .collect();
         if values.iter().all(|value| *value == Alias::Plain) {

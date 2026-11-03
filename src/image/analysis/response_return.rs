@@ -134,7 +134,7 @@ pub(super) fn validate(
         if !seen.insert((pc, state.clone())) {
             continue;
         }
-        if seen.len() > 4096 || pc < entry || pc >= entry + 0x180 {
+        if seen.len() > 4096 || pc < entry || pc >= entry.saturating_add(0x180) {
             return Err(Error::InvalidContract);
         }
         let ins = decode_at(image, pc).ok_or(Error::Truncated)?;
@@ -153,7 +153,8 @@ pub(super) fn validate(
                         .operand(second.ok_or(Error::InvalidContract)?)?
                         .expression(),
                 );
-        } else if ins.sets_flags {
+        } else if ins.sets_flags || thumb_asm::flags::writes(&ins) != thumb_asm::flags::Flags::NONE
+        {
             state.comparison = None;
         }
         if ins.mnemonic == "push" {

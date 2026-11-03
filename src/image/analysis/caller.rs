@@ -262,7 +262,10 @@ impl SavedLink {
             if ins.mnemonic == "cmp" {
                 compared = scalar_operand(ins.operands.get(0), &constants)
                     .zip(scalar_operand(ins.operands.get(1), &constants));
-            } else if ins.sets_flags || ins.is_call() {
+            } else if ins.sets_flags
+                || thumb_asm::flags::writes(&ins) != thumb_asm::flags::Flags::NONE
+                || ins.is_call()
+            {
                 compared = None;
             }
             if call {

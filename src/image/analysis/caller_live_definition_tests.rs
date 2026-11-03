@@ -112,3 +112,46 @@ fn native_register_definition_rejects_writeback_and_clobber() {
         assert!(SavedLink::require_live_definition(&bad, 0, site, 2, 4, 4).is_err());
     }
 }
+
+#[test]
+fn tst_invalidates_cached_comparison() {
+    // CMP r0,#1 would make BNE never taken, but TST rewrites the flags, so
+    // the branch to the invalid path must still be explored.
+    let mut asm = thumb_asm::Asm::new();
+    let bad = asm.label();
+    asm.push(0x110).movs_imm(0, 1).cmp_imm(0, 1).raw16(0x4200);
+    asm.b_cond(thumb_asm::Cond::Ne, bad);
+    let site = asm.pos();
+    asm.mov_reg(0, 0).pop(0x110);
+    asm.bind(bad).raw16(0xde00);
+    let image = asm.finish().unwrap();
+    assert!(SavedLink::bind(&image, 0, site).is_err());
+}
+
+#[test]
+fn stack_alias_in_index_register_fails_closed() {
+    // str r0,[r1,r2] with r1 plain and r2 = sp is not a plain store.
+    let mut asm = thumb_asm::Asm::new();
+    asm.push(0x110).mov_reg(2, 13).raw16(0x5088);
+    let site = asm.pos();
+    asm.mov_reg(0, 0).pop(0x110);
+    let image = asm.finish().unwrap();
+    assert!(SavedLink::bind(&image, 0, site).is_err());
+}
+
+#[test]
+fn stack_load_near_address_limit_does_not_overflow() {
+    // r2 = sp + 0x7fffffff, then ldmia r2!,{r0,r1,r3} walks the alias to i32::MAX.
+    let mut asm = thumb_asm::Asm::new();
+    asm.push(0x110)
+        .movs_imm(3, 1)
+        .lsls_imm(3, 3, 31)
+        .subs_imm(3, 1)
+        .mov_reg(2, 13)
+        .adds_reg(2, 2, 3)
+        .raw16(0xca0b);
+    let site = asm.pos();
+    asm.mov_reg(0, 0).pop(0x110);
+    let image = asm.finish().unwrap();
+    let _ = SavedLink::bind(&image, 0, site);
+}

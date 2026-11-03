@@ -193,7 +193,7 @@ impl<'a> ResponseIo<'a> {
         }
         let entry = *entries.first().ok_or(Error::UnknownLayout)?;
         let mut prologue = entry;
-        while prologue < entry + 8 && literal_load(image, prologue).is_some() {
+        while prologue < entry.saturating_add(8) && literal_load(image, prologue).is_some() {
             prologue += 2;
         }
         if !instruction(image, prologue).is_some_and(|ins| {
@@ -206,7 +206,12 @@ impl<'a> ResponseIo<'a> {
             return Err(Error::InvalidContract);
         }
         let mut pairs = Vec::new();
-        for site in (prologue + 2..(entry + 0x200).min(image.len().saturating_sub(4))).step_by(2) {
+        for site in (prologue + 2
+            ..entry
+                .saturating_add(0x200)
+                .min(image.len().saturating_sub(4)))
+            .step_by(2)
+        {
             let Some(target) = thumb_asm::decode_bl(image, site) else {
                 continue;
             };
@@ -289,7 +294,10 @@ impl<'a> ResponseIo<'a> {
             let Some((start, offset)) = prefix else {
                 continue;
             };
-            if upper != commit.source_cell || upper != lower + 4 || !SRAM.contains(&lower) {
+            if upper != commit.source_cell
+                || lower.checked_add(4) != Some(upper)
+                || !SRAM.contains(&lower)
+            {
                 continue;
             }
             if !buffers.contains(&offset) {

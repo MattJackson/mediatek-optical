@@ -184,3 +184,13 @@ fn authentication_requires_live_values_and_correct_stack_store_sources() {
         );
     }
 }
+
+#[test]
+fn diagnostic_preserves_its_typed_cause() {
+    let diagnostic = Diagnostic {
+        role: Role::SpeedPolicy,
+        cause: Error::Ambiguous,
+    };
+    let source = std::error::Error::source(&diagnostic).expect("cause retained");
+    assert_eq!(source.to_string(), Error::Ambiguous.to_string());
+}

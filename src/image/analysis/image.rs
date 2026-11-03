@@ -56,7 +56,11 @@ impl core::fmt::Display for Diagnostic {
         write!(f, "{}: {}", self.role.key(), self.cause)
     }
 }
-impl std::error::Error for Diagnostic {}
+impl std::error::Error for Diagnostic {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        Some(&self.cause)
+    }
+}
 impl crate::CodedError for Diagnostic {
     fn code(&self) -> &'static str {
         crate::CodedError::code(&self.cause)
