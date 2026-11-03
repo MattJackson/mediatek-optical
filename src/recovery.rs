@@ -119,6 +119,10 @@ impl Receiver {
     }
     /// Verify identity, receiver evidence and chip/banner before a write.
     ///
+    /// INQUIRY identity is read first and again last, after the banner; a
+    /// change in between is [`Error::Receiver`] with
+    /// [`receiver::Error::Changed`].
+    ///
     /// A receiver from [`Receiver::identify_reference`] re-reads only INQUIRY
     /// identity, the boot banner and build metadata; its instruction evidence
     /// comes from the reference image and is not re-read.
@@ -129,7 +133,9 @@ impl Receiver {
         if banner != self.banner {
             return Err(Error::Changed);
         }
-        Ok(())
+        self.receiver
+            .revalidate_identity(t)
+            .map_err(Error::Receiver)
     }
     /// Validate a recovery image, bypassing model/family and rollback policy.
     /// No installed image, Current file or backup is needed.

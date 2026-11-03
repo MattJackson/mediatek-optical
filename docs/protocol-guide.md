@@ -253,7 +253,12 @@ closed. Encrypted applications with a proven shared 0x67 entry select that
 dialect; the other recognized receivers select the proven mode-one path.
 Both Flash and explicit Recovery store the resulting command in the same
 immutable `TransferPlan`, revalidate its code/table snapshots before writing,
-and execute through the shared transfer/readback engine. `detect_encoding`
+and execute through the shared transfer/readback engine. The snapshot re-read
+is bracketed by INQUIRY identity checks: READ BUFFER returns the same flash
+bytes from BOOT and from the application, so only INQUIRY binds the running
+receiver, and the last revalidation command before the update session is an
+INQUIRY. A Current-reference receiver likewise re-reads INQUIRY after its
+banner and descriptor. `detect_encoding`
 remains a read-only encoding probe and cannot supply an executable plan.
 
 The private website corpus test replays both receiver modes for every package:

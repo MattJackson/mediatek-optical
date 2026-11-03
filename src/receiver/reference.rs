@@ -64,14 +64,24 @@ pub(super) struct Binding {
     image_hash: [u8; 32],
 }
 impl Binding {
-    fn read_banner<T: Transport>(
+    // Mode and identity bytes only: an offline-stage receiver from
+    // `from_firmware` holds a synthetic INQUIRY record.
+    pub(super) fn revalidate_identity<T: Transport>(
         &self,
         t: &mut T,
-    ) -> Result<[u8; layout::BANNER.len], super::Error<T::Error>> {
+    ) -> Result<(), super::Error<T::Error>> {
         let mode = super::detect_mode(t)?;
         if mode.mode() != Mode::Firmware || mode.inquiry()[8..36] != self.identity {
             return Err(super::Error::Changed);
         }
+        Ok(())
+    }
+
+    fn read_banner<T: Transport>(
+        &self,
+        t: &mut T,
+    ) -> Result<[u8; layout::BANNER.len], super::Error<T::Error>> {
+        self.revalidate_identity(t)?;
         let mut banner = [0; layout::BANNER.len];
         drive::read_memory(t, layout::BANNER.start as u32, &mut banner)
             .map_err(super::Error::Read)?;
@@ -87,8 +97,11 @@ impl Binding {
         Ok(banner)
     }
 
+    // INQUIRY is read again last: banner and descriptor reads return the same
+    // flash bytes whichever receiver is running.
     pub(super) fn revalidate<T: Transport>(&self, t: &mut T) -> Result<(), super::Error<T::Error>> {
-        self.read_banner(t).map(|_| ())
+        self.read_banner(t)?;
+        self.revalidate_identity(t)
     }
 }
 

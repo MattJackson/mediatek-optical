@@ -8,6 +8,9 @@ struct Device {
     reads: usize,
     short: bool,
     fail_at: Option<usize>,
+    opcodes: Vec<u8>,
+    // After this many commands, INQUIRY reports the given record.
+    flip: Option<(usize, [u8; 36])>,
 }
 impl Device {
     fn new(mode: Mode) -> Self {
@@ -21,6 +24,8 @@ impl Device {
             reads: 0,
             short: false,
             fail_at: None,
+            opcodes: Vec::new(),
+            flip: None,
         }
     }
     fn stamp(&mut self, at: usize, pattern: &[u16]) {
@@ -35,7 +40,14 @@ impl Transport for Device {
         None
     }
     fn exec(&mut self, cdb: &[u8], data: Data<'_>) -> Result<usize, Self::Error> {
+        if let Some((after, inquiry)) = self.flip {
+            if self.reads == after {
+                self.inquiry = inquiry;
+                self.flip = None;
+            }
+        }
         self.reads += 1;
+        self.opcodes.push(cdb[0]);
         let Data::In(buf) = data else {
             panic!("detection must never write or issue no-data commands")
         };
@@ -316,4 +328,110 @@ fn recovery_revalidates_an_unchanged_drive_and_refuses_a_changed_banner_before_w
         Err(recovery::Error::Changed | recovery::Error::Receiver(Error::Changed))
     ));
     assert_eq!(writes.reads, 0, "no command may reach the write session");
+}
+
+#[test]
+fn revalidation_reads_identity_after_receiver_evidence() {
+    // READ BUFFER returns the same flash bytes from BOOT and the application;
+    // only INQUIRY binds the running receiver, so it must also come last.
+    let mut app = Device::new(Mode::Firmware);
+    app.stamp(0x9a300, PLAIN_APP);
+    let mut boot = Device::new(Mode::Boot);
+    boot.stamp(0x36c4, PLAIN_DIRECT);
+    for (dev, other) in [(&mut app, b"BOOT"), (&mut boot, b"INTM")] {
+        let mode = detect_mode(dev).unwrap();
+        let receiver = detect_encoding(dev, &mode).unwrap();
+        dev.opcodes.clear();
+        receiver.revalidate(dev).unwrap();
+        assert_eq!(dev.opcodes.first(), Some(&0x12));
+        assert_eq!(dev.opcodes.last(), Some(&0x12));
+        assert!(dev.opcodes.contains(&0x3c));
+        let original = dev.inquiry;
+        // A mode change after the leading INQUIRY is refused.
+        let mut changed = original;
+        changed[32..36].copy_from_slice(other);
+        dev.flip = Some((dev.reads + 1, changed));
+        assert!(matches!(receiver.revalidate(dev), Err(Error::Changed)));
+        dev.inquiry = original;
+        // Vendor/model identity bytes are bound too, not just the mode.
+        let mut changed = original;
+        changed[8..16].copy_from_slice(b"PIONEER ");
+        dev.flip = Some((dev.reads + 1, changed));
+        assert!(matches!(receiver.revalidate(dev), Err(Error::Changed)));
+        dev.inquiry = original;
+        receiver.revalidate(dev).unwrap();
+    }
+}
+
+#[cfg(all(feature = "image", feature = "enc"))]
+#[test]
+fn recovery_refuses_mode_change_during_execution_revalidation() {
+    use crate::{fixtures, recovery, update};
+    struct Runtime;
+    impl update::FlashRuntime<&'static str> for Runtime {
+        fn elapsed(&self) -> std::time::Duration {
+            std::time::Duration::ZERO
+        }
+        fn sleep(&mut self, _: std::time::Duration) {
+            panic!("unexpected wait")
+        }
+    }
+    let mut dev = Device::new(Mode::Boot);
+    dev.image = fixtures::image(&fixtures::JB8, 1);
+    dev.stamp(0x36c4, PLAIN_DIRECT);
+    let receiver = recovery::Receiver::identify(&mut dev).unwrap().unwrap();
+    let prepared = receiver
+        .prepare(&fixtures::image(&fixtures::BU3, 2))
+        .unwrap();
+    // flash_completed reads the banner, then execution revalidation issues
+    // its leading INQUIRY; the application starts after both.
+    let mut application = dev.inquiry;
+    application[32..36].copy_from_slice(b"INTM");
+    dev.flip = Some((dev.reads + 2, application));
+    dev.opcodes.clear();
+    let mut writes = Device::new(Mode::Boot);
+    let result = prepared.flash_completed(
+        update::FlashTransport {
+            reads: &mut dev,
+            writes: &mut writes,
+        },
+        &mut Runtime,
+    );
+    assert!(
+        dev.flip.is_none(),
+        "the change must happen during execution"
+    );
+    assert!(matches!(
+        result,
+        Err(recovery::Error::Receiver(Error::Changed))
+    ));
+    assert_eq!(writes.reads, 0, "no command may reach the write session");
+    assert_eq!(dev.opcodes[..2], [0x3c, 0x12]);
+}
+
+#[cfg(all(feature = "image", feature = "enc"))]
+#[test]
+fn recovery_revalidation_rechecks_identity_last_without_changing_banner_codes() {
+    use crate::{fixtures, recovery, CodedError};
+    let mut dev = Device::new(Mode::Boot);
+    dev.image = fixtures::image(&fixtures::JB8, 1);
+    dev.stamp(0x36c4, PLAIN_DIRECT);
+    let receiver = recovery::Receiver::identify(&mut dev).unwrap().unwrap();
+    dev.opcodes.clear();
+    receiver.revalidate(&mut dev).unwrap();
+    assert_eq!(dev.opcodes.first(), Some(&0x12));
+    assert_eq!(dev.opcodes.last(), Some(&0x12));
+    // A banner change keeps its existing classification.
+    dev.image[crate::layout::BANNER.start + 0x1f] ^= 1;
+    let error = receiver.revalidate(&mut dev).unwrap_err();
+    assert_eq!(error.code(), "mediatek.recovery.receiver");
+    dev.image[crate::layout::BANNER.start + 0x1f] ^= 1;
+    // An identity change after the leading INQUIRY is refused.
+    let mut application = dev.inquiry;
+    application[32..36].copy_from_slice(b"INTM");
+    dev.flip = Some((dev.reads + 1, application));
+    assert!(matches!(
+        receiver.revalidate(&mut dev),
+        Err(recovery::Error::Receiver(Error::Changed))
+    ));
 }
