@@ -7,6 +7,7 @@
 - `analysis::Diagnostic::source()` now returns the underlying cause.
 - `RamReferences::incomplete()` now includes seeds whose path reaches an unmodelled branch (`cbz`/`cbnz`, table branches, indirect `bx`/`blx`); function returns still end a path normally.
 - Tighten analysis grammars: `TST`/`CMN`/`TEQ` invalidate cached comparisons; a UHD coefficient continuation must read the register holding `0x51b1` and any other write to it or a call ends the constant; scans now include the last offset; missing literal evidence no longer matches.
+- Command and response analysis refuse more false evidence: the scanner grammar must advance ordinary records to the next record; registrar calls and array-owning scanner callers that cannot be proven fail the table graph instead of being dropped (an unproven call that repeats a proven root is still accepted); the committer's DMA length write must follow the length normalization on the same path, using a length loaded after it.
 - `detect_encoding` propagates read failures instead of choosing an encoding from partial evidence. `Chip::from_banner` ignores bytes after the first NUL. Ambiguous BOOT grammars are refused, unaligned programming-loop targets are rejected, and recovery identification reports a malformed identity as `InvalidIdentity`.
 
 - Restrict boot-mirror readback detection to complete 2 MiB MT19xx images; older 512 KiB OEM firmware and partial fragments are not raw MT19xx captures.

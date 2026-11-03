@@ -47,6 +47,7 @@ struct State {
     guards: Guards,
     length: bool,
     queued: Option<u32>,
+    normalized: bool,
 }
 impl State {
     fn define(&mut self, register: Reg, value: Value) -> Result<(), Error> {
@@ -58,6 +59,25 @@ impl State {
         }
         self.registers[usize::from(reg)] = value;
         Ok(())
+    }
+    /// Entering the normalization rewrites the length cell, so values and
+    /// comparisons derived from an earlier load no longer describe it.
+    fn normalize(&mut self) {
+        let stale = |expr: Expr| expr.length != 0;
+        for value in &mut self.registers {
+            if value.expression().is_some_and(stale) {
+                *value = Value::Unknown;
+            }
+        }
+        self.guards
+            .retain(|&(left, _, right)| !stale(left) && !stale(right));
+        if self
+            .comparison
+            .is_some_and(|(left, right)| stale(left) || stale(right))
+        {
+            self.comparison = None;
+        }
+        self.normalized = true;
     }
     fn operand(&self, operand: Operand) -> Result<Value, Error> {
         match operand {
@@ -71,7 +91,7 @@ impl State {
 }
 /// Prove the OEM saturating/even-byte length normalization, including both
 /// guards. Arithmetic roles alone cannot distinguish an increment from a decrement.
-fn normalization(image: &[u8], at: usize) -> Option<(usize, usize)> {
+fn normalization(image: &[u8], at: usize) -> Option<(usize, usize, usize)> {
     use Operand::{Imm, Reg as R};
     let (value, memory) = transfer(image, at, "ldrh")?;
     let (limit, sentinel) = literal_load(image, at + 2)?;
@@ -99,7 +119,7 @@ fn normalization(image: &[u8], at: usize) -> Option<(usize, usize)> {
     {
         return None;
     }
-    Some((at + 10, at + 22))
+    Some((at, at + 10, at + 22))
 }
 pub(super) fn validate(
     image: &[u8],
@@ -111,7 +131,7 @@ pub(super) fn validate(
         .step_by(2)
         .filter_map(|at| normalization(image, at))
         .collect();
-    let [(decrement, increment)] = normalizations.as_slice() else {
+    let [(start, decrement, increment)] = normalizations.as_slice() else {
         return Err(Error::InvalidContract);
     };
     let mut registers = [Value::Unknown; 16];
@@ -124,6 +144,7 @@ pub(super) fn validate(
         guards: Guards::new(),
         length: false,
         queued: None,
+        normalized: false,
     };
     let mut queue = VecDeque::from([(entry, initial)]);
     let mut seen = BTreeSet::new();
@@ -136,6 +157,9 @@ pub(super) fn validate(
         }
         if seen.len() > 4096 || pc < entry || pc >= entry.saturating_add(0x180) {
             return Err(Error::InvalidContract);
+        }
+        if pc == *start {
+            state.normalize();
         }
         let ins = decode_at(image, pc).ok_or(Error::Truncated)?;
         if ins.len() != 2 || ins.is_call() {
@@ -263,7 +287,9 @@ pub(super) fn validate(
                         let value = state.registers[usize::from(reg.num())]
                             .expression()
                             .ok_or(Error::InvalidContract)?;
-                        if value != Expr::LENGTH && !clamp_allows(&state.guards, value, false) {
+                        if !state.normalized
+                            || (value != Expr::LENGTH && !clamp_allows(&state.guards, value, false))
+                        {
                             return Err(Error::InvalidContract);
                         }
                         state.length = true;
@@ -334,3 +360,7 @@ pub(super) fn validate(
         returns: returns.into_iter().collect(),
     })
 }
+
+#[cfg(test)]
+#[path = "response_return_tests.rs"]
+mod tests;

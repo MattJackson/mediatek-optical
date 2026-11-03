@@ -1,5 +1,5 @@
 //! Native command-record consumer, recognized by connected decoded operations.
-use super::decoded::{exact, instruction, literal_load, memory_is};
+use super::decoded::{exact, instruction, literal_load, memory_is, transfer};
 use super::{conditional, Error, SavedLink};
 use sha2::{Digest, Sha256};
 use thumb_asm::isa::{decode_at, Operand, Reg};
@@ -95,6 +95,7 @@ impl CommandScanner {
             )
             || !exact(image, ret + 4, "add", &[r(t), Imm(8)])
             || !branch(image, ret + 6, scan)
+            || !advances(image, linked + 16, c, t, ret + 4)
             || SavedLink::bind(image, entry, entry + 22).is_err()
         {
             return None;
@@ -140,8 +141,31 @@ impl CommandScanner {
         self.cdb
     }
 }
+/// Ordinary records whose opcode differs from the CDB continue at the shared
+/// `add table,#8` advance, so later records in the same root are reached.
+fn advances(image: &[u8], at: usize, cdb: u8, table: u8, advance: usize) -> bool {
+    let Some((opcode, memory)) = transfer(image, at, "ldrb") else {
+        return false;
+    };
+    let n = opcode.num();
+    memory.base.num() == cdb
+        && memory.offset == 0
+        && n < 8
+        && ![1, cdb, table].contains(&n)
+        && exact(
+            image,
+            at + 2,
+            "cmp",
+            &[Operand::Reg(Reg(1)), Operand::Reg(opcode)],
+        )
+        && conditional(image, at + 4, Cond::Ne) == Some(advance)
+}
 fn branch(image: &[u8], at: usize, target: usize) -> bool {
     instruction(image, at).is_some_and(|ins| {
         ins.mnemonic == "b" && ins.cond.is_none() && ins.branch_target() == Some(target as u32)
     })
 }
+
+#[cfg(test)]
+#[path = "dispatch_tests.rs"]
+mod tests;
