@@ -148,9 +148,12 @@ pub struct IntegritySelection {
     pub address: u32,
     /// Called only when update flag bit zero is set.
     pub boot_check: u32,
-    /// Called with mask one unless the boot check has already failed.
+    /// Called with mask one when update flag bit zero is clear or the boot
+    /// check returned exactly 1.
     pub application_check: u32,
-    /// Continuation reached only when the selected checks returned nonzero.
+    /// Continuation reached when the last check called returned nonzero. A
+    /// boot-check result other than 0 or 1 reaches it without the application
+    /// check; the checkers' return values need independent validation.
     pub success: u32,
     /// Error path reached when a selected checker returns zero.
     pub failure: u32,

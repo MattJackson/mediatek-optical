@@ -88,6 +88,10 @@ fn real_compiler_table_requires_separate_helper_proof() {
             helper: Some(0x13bdb0),
         })
     );
+    // BLX(1) with suffix bit 0 set is UNDEFINED, not a helper call.
+    let mut undefined = bytes.clone();
+    undefined[0x98] |= 1;
+    assert_eq!(inspect(&undefined, 0x9cd00), None);
     assert!(matches_helper(ARM_HELPER));
     assert!(!matches_helper(&ARM_HELPER[..HELPER_BYTES - 1]));
     for offset in 0..HELPER_BYTES {

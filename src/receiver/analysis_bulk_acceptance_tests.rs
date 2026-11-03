@@ -131,3 +131,19 @@ fn tail_binds_register_allocation_and_cleanup_across_literal_islands() {
         }
     }
 }
+
+#[test]
+fn proven_body_decode_without_its_header_call_is_conflicting_evidence() {
+    let baseline = ApplicationAnalysis::inspect(HELD, BASE).unwrap();
+    let [bulk] = baseline.bulk_decoders() else {
+        panic!("held image has one bulk decoder")
+    };
+    assert!(!baseline.conflicting_arguments());
+    // Break only the header call; the in-place body decode stays proven.
+    let mut changed = HELD.to_vec();
+    let at = (bulk.header.address - BASE) as usize;
+    changed[at..at + 4].copy_from_slice(&[0, 0xbf, 0, 0xbf]);
+    let analysis = ApplicationAnalysis::inspect(&changed, BASE).unwrap();
+    assert!(analysis.bulk_decoders().is_empty());
+    assert!(analysis.conflicting_arguments());
+}

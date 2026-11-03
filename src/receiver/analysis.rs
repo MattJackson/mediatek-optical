@@ -231,15 +231,16 @@ impl ApplicationAnalysis {
                     header = Some(call);
                 }
             }
-            if ambiguous {
-                conflicting_arguments = true;
-            } else if let Some(header) = header {
-                bulk.push(BulkDecode {
+            // A proven in-place body decode without its header call is
+            // incomplete evidence, never the absence of a bulk decoder.
+            match (ambiguous, header) {
+                (false, Some(header)) => bulk.push(BulkDecode {
                     selection_address: range.selection.address,
                     header,
                     from_zero,
                     preserving_boot,
-                });
+                }),
+                _ => conflicting_arguments = true,
             }
         }
         for range in &mut ranges {
@@ -305,7 +306,10 @@ impl ApplicationAnalysis {
     pub fn scratch_decoders(&self) -> &[Call] {
         &self.scratch
     }
-    /// Whether candidate traces disagree about a decoder's actual arguments.
+    /// Whether the evidence is ambiguous or incomplete: candidate traces
+    /// disagree about a decoder's actual arguments, more than one acceptance
+    /// tail matches a range, or a proven body decode lacks its header call.
+    /// Consumers must refuse a transfer contract when this is set.
     pub fn conflicting_arguments(&self) -> bool {
         self.conflicting_arguments
     }

@@ -141,7 +141,8 @@ fn thumb(w: &Window<'_>, at: u32, entry: u32) -> Option<Candidate> {
 fn helper(w: &Window<'_>, at: u32, entry: u32) -> Option<Candidate> {
     let first = w.word(at)?;
     let second = w.word(at.checked_add(2)?)?;
-    if first & 0xf800 != 0xf000 || second & 0xf800 != 0xe800 {
+    // BLX(1) with suffix bit 0 set is UNDEFINED, not a call.
+    if first & 0xf800 != 0xf000 || second & 0xf801 != 0xe800 {
         return None;
     }
     let encoded = (u32::from(first & 2047) << 12) | (u32::from(second & 2047) << 1);
