@@ -471,7 +471,8 @@ impl ClassicConsumer {
                             .ok_or(Error::InvalidContract)?;
                         if !(region + 0x24..=region + 0x80).contains(&target)
                             || !matches(image, target, pattern)
-                            || literal(image, target) != literal(image, region + 30)
+                            || !literal(image, target)
+                                .is_some_and(|v| Some(v) == literal(image, region + 30))
                             || conditional(image, target + 6, thumb_asm::Cond::Ne) != Some(join)
                             || tail.mnemonic != "b"
                             || tail.cond.is_some()

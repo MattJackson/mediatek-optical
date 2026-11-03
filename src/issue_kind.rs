@@ -9,6 +9,7 @@ pub(super) fn kind_for_code(code: &str) -> crate::operation::IssueKind {
         | "mediatek.image.undetectable_chip"
         | "mediatek.cmac.image_too_small"
         | "mediatek.cmac.bad_range"
+        | "mediatek.cmac.circular_table"
         | "mediatek.prepare.receiver_entry"
         | "mediatek.prepare.receiver_contract"
         | "mediatek.prepare.layout"

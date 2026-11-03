@@ -75,3 +75,46 @@ fn classic_speed_requires_connected_setter_and_consumer_roles() {
         }
     }
 }
+
+#[test]
+fn classic_speed_setters_deduplicate_repeated_native_setters() {
+    const COUNT: usize = 300;
+    const LOGGER: usize = 0x1000;
+    const MAX_CELL: u32 = 0x0200_0000;
+    const OPT_CELL: u32 = 0x0200_0004;
+    fn put(image: &mut [u8], at: usize, value: u32) {
+        image[at..at + 4].copy_from_slice(&value.to_le_bytes());
+    }
+    // Branch placed at `at + 24` targeting LOGGER.
+    fn branch(at: usize) -> u32 {
+        let delta = LOGGER as i64 - at as i64 - 32;
+        0xea00_0000 | ((delta >> 2) as u32 & 0x00ff_ffff)
+    }
+    let mut image = vec![0u8; 0x2000 + COUNT * 0x100];
+    for i in 0..COUNT {
+        let max = 0x2000 + i * 0x100;
+        put(&mut image, max, 0xe1a01000);
+        put(&mut image, max + 4, 0xe59f0040);
+        put(&mut image, max + 8, 0xe1a0200e);
+        put(&mut image, max + 12, 0xe5c01000);
+        put(&mut image, max + 16, 0xe5d01000);
+        put(&mut image, max + 20, 0xe28f0040);
+        put(&mut image, max + 24, branch(max));
+        put(&mut image, max + 0x4c, MAX_CELL);
+        image[max + 0x5c..max + 0x61].copy_from_slice(b"RMAX\0");
+        let opt = max + 0x80;
+        put(&mut image, opt, 0xe59f1040);
+        put(&mut image, opt + 4, 0xe1a0200e);
+        put(&mut image, opt + 8, 0xe5c10000);
+        put(&mut image, opt + 12, 0xe59f0040);
+        put(&mut image, opt + 16, 0xe5d01000);
+        put(&mut image, opt + 20, 0xe28f0040);
+        put(&mut image, opt + 24, branch(opt));
+        put(&mut image, opt + 0x48, OPT_CELL);
+        put(&mut image, opt + 0x54, MAX_CELL);
+        image[opt + 0x5c..opt + 0x61].copy_from_slice(b"OPTM\0");
+    }
+    let roles = super::classic_speed::setters(&image);
+    assert_eq!(roles.len(), 1, "duplicate setters must collapse");
+    assert_eq!(roles, vec![(MAX_CELL, OPT_CELL)]);
+}

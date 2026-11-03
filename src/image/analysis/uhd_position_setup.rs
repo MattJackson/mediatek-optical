@@ -193,7 +193,10 @@ impl ClassicPositionSetup {
                     .iter()
                     .any(|p| !(0x01ff0000..0x02010000).contains(p))
                 || position % 4 != 0
-                || image.get(table as usize..table as usize + 40).is_none()
+                || (table as usize)
+                    .checked_add(40)
+                    .and_then(|end| image.get(table as usize..end))
+                    .is_none()
             {
                 return Err(Error::InvalidContract);
             }

@@ -59,7 +59,7 @@ fn arm_tag(image: &[u8], at: usize, op: u32, tag: &[u8]) -> bool {
 }
 // These are complete native ARM setters, including their logger argument roles.
 // A string alone, an orphan literal or a missing setter never establishes RMAX.
-fn setters(image: &[u8]) -> Vec<(u32, u32)> {
+pub(super) fn setters(image: &[u8]) -> Vec<(u32, u32)> {
     let mut maximum = Vec::new();
     let mut optimum = Vec::new();
     for at in (0..image.len().saturating_sub(28)).step_by(4) {
@@ -106,13 +106,16 @@ fn setters(image: &[u8]) -> Vec<(u32, u32)> {
             }
         }
     }
-    maximum
+    let maximum: BTreeSet<(u32, usize)> = maximum.into_iter().collect();
+    optimum
         .into_iter()
-        .flat_map(|(max, logger)| {
-            optimum.iter().filter_map(move |&(opt, read_max, log)| {
-                (max == read_max && logger == log).then_some((max, opt))
-            })
+        .filter_map(|(opt, read_max, logger)| {
+            maximum
+                .contains(&(read_max, logger))
+                .then_some((read_max, opt))
         })
+        .collect::<BTreeSet<_>>()
+        .into_iter()
         .collect()
 }
 

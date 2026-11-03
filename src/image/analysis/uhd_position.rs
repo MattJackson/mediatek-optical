@@ -141,7 +141,10 @@ impl ClassicPosition {
             let mode = literal(16)?;
             if literal(18)? != 0x04042000
                 || !(0x01ff0000..0x02010000).contains(&mode)
-                || image.get(table as usize..table as usize + 40).is_none()
+                || (table as usize)
+                    .checked_add(40)
+                    .and_then(|end| image.get(table as usize..end))
+                    .is_none()
             {
                 return Err(Error::InvalidContract);
             }
