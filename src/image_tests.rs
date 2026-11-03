@@ -111,3 +111,20 @@ fn resign_refuses_an_entry_that_covers_its_own_digest() {
         Some(cmac::CmacError::CircularTable)
     );
 }
+
+#[test]
+fn resign_reports_an_inverted_range_over_its_digest_as_bad_range() {
+    let mut img = vec![0u8; layout::IMAGE_SIZE];
+    let table = cmac::TABLE_OFFSET;
+    img[table..table + cmac::ENTRY_COUNT * cmac::ENTRY_SIZE].fill(0xFF);
+    img[table..table + 4].copy_from_slice(&1u32.to_le_bytes());
+    img[table + 4..table + 8].copy_from_slice(&0x10418u32.to_le_bytes());
+    img[table + 8..table + 12].copy_from_slice(&0x1040Eu32.to_le_bytes());
+    assert_eq!(
+        cmac::resign(&img).err(),
+        Some(cmac::CmacError::BadRange {
+            start: 0x10418,
+            end: 0x1040E
+        })
+    );
+}

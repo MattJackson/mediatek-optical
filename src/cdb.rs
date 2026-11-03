@@ -20,8 +20,8 @@ pub const REQUEST_SENSE_LEN: usize = 16;
 pub const INQUIRY_ALLOC: u16 = 96;
 /// GET CONFIGURATION feature carrying the ASCII serial number.
 pub const FEATURE_SERIAL: u16 = 0x0108;
-/// GET CONFIGURATION feature carrying the ASCII firmware date. Its presence is
-/// one half of the MT19xx protocol probe.
+/// GET CONFIGURATION feature carrying the ASCII firmware date. Informational
+/// only: MT19xx detection uses INQUIRY and the boot banner, never this feature.
 pub const FEATURE_FIRMWARE_DATE: u16 = 0x010C;
 
 /// READ BUFFER (`3C`) of `len` bytes at `off`. Both fields are 24 bits.

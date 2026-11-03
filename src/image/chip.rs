@@ -10,10 +10,12 @@
 //! 119/119, whereas the `MTEKMT19xx` descriptor tag is a *stale vendor label*
 //! that is wrong for 55 of them — the JB8/JBC6/JBP6/BUP1 builds (LG WH16NS58,
 //! WH16NS60, BH16NS40..NS50, …) carry the tag `MTEKMT1939` but ship an MT1959
-//! boot loader and MT1959 code. So the tag drives **no logic anywhere**: not the
-//! family, not a fallback, not a gate, not the family hash, not an engine
-//! choice. It is retained only as an optional display field ([`ChipInfo::identity_tag`])
-//! — a curiosity, never a decision.
+//! boot loader and MT1959 code. So the tag never decides the chip: not the
+//! family, not a fallback, not an engine choice. Chip detection keeps it only
+//! as an optional display field ([`ChipInfo::identity_tag`]). (Hardware-family
+//! derivation, [`crate::image::family::hardware`], does use tags structurally:
+//! a record must carry a parseable `MTEKMT19xx` tag, and a tagged descriptor
+//! must agree with the record's platform code.)
 //!
 //! Two other things that *look* like family signals are also NOT used to gate
 //! the family:
@@ -63,8 +65,10 @@ pub struct ChipInfo {
     /// Trimmed vendor-specific field from the descriptor (e.g. `"N003600"`) — the
     /// region/SKU code MakeMKV/LibreDrive key on. Empty if no identity page.
     pub vendor_specific: String,
-    /// The matched `MTEKMT19xx` identity string, if any. A **stale vendor label**:
-    /// display / audit only, it NEVER influences `family` (see module docs).
+    /// The first `MTEKMT19xx` string found anywhere in the image, if any. In a
+    /// stock image this is normally the code-area hardware record's tag, not
+    /// the descriptor's. A **stale vendor label**: display / audit only, it
+    /// NEVER influences `family` (see module docs).
     pub identity_tag: Option<String>,
     /// The display-only marker byte at descriptor `+0x50`, if present. NEVER
     /// gates the family (see module docs).
@@ -137,17 +141,19 @@ impl std::error::Error for ChipError {}
 /// Detect the chip family + model/rev from `image`.
 ///
 /// Family is decided by the boot loader banner at [`layout::BANNER`] via
-/// [`Chip::from_banner`], and by nothing else — the `MTEKMT19xx` identity string
-/// is a stale vendor label kept only in [`ChipInfo::identity_tag`] for display.
+/// [`Chip::from_banner`], and by nothing else — the first `MTEKMT19xx` string in
+/// the image is a stale vendor label kept only in [`ChipInfo::identity_tag`] for
+/// display.
 /// Fails with [`ChipError::Undetectable`] only when the banner names no supported
 /// generation.
 pub fn detect_chip(image: &[u8]) -> Result<ChipInfo, ChipError> {
     // --- Family: the boot loader banner is the single authoritative source. ---
-    let banner = read_banner(image);
-    let family = banner
-        .as_deref()
-        .and_then(|b: &str| Chip::from_banner(b.as_bytes()))
+    // The raw banner bytes, untrimmed: the chip field must start the banner.
+    let family = layout::BANNER
+        .of(image)
+        .and_then(Chip::from_banner)
         .ok_or(ChipError::Undetectable)?;
+    let banner = read_banner(image);
 
     // --- Identity tag (stale vendor label): display / audit only. ---
     let identity_tag = first_mtek_tag(image);

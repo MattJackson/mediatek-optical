@@ -121,3 +121,12 @@ fn banner_chip_ignores_bytes_after_the_first_nul() {
     stale[20..26].copy_from_slice(b"MT1939");
     assert_eq!(Chip::from_banner(&stale), None);
 }
+
+#[test]
+fn banner_chip_is_only_the_leading_field() {
+    assert_eq!(Chip::from_banner(b"MT1939 Boot JB7"), Some(Chip::Mt1939));
+    assert_eq!(Chip::from_banner(b"MT1869 Boot MT1959"), None);
+    assert_eq!(Chip::from_banner(b"XX Boot MT1939"), None);
+    assert_eq!(Chip::from_banner(b"  MT1959 Boot JB8"), None);
+    assert_eq!(Chip::from_banner(b"MT19"), None);
+}

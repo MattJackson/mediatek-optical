@@ -36,13 +36,15 @@ for chip in ('MT1939', 'MT1959'):
                                 openssl=computed.hex(), matches=stored == computed))
         assert entries, path
         extra = dict(mirrored_boot=data[:0x400] == data[0x10000:0x10400])
+        # Same rule as cmac.rs covers_table: the range overlaps the table.
+        covers_table = lambda e: e['start'] < 0x10400 + 16 * 28 and e['end'] >= 0x10400
         if all(e['matches'] for e in entries):
             changed = bytearray(data)
             # Mutate an authenticated data range, then independently re-sign the
             # data tags before the tag covering the integrity table.
-            at = next(e['end'] for e in entries if not e['start'] <= 0x10400 <= e['end'])
+            at = next(e['end'] for e in entries if not covers_table(e))
             changed[at] ^= 1
-            for e in sorted(entries, key=lambda e: e['start'] <= 0x10400 <= e['end']):
+            for e in sorted(entries, key=covers_table):
                 span = changed[e['start']:e['end']+1]
                 reversed_blocks = b''.join(span[i:i+16][::-1] for i in range(0,len(span),16))
                 result = subprocess.run(['openssl','mac','-macopt','cipher:AES-128-CBC',

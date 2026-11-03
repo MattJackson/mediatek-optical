@@ -170,7 +170,9 @@ pub fn verify_detailed(image: &[u8]) -> Result<Vec<EntryVerdict>, CmacError> {
     Ok(verdicts)
 }
 
-/// Return `true` iff every active entry's stored digest matches a fresh compute.
+/// Return `true` iff the table has at least one active entry and every active
+/// entry's stored digest matches a fresh compute. An empty table, a malformed
+/// range or an image too small for the table returns `false`.
 pub fn verify(image: &[u8]) -> bool {
     match verify_detailed(image) {
         Ok(v) => !v.is_empty() && v.iter().all(|e| e.matches),
@@ -182,11 +184,20 @@ pub fn verify(image: &[u8]) -> bool {
 ///
 /// Data ranges are signed first; any entry that covers the table region
 /// (`0x10400`) is signed last, over the already-updated table bytes. Fails with
-/// [`CmacError::CircularTable`] when more than one active entry covers the
+/// [`CmacError::BadRange`] when an active range is inverted or out of bounds,
+/// and with [`CmacError::CircularTable`] when more than one active entry covers the
 /// table or an active entry covers its own digest bytes.
 pub fn resign(image: &[u8]) -> Result<Vec<u8>, CmacError> {
     let mut img = image.to_vec();
     let table = parse_table(&img)?;
+    // Validate every active range first, so a malformed entry is reported as
+    // `BadRange` rather than mistaken for one that covers the table.
+    for e in table.iter().filter(|e| e.is_active()) {
+        let (start, end) = (e.start as usize, e.end as usize);
+        if end < start || end >= img.len() {
+            return Err(CmacError::BadRange { start, end });
+        }
+    }
     if table
         .iter()
         .filter(|e| e.is_active() && e.covers_table())

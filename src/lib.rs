@@ -20,8 +20,8 @@
 //! - `oem` — `oem`: rebuild the flashable OEM image from a drive read, with
 //!   the provenance of every substituted byte. Implies `image`.
 //! - `image` also enables `update`: an update prepared against the installed
-//!   firmware, refused across chips and hardware families. With `drive`,
-//!   the receiver-bound `receiver::PreparedUpdate::flash` runs it.
+//!   firmware, refused across chips and hardware families. With `drive` and
+//!   `enc`, the receiver-bound `receiver::PreparedUpdate::flash` runs it.
 //! - `analysis` — `analysis`: read-only OEM instruction-layout analysis
 //!   (`image::analysis`). Implies `image`.
 //! - `std` — links the standard library (implied by `image`).
@@ -119,14 +119,14 @@ impl Chip {
 
     /// The chip named by a boot banner such as `MT1939 Boot JB7`. This is the
     /// source used by live identity and image analysis, even when a descriptor
-    /// carries a conflicting [`Chip::from_tag`] label. Only bytes before the
-    /// first NUL are considered.
+    /// carries a conflicting [`Chip::from_tag`] label. Only the leading
+    /// `MT19xx` field at byte 0 names the chip; a label elsewhere in the banner
+    /// (e.g. inside the loader token) is never consulted.
     pub fn from_banner(banner: &[u8]) -> Option<Self> {
-        let end = banner.iter().position(|&b| b == 0).unwrap_or(banner.len());
-        banner[..end]
-            .windows(6)
-            .filter(|w| w.starts_with(b"MT19"))
-            .find_map(|w| Self::from_digits(w[4], w[5]))
+        match banner {
+            [b'M', b'T', b'1', b'9', d0, d1, ..] => Self::from_digits(*d0, *d1),
+            _ => None,
+        }
     }
 }
 

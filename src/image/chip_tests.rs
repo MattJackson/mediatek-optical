@@ -180,3 +180,11 @@ fn banner_and_descriptor_require_complete_records_at_the_boundary() {
     assert_eq!(exact.4, None);
     assert!(exact.5);
 }
+
+#[test]
+fn detect_chip_refuses_a_supported_label_outside_the_leading_field() {
+    for banner in ["MT1919 Boot MT1959", "  MT1959 Boot JB8", "XMT1959 Boot"] {
+        let img = synthetic(banner, "MTEKMT1959", "BD-RE BU40N", "1.00");
+        assert_eq!(detect_chip(&img), Err(ChipError::Undetectable), "{banner}");
+    }
+}
