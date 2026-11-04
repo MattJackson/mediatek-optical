@@ -11,7 +11,8 @@ pub struct ClassicReadCompletion {
     pub recovery_region: usize,
     /// Continuation after native read-entry result assignment.
     pub recovery_end: usize,
-    /// Source-bound state-pointer load before the recovery dispatch.
+    /// Source-bound state-pointer definition before the recovery dispatch.
+    /// This can be a proven copy of a saved pointer, rather than a literal load.
     pub recovery_state_load: usize,
     /// Native state-pointer register.
     pub recovery_state_register: u8,
@@ -319,6 +320,284 @@ const RECOVERY_R5: &[(u16, u16)] = &[
     (0x2800, 0xffff),
     (0xd100, 0xff00),
 ];
+// Source 84fecc29, 0x16729c; native compiler layout.
+const BOUNDARY_STACK12: &[(u16, u16)] = &[
+    (0x4800, 0xff00),
+    (0x7801, 0xffff),
+    (0x20c8, 0xffff),
+    (0x4388, 0xffff),
+    (0xd17a, 0xffff),
+    (0x4800, 0xff00),
+    (0x9a0c, 0xffff),
+    (0x6801, 0xffff),
+    (0x1c49, 0xffff),
+    (0x428a, 0xffff),
+    (0xd10e, 0xffff),
+    (0x7829, 0xffff),
+    (0x2900, 0xffff),
+    (0xd107, 0xffff),
+    (0x4900, 0xff00),
+    (0x7809, 0xffff),
+    (0x2900, 0xffff),
+    (0xd003, 0xffff),
+    (0x4900, 0xff00),
+    (0x7809, 0xffff),
+    (0x2900, 0xffff),
+    (0xd16a, 0xffff),
+    (0x6801, 0xffff),
+    (0x2203, 0xffff),
+    (0x0692, 0xffff),
+    (0xe013, 0xffff),
+    (0x4b00, 0xff00),
+    (0x9a0c, 0xffff),
+    (0x6819, 0xffff),
+    (0x1c49, 0xffff),
+    (0x428a, 0xffff),
+    (0xd112, 0xffff),
+    (0x7829, 0xffff),
+    (0x2900, 0xffff),
+    (0xd107, 0xffff),
+    (0x4900, 0xff00),
+    (0x7809, 0xffff),
+    (0x2900, 0xffff),
+    (0xd003, 0xffff),
+    (0x4900, 0xff00),
+    (0x7809, 0xffff),
+    (0x2900, 0xffff),
+    (0xd1e9, 0xffff),
+    (0x6819, 0xffff),
+    (0x2201, 0xffff),
+    (0x06d2, 0xffff),
+    (0x1a51, 0xffff),
+    (0x1e49, 0xffff),
+    (0x910c, 0xffff),
+    (0xe015, 0xffff),
+    (0xe286, 0xffff),
+    (0x4b00, 0xff00),
+    (0x9a0c, 0xffff),
+    (0x6819, 0xffff),
+    (0x1c49, 0xffff),
+    (0x428a, 0xffff),
+    (0xd111, 0xffff),
+    (0x7829, 0xffff),
+    (0x2900, 0xffff),
+    (0xd107, 0xffff),
+    (0x4900, 0xff00),
+    (0x7809, 0xffff),
+    (0x2900, 0xffff),
+    (0xd003, 0xffff),
+    (0x4900, 0xff00),
+    (0x7809, 0xffff),
+    (0x2900, 0xffff),
+    (0xd1d0, 0xffff),
+    (0x6819, 0xffff),
+    (0x2201, 0xffff),
+    (0x0692, 0xffff),
+    (0xe7e5, 0xffff),
+    (0x4a00, 0xff00),
+    (0x3240, 0xffff),
+    (0x6091, 0xffff),
+];
+// Source 84fecc29, 0x64da2; native compiler layout.
+const RECOVERY_R0: &[(u16, u16)] = &[
+    (0x7802, 0xffff),
+    (0x0992, 0xffff),
+    (0x2a03, 0xffff),
+    (0xd15e, 0xffff),
+    (0x7800, 0xffff),
+    (0x0940, 0xffff),
+    (0x2807, 0xffff),
+    (0xd111, 0xffff),
+    (0x4d00, 0xff00),
+    (0x7828, 0xffff),
+    (0x0680, 0xffff),
+    (0xd403, 0xffff),
+    (0x7828, 0xffff),
+    (0x0900, 0xffff),
+    (0x2805, 0xffff),
+    (0xd105, 0xffff),
+    (0x4a00, 0xff00),
+    (0x6810, 0xffff),
+    (0x2101, 0xffff),
+    (0x0309, 0xffff),
+    (0x4388, 0xffff),
+    (0x6010, 0xffff),
+    (0x73b7, 0xffff),
+    (0xf000, 0xf800),
+    (0xd000, 0xd000),
+    (0xe003, 0xffff),
+    (0x7af0, 0xffff),
+    (0x73b5, 0xffff),
+    (0xf000, 0xf800),
+    (0xd000, 0xd000),
+    (0x7030, 0xffff),
+    (0x7830, 0xffff),
+    (0x2800, 0xffff),
+    (0xd1bd, 0xffff),
+];
+// Early native source 273f8..27424; instruction lookup, never address dispatch.
+const EARLY_CONTROLLER_HEAD: &[(u16, u16)] = &[
+    (0x4b00, 0xff00),
+    (0x781e, 0xffff),
+    (0x25c8, 0xffff),
+    (0x0028, 0xffff),
+    (0x43b0, 0xffff),
+    (0x260f, 0xffff),
+    (0x2777, 0xffff),
+    (0x023f, 0xffff),
+    (0x0236, 0xffff),
+    (0x2800, 0xffff),
+    (0x6810, 0xffff),
+    (0xd100, 0xff00),
+    (0x43b8, 0xffff),
+    (0x2713, 0xffff),
+    (0x027f, 0xffff),
+    (0x19c0, 0xffff),
+    (0x6010, 0xffff),
+    (0x6808, 0xffff),
+    (0x43b0, 0xffff),
+    (0x2203, 0xffff),
+    (0x0252, 0xffff),
+    (0xe000, 0xf800),
+];
+// Early native source 274d0..2750e; instruction lookup, never address dispatch.
+const EARLY_CONTROLLER_TAIL: &[(u16, u16)] = &[
+    (0x43b8, 0xffff),
+    (0x2705, 0xffff),
+    (0x02bf, 0xffff),
+    (0x19c0, 0xffff),
+    (0x6010, 0xffff),
+    (0x6808, 0xffff),
+    (0x43b0, 0xffff),
+    (0x2207, 0xffff),
+    (0x0212, 0xffff),
+    (0x1880, 0xffff),
+    (0x6008, 0xffff),
+    (0x4800, 0xff00),
+    (0x6b81, 0xffff),
+    (0x4a00, 0xff00),
+    (0x4011, 0xffff),
+    (0x6381, 0xffff),
+    (0x7819, 0xffff),
+    (0x002a, 0xffff),
+    (0x438a, 0xffff),
+    (0x2101, 0xffff),
+    (0x2603, 0xffff),
+    (0x02b6, 0xffff),
+    (0x0289, 0xffff),
+    (0x2a00, 0xffff),
+    (0x6b02, 0xffff),
+    (0xd101, 0xffff),
+    (0x43b2, 0xffff),
+    (0xe001, 0xffff),
+    (0x43b2, 0xffff),
+    (0x1852, 0xffff),
+    (0x6302, 0xffff),
+];
+// Early native source 143fb6..144036; instruction lookup, never address dispatch.
+const EARLY_BOUNDARY: &[(u16, u16)] = &[
+    (0x4800, 0xff00),
+    (0x7801, 0xffff),
+    (0x20c8, 0xffff),
+    (0x4388, 0xffff),
+    (0xd144, 0xffff),
+    (0x4a00, 0xff00),
+    (0x9909, 0xffff),
+    (0x6810, 0xffff),
+    (0x1c40, 0xffff),
+    (0x4281, 0xffff),
+    (0xd10b, 0xffff),
+    (0x4800, 0xff00),
+    (0x7800, 0xffff),
+    (0x2800, 0xffff),
+    (0xd103, 0xffff),
+    (0x4800, 0xff00),
+    (0x7800, 0xffff),
+    (0x2800, 0xffff),
+    (0xd160, 0xffff),
+    (0x6810, 0xffff),
+    (0x2103, 0xffff),
+    (0x0689, 0xffff),
+    (0xe010, 0xffff),
+    (0x4a00, 0xff00),
+    (0x9909, 0xffff),
+    (0x6810, 0xffff),
+    (0x1c40, 0xffff),
+    (0x4281, 0xffff),
+    (0xd10e, 0xffff),
+    (0x4800, 0xff00),
+    (0x7800, 0xffff),
+    (0x2800, 0xffff),
+    (0xd103, 0xffff),
+    (0x4800, 0xff00),
+    (0x7800, 0xffff),
+    (0x2800, 0xffff),
+    (0xd1ec, 0xffff),
+    (0x6810, 0xffff),
+    (0x2101, 0xffff),
+    (0x06c9, 0xffff),
+    (0x1a08, 0xffff),
+    (0x1e40, 0xffff),
+    (0x9009, 0xffff),
+    (0xe011, 0xffff),
+    (0x4a00, 0xff00),
+    (0x9909, 0xffff),
+    (0x6810, 0xffff),
+    (0x1c40, 0xffff),
+    (0x4281, 0xffff),
+    (0xd10d, 0xffff),
+    (0x4800, 0xff00),
+    (0x7800, 0xffff),
+    (0x2800, 0xffff),
+    (0xd103, 0xffff),
+    (0x4800, 0xff00),
+    (0x7800, 0xffff),
+    (0x2800, 0xffff),
+    (0xd1d7, 0xffff),
+    (0x6810, 0xffff),
+    (0x2101, 0xffff),
+    (0x0689, 0xffff),
+    (0xe7e9, 0xffff),
+    (0x4900, 0xff00),
+    (0x6088, 0xffff),
+];
+// Early native source 6e63c..6e680; instruction lookup, never address dispatch.
+const EARLY_RECOVERY: &[(u16, u16)] = &[
+    (0x780a, 0xffff),
+    (0x0992, 0xffff),
+    (0x2a03, 0xffff),
+    (0xd15f, 0xffff),
+    (0x000f, 0xffff),
+    (0x7809, 0xffff),
+    (0x0949, 0xffff),
+    (0x2907, 0xffff),
+    (0xd110, 0xffff),
+    (0x7839, 0xffff),
+    (0x0689, 0xffff),
+    (0xd403, 0xffff),
+    (0x7839, 0xffff),
+    (0x0909, 0xffff),
+    (0x2905, 0xffff),
+    (0xd105, 0xffff),
+    (0x4b00, 0xff00),
+    (0x6819, 0xffff),
+    (0x2201, 0xffff),
+    (0x0312, 0xffff),
+    (0x4391, 0xffff),
+    (0x6019, 0xffff),
+    (0x73a8, 0xffff),
+    (0xf000, 0xf800),
+    (0xc000, 0xd001),
+    (0xe003, 0xffff),
+    (0x7ae8, 0xffff),
+    (0x73ac, 0xffff),
+    (0xf000, 0xf800),
+    (0xc000, 0xd001),
+    (0x7028, 0xffff),
+    (0x7828, 0xffff),
+    (0x2800, 0xffff),
+    (0xd1ac, 0xffff),
+];
 fn literal(image: &[u8], at: usize) -> Option<u32> {
     let op = half(image, at)?;
     if op & 0xf800 != 0x4800 {
@@ -350,11 +629,46 @@ impl ClassicReadCompletion {
     /// Match the complete native store/calculation bodies, both branch edges,
     /// shared media cell and balanced saved frames. No hardware values change.
     pub fn inspect(image: &[u8], state: u32) -> Result<Self, Error> {
-        let controller_region = locate(image, CONTROLLER, state)?;
+        let (controller_region, controller_specs) = match locate(image, CONTROLLER, state) {
+            Ok(at) => (
+                at,
+                [
+                    (at + 0x12, at + 0x18, at + 0x2c, 6),
+                    (at + 0x5c, at + 0x62, at + 0x66, 6),
+                ],
+            ),
+            Err(Error::UnknownLayout) => {
+                let at = locate(image, EARLY_CONTROLLER_HEAD, state)?;
+                let reject = conditional(image, at + 22, thumb_asm::Cond::Ne)
+                    .ok_or(Error::InvalidContract)?;
+                let join =
+                    thumb_asm::isa::decode_at(image, at + 42).ok_or(Error::InvalidContract)?;
+                if !(at + 44..at + 0x400).contains(&reject)
+                    || !matches(image, reject, EARLY_CONTROLLER_TAIL)
+                    || join.mnemonic != "b"
+                    || join.cond.is_some()
+                    || join.branch_target().map(|v| v as usize) != Some(reject + 18)
+                    || literal(image, reject + 22) != Some(0x04208240)
+                {
+                    return Err(Error::InvalidContract);
+                }
+                (
+                    at,
+                    [
+                        (at + 18, at + 24, reject, 6),
+                        (reject + 46, reject + 52, reject + 56, 6),
+                    ],
+                )
+            }
+            Err(e) => return Err(e),
+        };
         let mut recovery = None;
-        for (pattern, state_register, request_register) in
-            [(RECOVERY, 4u8, 5u8), (RECOVERY_R5, 5u8, 6u8)]
-        {
+        for (pattern, state_register, request_register, shift, alias) in [
+            (RECOVERY, 4u8, 5u8, 0, false),
+            (RECOVERY_R5, 5u8, 6u8, 0, false),
+            (RECOVERY_R0, 0u8, 6u8, 2, false),
+            (EARLY_RECOVERY, 1u8, 5u8, 2, true),
+        ] {
             for at in (0..image
                 .len()
                 .saturating_sub(pattern.len() * 2)
@@ -365,7 +679,7 @@ impl ClassicReadCompletion {
                     continue;
                 }
                 let parent = SavedLink::detect(image, at)?;
-                let producers: Vec<_> = (parent.entry..at)
+                let mut producers: Vec<_> = (parent.entry..at)
                     .step_by(2)
                     .filter_map(|site| {
                         let op = half(image, site)?;
@@ -400,25 +714,68 @@ impl ClassicReadCompletion {
                         (value == state).then_some((site, end))
                     })
                     .collect();
+                if alias {
+                    for copy in (parent.entry..at).step_by(2) {
+                        if half(image, copy) != Some(0x0031) {
+                            continue;
+                        }
+                        for load in (parent.entry..copy).step_by(2) {
+                            if half(image, load).is_some_and(|v| v & 0xff00 == 0x4e00)
+                                && literal(image, load).and_then(|v| v.checked_sub(5))
+                                    == Some(state)
+                                && half(image, load + 2) == Some(0x1f76)
+                                && SavedLink::require_live_definition(
+                                    image,
+                                    parent.entry,
+                                    copy,
+                                    load,
+                                    load + 4,
+                                    6,
+                                )
+                                .is_ok()
+                            {
+                                producers.push((copy, copy + 2));
+                            }
+                        }
+                    }
+                }
+                let producers: Vec<_> = producers
+                    .into_iter()
+                    .filter(|(site, end)| {
+                        parent
+                            .require_argument_definition(image, *site, *end, state_register)
+                            .is_ok()
+                    })
+                    .collect();
                 if producers.len() != 1 {
                     return Err(Error::InvalidContract);
                 }
-                parent.require_register_definition(
+                parent.require_argument_definition(
                     image,
                     producers[0].0,
                     producers[0].1,
                     state_register,
                 )?;
-                if conditional(image, at + 14, thumb_asm::Cond::Ne) != Some(at + 50) {
+                if conditional(image, at + if alias { 16 } else { 14 }, thumb_asm::Cond::Ne)
+                    != Some(at + 50 + shift)
+                {
                     return Err(Error::InvalidContract);
                 }
-                let join =
-                    thumb_asm::isa::decode_at(image, at + 48).ok_or(Error::InvalidContract)?;
+                let join = thumb_asm::isa::decode_at(image, at + 48 + shift)
+                    .ok_or(Error::InvalidContract)?;
                 if join.mnemonic != "b"
                     || join.cond.is_some()
-                    || join.branch_target().map(|p| p as usize) != Some(at + 58)
-                    || thumb_asm::decode_bl(image, at + 54).is_none()
+                    || join.branch_target().map(|p| p as usize) != Some(at + 58 + shift)
+                    || if alias {
+                        !thumb_asm::isa::decode_at(image, at + 54 + shift)
+                            .is_some_and(|ins| ins.mnemonic == "blx" && ins.is_call())
+                    } else {
+                        thumb_asm::decode_bl(image, at + 54 + shift).is_none()
+                    }
                 {
+                    return Err(Error::InvalidContract);
+                }
+                if shift == 2 && !alias && literal(image, at + 16) != Some(state) {
                     return Err(Error::InvalidContract);
                 }
                 if recovery
@@ -428,6 +785,7 @@ impl ClassicReadCompletion {
                         producers[0].0,
                         state_register,
                         request_register,
+                        at + 52 + shift,
                         parent,
                     ))
                     .is_some()
@@ -442,38 +800,44 @@ impl ClassicReadCompletion {
             recovery_state_load,
             recovery_state_register,
             recovery_request_register,
+            recovery_flag_store,
             recovery_caller,
         ) = recovery.ok_or(Error::UnknownLayout)?;
         let recovery_flag_register =
-            (half(image, recovery_region + 52).ok_or(Error::Truncated)? & 7) as u8;
+            (half(image, recovery_flag_store).ok_or(Error::Truncated)? & 7) as u8;
         if recovery_flag_register < 4
             || recovery_flag_register == recovery_state_register
             || recovery_flag_register == recovery_request_register
         {
             return Err(Error::InvalidContract);
         }
-        // Both boundary grammars are searched; one match of each is ambiguous.
-        let (boundary_region, boundary_length) = match (
-            locate(image, BOUNDARY, state),
-            locate(image, BOUNDARY_VENEER, state),
-        ) {
-            (Ok(_), Ok(_)) => return Err(Error::Ambiguous),
-            (Ok(at), Err(Error::UnknownLayout)) => (at, BOUNDARY.len() * 2),
-            (Err(Error::UnknownLayout), Ok(at)) => (at, BOUNDARY_VENEER.len() * 2),
-            // Conflicting evidence from either grammar outranks the other's absence.
-            (Err(Error::UnknownLayout), Err(e)) | (Err(e), _) | (_, Err(e)) => return Err(e),
-        };
-        let shift = if boundary_length == BOUNDARY.len() * 2 {
-            0
-        } else {
-            2
-        };
-        let boundaries = [
-            literal(image, boundary_region + 10),
-            literal(image, boundary_region + 54 + shift),
-            literal(image, boundary_region + 104 + shift),
-        ]
-        .map(|v| v.ok_or(Error::InvalidContract));
+        // Every boundary grammar is searched; more than one match is ambiguous,
+        // and conflicting evidence from any grammar outranks the others' absence.
+        let mut boundary = None;
+        for (pattern, offsets, direct_reject) in [
+            (BOUNDARY, [10, 54, 104], false),
+            (BOUNDARY_VENEER, [10, 56, 106], false),
+            (BOUNDARY_STACK12, [10, 52, 102], false),
+            (EARLY_BOUNDARY, [10, 46, 88], true),
+        ] {
+            match locate(image, pattern, state) {
+                Ok(at) => {
+                    if boundary
+                        .replace((at, pattern.len() * 2, offsets, direct_reject))
+                        .is_some()
+                    {
+                        return Err(Error::Ambiguous);
+                    }
+                }
+                Err(Error::UnknownLayout) => {}
+                Err(e) => return Err(e),
+            }
+        }
+        let (boundary_region, boundary_length, offsets, direct_reject) =
+            boundary.ok_or(Error::UnknownLayout)?;
+        let boundaries = offsets
+            .map(|offset| literal(image, boundary_region + offset))
+            .map(|v| v.ok_or(Error::InvalidContract));
         let boundaries = [boundaries[0]?, boundaries[1]?, boundaries[2]?];
         if boundaries
             .iter()
@@ -487,18 +851,8 @@ impl ClassicReadCompletion {
         let boundary_reject = conditional(image, boundary_region + 8, thumb_asm::Cond::Ne)
             .ok_or(Error::InvalidContract)?;
         let specs = [
-            (
-                controller_region + 0x12,
-                controller_region + 0x18,
-                controller_region + 0x2c,
-                6,
-            ),
-            (
-                controller_region + 0x5c,
-                controller_region + 0x62,
-                controller_region + 0x66,
-                6,
-            ),
+            controller_specs[0],
+            controller_specs[1],
             (
                 boundary_region + 6,
                 boundary_region + 10,
@@ -525,9 +879,23 @@ impl ClassicReadCompletion {
             callers.push(SavedLink::detect(image, site)?);
         }
         // The boundary rejection skips the reflected-position block: its native
-        // BNE target (past the matched bytes) must be an unconditional `B`.
+        // BNE target (past the matched bytes) must be an unconditional `B`, or,
+        // for the early boundary grammar only, the native state re-check.
         // Containment of that target in the parent function is not checked.
-        if half(image, boundary_reject).map(|op| op & 0xf800) != Some(0xe000) {
+        if half(image, boundary_reject).map(|op| op & 0xf800) != Some(0xe000)
+            && !(literal(image, boundary_reject) == Some(state)
+                && matches(
+                    image,
+                    boundary_reject + 2,
+                    &[
+                        (0x7800, 0xffff),
+                        (0x4038, 0xffff),
+                        (0x28c4, 0xffff),
+                        (0xd100, 0xff00),
+                    ],
+                )
+                && direct_reject)
+        {
             return Err(Error::InvalidContract);
         }
         Ok(Self {

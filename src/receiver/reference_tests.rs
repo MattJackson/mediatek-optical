@@ -135,6 +135,49 @@ fn reference_binding_compares_the_complete_descriptor() {
 }
 
 #[test]
+fn de_marker_difference_binds_then_live_metadata_stays_strict() {
+    for (reference_de, live_de) in [(0xde, 0xff), (0xff, 0xde)] {
+        let (envelope, mut live) = fixture();
+        let mut reference = envelope.image().to_vec();
+        reference[layout::DESCRIPTOR.start + 0x56] = reference_de;
+        let envelope = Envelope::load(&crate::fixtures::sign(reference)).unwrap();
+        live.image[layout::DESCRIPTOR.start + 0x56] = live_de;
+        let receiver = detect(&mut live, &envelope).unwrap();
+        receiver.revalidate(&mut live).unwrap();
+        live.image[layout::DESCRIPTOR.start + 0x56] = reference_de;
+        assert!(receiver.revalidate(&mut live).is_err());
+    }
+}
+
+#[test]
+fn unknown_de_marker_is_not_treated_as_a_known_transition() {
+    for value in [0x00, 0x01, 0xdf] {
+        let (envelope, mut live) = fixture();
+        let mut reference = envelope.image().to_vec();
+        reference[layout::DESCRIPTOR.start + 0x56] = 0xde;
+        let envelope = Envelope::load(&crate::fixtures::sign(reference)).unwrap();
+        live.image[layout::DESCRIPTOR.start + 0x56] = value;
+        assert!(detect(&mut live, &envelope).is_err());
+    }
+}
+
+#[test]
+fn de_exception_does_not_hide_other_descriptor_mismatches() {
+    for offset in 0..layout::DESCRIPTOR.len {
+        if offset == 0x56 {
+            continue;
+        }
+        let (envelope, mut live) = fixture();
+        let mut reference = envelope.image().to_vec();
+        reference[layout::DESCRIPTOR.start + 0x56] = 0xde;
+        let envelope = Envelope::load(&crate::fixtures::sign(reference)).unwrap();
+        live.image[layout::DESCRIPTOR.start + 0x56] = 0xff;
+        live.image[layout::DESCRIPTOR.start + offset] ^= 1;
+        assert!(detect(&mut live, &envelope).is_err(), "offset {offset:#x}");
+    }
+}
+
+#[test]
 fn unknown_reference_code_does_not_gain_a_receiver_from_matching_metadata() {
     let (envelope, mut live) = fixture();
     let mut image = envelope.image().to_vec();

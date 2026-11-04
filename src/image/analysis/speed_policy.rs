@@ -40,7 +40,9 @@ fn byte_address(op: u16, values: &[Value; 8]) -> Option<u32> {
     base.checked_add(u32::from((op >> 6) & 31))
 }
 fn clamp(image: &[u8], entry: usize, maximum: u32) -> Option<RequestedRateClamp> {
-    if half(image, entry)? != 0xb5f8 {
+    // Any Thumb PUSH saving LR preserves the incoming register values. The
+    // native getter may also save caller-scratch registers (e.g. PUSH FE).
+    if half(image, entry)? & 0xff00 != 0xb500 {
         return None;
     }
     let mut values = [Value::Unknown; 8];
@@ -149,7 +151,7 @@ impl NativeSpeedPolicy {
             .value;
         let maximum_cell = media_cell.checked_add(2).ok_or(Error::InvalidContract)?;
         let (pair, hardware) = match defaults.variant() {
-            "classic" | "classic_default8" => ([12, 14], 24),
+            "classic" | "classic_default8" | "classic_default6" => ([12, 14], 24),
             "modern" => ([10, 18], 14),
             "modern_reader_register_variant" => ([12, 16], 22),
             "slim_fixed6_c7_aware" | "slim_fixed6_no_c7_test" => ([12, 14], 22),

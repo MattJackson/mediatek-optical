@@ -1,0 +1,40 @@
+{
+  "source_sha256": "46b41f15e053b66daccb024cba4380c45f791c2d0c2b8258cd23253fc5f0b22a",
+  "parts": [
+    {
+      "file": "46b41f15-di-island-031900.bin",
+      "offset": 203008,
+      "sha256": "ed7e2feb573145a6e992e566df588de7478d07de781d0d5f9d776486b4cf46ea"
+    },
+    {
+      "file": "46b41f15-di-island-035c00.bin",
+      "offset": 220160,
+      "sha256": "c17362ab1d1ca22b2e2c329cc32778564c5b197f058b9e6cb9a1d9b725dca6de"
+    },
+    {
+      "file": "46b41f15-di-island-067800.bin",
+      "offset": 423936,
+      "sha256": "df2f89c4535304e3e0b2e72e357a1577ac7dadf8afbc8b7a3210f171c08da58a"
+    },
+    {
+      "file": "46b41f15-di-island-0fef00.bin",
+      "offset": 1044224,
+      "sha256": "acfb0cac173cdca9e6ec5014b4cd6e5fc8c70f5068cb0e0620216fe5cdf16b54"
+    },
+    {
+      "file": "46b41f15-di-island-0ff200.bin",
+      "offset": 1044992,
+      "sha256": "517a6a7808c9e58898154c24135d20fec90351f3fb89981ba6c524d01bd43112"
+    },
+    {
+      "file": "46b41f15-di-island-10bd00.bin",
+      "offset": 1096960,
+      "sha256": "98432168b9398741bb4b35f9592700a6b3844592d27018e9d520435c5c46e9c5"
+    },
+    {
+      "file": "46b41f15-di-island-194900.bin",
+      "offset": 1657088,
+      "sha256": "7caaf2eb4bfc8e831e726fbd14d6ceec27d5fc2d9d9099a6921ad84217bc2a10"
+    }
+  ]
+}

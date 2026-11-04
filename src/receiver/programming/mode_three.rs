@@ -82,6 +82,7 @@ pub fn inspect_mode_three_wrapper(
     let minimum = match program.variant {
         super::ProgramLoopVariant::Compact => 2016,
         super::ProgramLoopVariant::Wide => 2060,
+        super::ProgramLoopVariant::WideWithoutPrelude => 2088,
     };
     if copied_bytes < minimum
         || copied_bytes > 0x10000

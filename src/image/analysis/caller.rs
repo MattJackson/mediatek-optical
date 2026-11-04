@@ -269,9 +269,11 @@ impl SavedLink {
                 continue;
             }
             counts.states = seen.len();
+            // Bound graph complexity, stack depth and image extents. A valid
+            // enclosing routine may extend beyond a fixed byte window.
             if seen.len() > 10000
                 || pc < entry
-                || pc >= entry + 0x1200
+                || pc.checked_add(2).map_or(true, |end| end > image.len())
                 || !(0..=512).contains(&depth)
                 || (pc != entry && depth < 4)
             {

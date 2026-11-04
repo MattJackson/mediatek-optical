@@ -279,3 +279,18 @@ fn switch_fan_out_shares_queued_stack_models() {
         counts.states
     );
 }
+
+#[test]
+fn long_native_caller_is_bounded_by_flow_and_retains_saved_slot_guards() {
+    let mut image = [0xc0, 0x46].repeat(0xa01);
+    image[..2].copy_from_slice(&0xb500u16.to_le_bytes()); // PUSH {LR}
+    image[0x1400..0x1402].copy_from_slice(&0xbd00u16.to_le_bytes()); // POP {PC}
+    let witness = SavedLink::bind(&image, 0, 2).unwrap();
+    assert_eq!(witness.stack_bytes(), 4);
+    assert_eq!(witness.returns(), &[0x1400]);
+    let mut overwrite = image.clone();
+    overwrite[0x1300..0x1302].copy_from_slice(&0x9000u16.to_le_bytes()); // STR R0,[SP]
+    assert!(SavedLink::bind(&overwrite, 0, 2).is_err());
+    image[0x1400..0x1402].copy_from_slice(&0xbd10u16.to_le_bytes()); // POP {R4,PC}
+    assert!(SavedLink::bind(&image, 0, 2).is_err());
+}

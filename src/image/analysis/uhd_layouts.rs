@@ -2,6 +2,30 @@
 //! searches instructions and binds literals/continuations, never hashes or models.
 use super::{Definition, SelectionDefinition, UhdArea, UhdHandling};
 pub(super) const DEFINITIONS: &[Definition] = &[
+    // UH12NS30 native O admission: DI block is SP+0x20, state is [R7].
+    // This identifies a legacy parser; it authorizes no conversion detour.
+    Definition {
+        area: UhdArea::DiscInformation,
+        name: "classic_stack20_state_r7",
+        pattern: &[
+            (0xab08, 0xffff),
+            (0x7c18, 0xffff),
+            (0x284f, 0xffff),
+            (0xd100, 0xff00),
+            (0x7cd8, 0xffff),
+            (0x21c0, 0xffff),
+            (0x2800, 0xffff),
+            (0xd000, 0xff00),
+            (0x2801, 0xffff),
+            (0xd000, 0xff00),
+            (0x2802, 0xffff),
+            (0xd100, 0xff00),
+            (0x7039, 0xffff),
+            (0xe000, 0xf800),
+        ],
+        handling: UhdHandling::Legacy,
+        selection: None,
+    },
     // source 40eb760e23f100d55e86e9c061c73428d4087ef712294e4dbfcefa3093837a1a, 0x36472..0x3648e
     Definition {
         area: UhdArea::ControlBit,
@@ -110,7 +134,12 @@ pub(super) const DEFINITIONS: &[Definition] = &[
             (0x63c1, 0xffff),
         ],
         handling: UhdHandling::Legacy,
-        selection: None,
+        selection: Some(SelectionDefinition {
+            offset: 12,
+            replay: &[0x2900, 0x6bc1],
+            span: 6,
+            reject_offset: Some(24),
+        }),
     },
     // source c88a69013d557b9c4cf1a4d603c314585f51a258b9747c345184e866eef36306, 0x27196..0x271b4
     Definition {
@@ -134,7 +163,12 @@ pub(super) const DEFINITIONS: &[Definition] = &[
             (0x63c1, 0xffff),
         ],
         handling: UhdHandling::Legacy,
-        selection: None,
+        selection: Some(SelectionDefinition {
+            offset: 12,
+            replay: &[0x2900, 0x6bc1],
+            span: 6,
+            reject_offset: Some(24),
+        }),
     },
     // source 40eb760e23f100d55e86e9c061c73428d4087ef712294e4dbfcefa3093837a1a, 0x32140..0x3216c
     Definition {
@@ -233,7 +267,12 @@ pub(super) const DEFINITIONS: &[Definition] = &[
             (0xe000, 0xf800),
         ],
         handling: UhdHandling::Legacy,
-        selection: None,
+        selection: Some(SelectionDefinition {
+            offset: 6,
+            replay: &[0x43b8],
+            span: 4,
+            reject_offset: Some(194),
+        }),
     },
     // source 40eb760e23f100d55e86e9c061c73428d4087ef712294e4dbfcefa3093837a1a, 0x678c4..0x67900
     Definition {
@@ -315,6 +354,51 @@ pub(super) const DEFINITIONS: &[Definition] = &[
             (0xd000, 0xff00),
             (0x230c, 0xffff),
             (0xe000, 0xf800),
+        ],
+        handling: UhdHandling::HardwarePolicy,
+        selection: None,
+    },
+    // Native fixed-six desktop defaults, source 84fecc29, 0x60bb6.
+    // Hardware policy only: the selected rates are preserved verbatim.
+    Definition {
+        area: UhdArea::HardwareDefaults,
+        name: "classic_default6",
+        pattern: &[
+            (0xb5f8, 0xffff),
+            (0x4f00, 0xff00),
+            (0x7838, 0xffff),
+            (0x0986, 0xffff),
+            (0x2307, 0xffff),
+            (0x2506, 0xffff),
+            (0x4800, 0xff00),
+            (0x4900, 0xff00),
+            (0x4a00, 0xff00),
+            (0x4c00, 0xff00),
+            (0x2e03, 0xffff),
+            (0xd100, 0xff00),
+            (0x4e00, 0xff00),
+            (0x7836, 0xffff),
+            (0x07f6, 0xffff),
+            (0xd000, 0xff00),
+            (0x2504, 0xffff),
+            (0xe000, 0xf800),
+            (0x4f00, 0xff00),
+            (0x783e, 0xffff),
+            (0x0936, 0xffff),
+            (0x2e0c, 0xffff),
+            (0xd100, 0xff00),
+            (0x783d, 0xffff),
+            (0x08ad, 0xffff),
+            (0x2d31, 0xffff),
+            (0xd100, 0xff00),
+            (0x2508, 0xffff),
+            (0xe000, 0xf800),
+            (0x250c, 0xffff),
+            (0xe000, 0xf800),
+            (0x4f00, 0xff00),
+            (0x783f, 0xffff),
+            (0x26c8, 0xffff),
+            (0x43be, 0xffff),
         ],
         handling: UhdHandling::HardwarePolicy,
         selection: None,
@@ -873,7 +957,12 @@ pub(super) const DEFINITIONS: &[Definition] = &[
             (0x6398, 0xffff),
         ],
         handling: UhdHandling::Legacy,
-        selection: None,
+        selection: Some(SelectionDefinition {
+            offset: 32,
+            replay: &[0x2900],
+            span: 4,
+            reject_offset: Some(54),
+        }),
     },
     // source 40eb760e23f100d55e86e9c061c73428d4087ef712294e4dbfcefa3093837a1a, 0x10a546..0x10a562
     Definition {

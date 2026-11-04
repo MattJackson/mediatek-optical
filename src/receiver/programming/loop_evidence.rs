@@ -1,6 +1,9 @@
 //! Complete programming-loop matching with role-checked RAM literal relocation.
 use core::ops::Range;
 
+#[path = "loop_without_prelude.rs"]
+mod without_prelude;
+
 /// Complete instruction forms, independent of model names and RAM relocation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ProgramLoopVariant {
@@ -8,6 +11,8 @@ pub enum ProgramLoopVariant {
     Compact,
     /// Wider loop with the first reserved span starting at 0x1c8000.
     Wide,
+    /// Same reserved spans as Wide, without its alternate-controller prelude.
+    WideWithoutPrelude,
 }
 
 /// Evidence for the native mode-three programming loop and raw page copy.
@@ -38,16 +43,32 @@ const RAM_WORDS: [usize; 5] = [0x348, 0x350, 0x358, 0x7c4, 0x7cc];
 const STATUS_WORDS: [usize; 3] = [0x35c, 0x360, 0x7dc];
 const WIDE_RAM_WORDS: [usize; 5] = [0x374, 0x37c, 0x384, 0x7f0, 0x7f8];
 const WIDE_STATUS_WORDS: [usize; 3] = [0x388, 0x38c, 0x808];
+const NO_PRELUDE_RAM_WORDS: [usize; 5] = [0x358, 0x360, 0x368, 0x7d4, 0x7dc];
+const NO_PRELUDE_STATUS_WORDS: [usize; 3] = [0x36c, 0x370, 0x7ec];
 
 /// Select one complete known programming-loop form, rejecting ambiguity.
 pub fn inspect_program_loop(bytes: &[u8]) -> Option<ProgramLoopEvidence> {
     match (
         inspect_compact_program_loop(bytes),
         inspect_wide_program_loop(bytes),
+        inspect_wide_without_prelude(bytes),
     ) {
-        (Some(proof), None) | (None, Some(proof)) => Some(proof),
+        (Some(proof), None, None) | (None, Some(proof), None) | (None, None, Some(proof)) => {
+            Some(proof)
+        }
         _ => None,
     }
+}
+
+fn inspect_wide_without_prelude(bytes: &[u8]) -> Option<ProgramLoopEvidence> {
+    inspect(
+        bytes,
+        without_prelude::WIDE_WITHOUT_PRELUDE,
+        &NO_PRELUDE_RAM_WORDS,
+        &NO_PRELUDE_STATUS_WORDS,
+        ProgramLoopVariant::WideWithoutPrelude,
+        0x1c8000,
+    )
 }
 
 /// Match all instructions, branch operands, hardware literals and skip constants

@@ -61,8 +61,14 @@ pub(super) struct Binding {
     banner: [u8; layout::BANNER.len],
     descriptor: [u8; layout::DESCRIPTOR.len],
     live_banner: Option<[u8; layout::BANNER.len]>,
+    live_descriptor: Option<[u8; layout::DESCRIPTOR.len]>,
     image_hash: [u8; 32],
 }
+struct Metadata {
+    banner: [u8; layout::BANNER.len],
+    descriptor: [u8; layout::DESCRIPTOR.len],
+}
+
 impl Binding {
     // Mode and identity bytes only: an offline-stage receiver from
     // `from_firmware` holds a synthetic INQUIRY record.
@@ -77,10 +83,7 @@ impl Binding {
         Ok(())
     }
 
-    fn read_banner<T: Transport>(
-        &self,
-        t: &mut T,
-    ) -> Result<[u8; layout::BANNER.len], super::Error<T::Error>> {
+    fn read_metadata<T: Transport>(&self, t: &mut T) -> Result<Metadata, super::Error<T::Error>> {
         self.revalidate_identity(t)?;
         let mut banner = [0; layout::BANNER.len];
         drive::read_memory(t, layout::BANNER.start as u32, &mut banner)
@@ -88,19 +91,34 @@ impl Binding {
         let mut descriptor = [0; layout::DESCRIPTOR.len];
         drive::read_memory(t, layout::DESCRIPTOR.start as u32, &mut descriptor)
             .map_err(super::Error::Read)?;
+        // DE is an update-policy marker, not receiver/build identity. Only the
+        // known OEM/modified transition is equivalent for initial binding.
+        // Once bound, compare the actual live snapshot strictly, including DE.
+        let same_descriptor = self.live_descriptor.map_or_else(
+            || {
+                descriptor == self.descriptor
+                    || descriptor[..0x56] == self.descriptor[..0x56]
+                        && descriptor[0x57..] == self.descriptor[0x57..]
+                        && matches!(
+                            (descriptor[0x56], self.descriptor[0x56]),
+                            (0xff, 0xde) | (0xde, 0xff)
+                        )
+            },
+            |expected| descriptor == expected,
+        );
         if banner[..16] != self.banner[..16]
-            || descriptor != self.descriptor
+            || !same_descriptor
             || self.live_banner.is_some_and(|expected| banner != expected)
         {
             return Err(super::Error::Changed);
         }
-        Ok(banner)
+        Ok(Metadata { banner, descriptor })
     }
 
     // INQUIRY is read again last: banner and descriptor reads return the same
     // flash bytes whichever receiver is running.
     pub(super) fn revalidate<T: Transport>(&self, t: &mut T) -> Result<(), super::Error<T::Error>> {
-        self.read_banner(t)?;
+        self.read_metadata(t)?;
         self.revalidate_identity(t)
     }
 }
@@ -131,6 +149,7 @@ impl Receiver {
                 .unwrap(),
             descriptor: descriptor.try_into().expect("descriptor length"),
             live_banner: None,
+            live_descriptor: None,
             image_hash: *envelope.image_sha256(),
         });
         Ok(receiver)
@@ -162,7 +181,9 @@ pub fn detect<T: Transport>(t: &mut T, envelope: &Envelope) -> Result<Receiver, 
         Error::Binding(_) => unreachable!("offline analysis performs no physical binding"),
     })?;
     let binding = receiver.reference.as_mut().expect("reference receiver");
-    binding.live_banner = Some(binding.read_banner(t).map_err(Error::Binding)?);
+    let Metadata { banner, descriptor } = binding.read_metadata(t).map_err(Error::Binding)?;
+    binding.live_banner = Some(banner);
+    binding.live_descriptor = Some(descriptor);
     // Preserve the actual INQUIRY record for diagnostics, never synthesize live identity.
     let identity = super::detect_mode(t).map_err(Error::Binding)?;
     if identity.mode() != Mode::Firmware || identity.inquiry()[8..36] != binding.identity {

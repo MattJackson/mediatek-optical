@@ -195,6 +195,319 @@ fn uhd_contracts_corpus_matches_inventory_without_chip_or_model_selection() {
 }
 
 #[test]
+fn stack20_parameter_getter_is_state_independent_and_uses_its_native_table() {
+    let (root, _) = fixtures();
+    let cases: Vec<serde_json::Value> =
+        serde_json::from_slice(&std::fs::read(root.join("uh12-stack20.json")).unwrap()).unwrap();
+    for case in cases {
+        let bytes = image(&root, &case);
+        let p = super::ClassicParameter::detect(&bytes, 0x01ff9d61).unwrap();
+        assert_eq!(p.variant, super::ClassicParameterVariant::StateIndependent);
+        assert_eq!(p.entry, 0xe755a);
+        assert_eq!(p.lookup, 0xe758c);
+        assert_eq!(p.rates, case["parameter_rates"].as_u64().unwrap() as usize);
+        assert_eq!(p.coefficients, p.rates + 0x82);
+        assert_eq!(p.coefficients, p.oem_coefficients);
+        assert!(p.selection.is_none());
+        let calibration = super::ClassicCalibration::detect(&bytes, 0x01ff9d61).unwrap();
+        assert_eq!(calibration.site, 0xe6b70);
+        assert_eq!(calibration.original_base as usize - 0xc, p.coefficients);
+        assert!(calibration.c7_coefficients.is_none());
+        let mut bad = bytes.clone();
+        bad[0xe6a38..0xe6a3a].copy_from_slice(&0x00a6u16.to_le_bytes());
+        assert!(super::ClassicCalibration::detect(&bad, 0x01ff9d61).is_err());
+        assert!(super::ClassicParameter::detect(&bytes, 0x01ff9d62).is_err());
+        let mut bad = bytes.clone();
+        // Increasing the native six-entry limit can index outside this table.
+        bad[0xe7560..0xe7562].copy_from_slice(&0x2407u16.to_le_bytes());
+        assert!(super::ClassicParameter::detect(&bad, 0x01ff9d61).is_err());
+        let mut bad = bytes;
+        // A table outside the image cannot establish native coefficients.
+        let site = 0xe7586;
+        let op = u16::from_le_bytes(bad[site..site + 2].try_into().unwrap());
+        let pool = ((site + 4) & !3) + usize::from(op & 255) * 4;
+        bad[pool..pool + 4].copy_from_slice(&0x02000000u32.to_le_bytes());
+        assert!(super::ClassicParameter::detect(&bad, 0x01ff9d61).is_err());
+    }
+}
+
+#[test]
+fn stack20_completion_binds_native_recovery_and_stack12_reflection() {
+    let (root, _) = fixtures();
+    let cases: Vec<serde_json::Value> =
+        serde_json::from_slice(&std::fs::read(root.join("uh12-stack20.json")).unwrap()).unwrap();
+    for case in cases {
+        let bytes = image(&root, &case);
+        let c = super::ClassicReadCompletion::inspect(&bytes, 0x01ff9d61)
+            .unwrap_or_else(|e| panic!("{}: {e}", case["source_sha256"]));
+        assert_eq!(c.recovery_state_register, 0);
+        assert_eq!(c.recovery_request_register, 6);
+        assert_eq!(c.recovery_flag_register, 5);
+        assert_eq!(c.boundaries, [0x02000f4c, 0x02000f48, 0x02000f44]);
+        assert!(super::ClassicReadCompletion::inspect(&bytes, 0x01ff9d62).is_err());
+        let mut bad = bytes.clone();
+        // The native subtype path must reload the same media-state pointer.
+        let at = c.recovery_region + 16;
+        let op = u16::from_le_bytes(bad[at..at + 2].try_into().unwrap());
+        let pool = ((at + 4) & !3) + usize::from(op & 255) * 4;
+        bad[pool..pool + 4].copy_from_slice(&0x01ff9d62u32.to_le_bytes());
+        assert!(super::ClassicReadCompletion::inspect(&bad, 0x01ff9d61).is_err());
+        let mut bad = bytes;
+        bad[c.boundary_region + 12..c.boundary_region + 14]
+            .copy_from_slice(&0x9a0bu16.to_le_bytes());
+        assert!(super::ClassicReadCompletion::inspect(&bad, 0x01ff9d61).is_err());
+    }
+}
+
+#[test]
+fn stack20_auxiliary_variants_bind_native_registers_and_continuations() {
+    use super::{ClassicConsumer, ClassicConsumerKind as K};
+    let (root, _) = fixtures();
+    let cases: Vec<serde_json::Value> =
+        serde_json::from_slice(&std::fs::read(root.join("uh12-stack20.json")).unwrap()).unwrap();
+    for case in cases {
+        let bytes = image(&root, &case);
+        for kind in [
+            K::MediaDefaults,
+            K::ReadControl,
+            K::DiMode,
+            K::InitializationBypass,
+            K::Control18,
+            K::Mode23,
+            K::ParameterClass,
+            K::RequestArgument,
+            K::ReadValue,
+            K::ReadStatus,
+        ] {
+            ClassicConsumer::inspect_kind(&bytes, 0x01ff9d61, kind)
+                .unwrap_or_else(|e| panic!("{} {kind:?}: {e}", case["source_sha256"]));
+        }
+        let rom = ClassicConsumer::inspect_rom(&bytes, 0x01ff9d61)
+            .unwrap_or_else(|e| panic!("{} ROM: {e}", case["source_sha256"]));
+        assert_eq!(rom.len(), 10);
+        assert!(rom.iter().all(|c| c.kind != K::ReadBoundary));
+        let status = case["read_status_region"].as_u64().unwrap() as usize;
+        for (kind, region, accept, reject) in [
+            (K::DiMode, 0xec170, 0xec17c, 0xec1c0),
+            (K::Control18, 0x306da, 0x306e4, 0x3070e),
+            (K::ReadStatus, status, status + 10, status + 40),
+        ] {
+            let c = ClassicConsumer::inspect_kind(&bytes, 0x01ff9d61, kind)
+                .unwrap_or_else(|e| panic!("{} {kind:?}: {e}", case["source_sha256"]));
+            assert_eq!(c.region, region);
+            assert_eq!(c.selection.accept(), accept);
+            assert_eq!(c.selection.reject(), reject);
+            assert!(ClassicConsumer::inspect_kind(&bytes, 0x01ff9d62, kind).is_err());
+            let mut bad = bytes.clone();
+            bad[c.selection.site() + if kind == K::DiMode { 4 } else { 2 }] ^= 1;
+            assert!(ClassicConsumer::inspect_kind(&bad, 0x01ff9d61, kind).is_err());
+        }
+    }
+}
+
+#[test]
+fn stack20_speed_policy_binds_native_fixed_six_defaults_and_request_clamp() {
+    let (root, _) = fixtures();
+    let cases: Vec<serde_json::Value> =
+        serde_json::from_slice(&std::fs::read(root.join("uh12-stack20.json")).unwrap()).unwrap();
+    for case in cases {
+        let bytes = image(&root, &case);
+        let p = super::NativeSpeedPolicy::detect(&bytes).unwrap();
+        assert_eq!(p.variant, "classic_default6");
+        assert_eq!(p.entry, 0x60bb6);
+        assert_eq!(p.media_cell, 0x01ff9d61);
+        assert_eq!(p.maximum_cell, 0x01ff9d63);
+        assert_eq!(p.clamp.entry, 0x63b2e);
+        assert_eq!(p.clamp.compare, 0x63b38);
+        assert_eq!(p.clamp.after_clamp, 0x63b3e);
+        assert_eq!(p.clamp.request_register, 4);
+        let mut bad = bytes.clone();
+        // A different member offset is not the maximum written by defaults.
+        bad[0x63b36..0x63b38].copy_from_slice(&0x7981u16.to_le_bytes());
+        assert!(super::NativeSpeedPolicy::detect(&bad).is_err());
+        let mut bad = bytes;
+        bad[0x63b3a..0x63b3c].copy_from_slice(&0xd800u16.to_le_bytes());
+        assert!(super::NativeSpeedPolicy::detect(&bad).is_err());
+    }
+}
+
+#[test]
+fn earliest_auxiliary_targets_bind_native_bodies_instead_of_old_displacements() {
+    use super::{ClassicConsumer, ClassicConsumerKind as K};
+    let (root, _) = fixtures();
+    let case: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(root.join("earliest-parameter.json")).unwrap())
+            .unwrap();
+    let bytes = image(&root, &case);
+    for (kind, accept, reject) in [
+        (K::Control18, 0x33878, 0x338ae),
+        (K::ParameterClass, 0x348fc, 0x3484a),
+        (K::DiMode, 0xe2c0e, 0xe2c36),
+        (K::MediaDefaults, 0x69268, 0x69278),
+        (K::ReadControl, 0xded5a, 0xded78),
+        (K::InitializationBypass, 0x7eee0, 0x7eeda),
+        (K::ReadValue, 0xb9224, 0xb9230),
+        (K::ReadStatus, 0x14428e, 0x1442a0),
+    ] {
+        let c = ClassicConsumer::inspect_kind(&bytes, 0x01ff9def, kind)
+            .unwrap_or_else(|e| panic!("{kind:?}: {e:?}"));
+        assert_eq!(c.selection.accept(), accept);
+        assert_eq!(c.selection.reject(), reject);
+        if kind == K::InitializationBypass {
+            assert_eq!(c.state_definition, Some((7, 0x7eea2)));
+            let mut bad = bytes.clone();
+            bad[0x7eea2..0x7eea4].copy_from_slice(&0x4eb9u16.to_le_bytes());
+            assert!(ClassicConsumer::inspect_kind(&bad, 0x01ff9def, kind).is_err());
+            let mut bad = bytes.clone();
+            bad[0x7eec2..0x7eec4].copy_from_slice(&0x2700u16.to_le_bytes());
+            assert!(ClassicConsumer::inspect_kind(&bad, 0x01ff9def, kind).is_err());
+        }
+        if matches!(kind, K::ReadValue | K::ReadStatus) {
+            let mut bad = bytes.clone();
+            // Redirect just one load, breaking its cross-path cell identity.
+            bad[c.region + 18] ^= 1;
+            assert!(ClassicConsumer::inspect_kind(&bad, 0x01ff9def, kind).is_err());
+        }
+        let mut bad = bytes.clone();
+        bad[c.selection.site()
+            + if matches!(kind, K::DiMode | K::ReadControl) {
+                4
+            } else {
+                2
+            }] ^= 1;
+        assert!(ClassicConsumer::inspect_kind(&bad, 0x01ff9def, kind).is_err());
+    }
+}
+
+#[test]
+fn earliest_preserved_recovery_requires_its_native_f_family_guard() {
+    use super::{ClassicConsumer, ClassicConsumerKind as K};
+    let (root, _) = fixtures();
+    let case: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(root.join("earliest-parameter.json")).unwrap())
+            .unwrap();
+    let bytes = image(&root, &case);
+    let c = ClassicConsumer::inspect_kind(&bytes, 0x01ff9def, K::ReadBoundary).unwrap();
+    assert_eq!(c.entry_media_family, Some(0xf));
+    assert_eq!(c.region, 0x11aae0);
+    for (at, op) in [(0x11aa3e, 0x280cu16), (0x11aa4e, 0xd06d)] {
+        let mut bad = bytes.clone();
+        bad[at..at + 2].copy_from_slice(&op.to_le_bytes());
+        assert!(ClassicConsumer::inspect_kind(&bad, 0x01ff9def, K::ReadBoundary).is_err());
+    }
+}
+
+#[test]
+fn earliest_completion_binds_literal_pool_split_and_native_recovery_alias() {
+    let (root, _) = fixtures();
+    let case: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(root.join("earliest-parameter.json")).unwrap())
+            .unwrap();
+    let bytes = image(&root, &case);
+    let c = super::ClassicReadCompletion::inspect(&bytes, 0x01ff9def).unwrap();
+    assert_eq!(c.controller_region, 0x273f8);
+    assert_eq!(c.boundary_region, 0x143fb6);
+    assert_eq!(c.boundary_end, 0x144036);
+    assert_eq!(c.boundaries, [0x02000d9c, 0x02000d98, 0x02000d94]);
+    assert_eq!(c.recovery_region, 0x6e63c);
+    assert_eq!(c.recovery_state_register, 1);
+    assert_eq!(c.recovery_state_load, 0x6e5e8);
+    assert_eq!(c.recovery_request_register, 5);
+    assert_eq!(c.recovery_flag_register, 4);
+    for (at, op) in [
+        (0x2740e, 0xd15eu16),
+        (0x27422, 0xe05d),
+        (0x6e5e8, 0x0039),
+        (0x6e552, 0x1f36),
+        (0x143fbe, 0xd145),
+    ] {
+        let mut bad = bytes.clone();
+        bad[at..at + 2].copy_from_slice(&op.to_le_bytes());
+        assert!(super::ClassicReadCompletion::inspect(&bad, 0x01ff9def).is_err());
+    }
+}
+
+#[test]
+fn earliest_read_position_binds_saved_position_and_both_native_ranges() {
+    let (root, _) = fixtures();
+    let case: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(root.join("earliest-parameter.json")).unwrap())
+            .unwrap();
+    let bytes = image(&root, &case);
+    let c = super::ClassicReadPosition::detect(&bytes, 0x01ff9def).unwrap();
+    assert_eq!(c.entry, 0xdcbf0);
+    assert_eq!(c.position, 0x02000b38);
+    assert_eq!(c.position_register, 5);
+    assert_eq!(c.cached_layer, 0x02000b03);
+    assert_eq!(c.layer, 0x02000b04);
+    assert_eq!(c.status, 0x02000b10);
+    assert_eq!(c.decode.site(), 0xdcc34);
+    assert_eq!(c.decode.accept(), 0xdcc38);
+    assert_eq!(c.decode.reject(), 0xdccba);
+    assert_eq!(c.layer_one, 0xdcc40);
+    assert_eq!(c.layer_zero, 0xdccb4);
+    assert_eq!(c.ranges[0].site(), 0xdcd20);
+    assert_eq!(c.ranges[1].site(), 0xdcd2c);
+    for (at, op) in [(0xdcc38, 0x78a1u16), (0xdcd26, 0x2821), (0xdcd34, 0xd207)] {
+        let mut bad = bytes.clone();
+        bad[at..at + 2].copy_from_slice(&op.to_le_bytes());
+        assert!(super::ClassicReadPosition::detect(&bad, 0x01ff9def).is_err());
+    }
+    assert!(super::ClassicReadPosition::detect(&bytes, 0x01ff9df0).is_err());
+}
+
+#[test]
+fn earliest_calibration_binds_four_rate_index_and_native_default_lookup() {
+    let (root, _) = fixtures();
+    let case: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(root.join("earliest-parameter.json")).unwrap())
+            .unwrap();
+    let bytes = image(&root, &case);
+    let c = super::ClassicCalibration::detect(&bytes, 0x01ff9def).unwrap();
+    assert_eq!(c.caller.entry(), 0xdd814);
+    assert_eq!(c.site, 0xdd998);
+    assert_eq!(c.original_base, 0x15421a);
+    assert_eq!(c.base_adjustment, -8);
+    assert_eq!(c.c7_coefficients, Some(0x01ff7910));
+    for (at, op) in [(0xdd828, 0x2808u16), (0xdd860, 0x0067), (0xdd99a, 0x380c)] {
+        let mut bad = bytes.clone();
+        bad[at..at + 2].copy_from_slice(&op.to_le_bytes());
+        assert!(super::ClassicCalibration::detect(&bad, 0x01ff9def).is_err());
+    }
+}
+
+#[test]
+fn earliest_parameter_binds_four_native_rates_and_runtime_coefficients() {
+    let (root, _) = fixtures();
+    let case: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(root.join("earliest-parameter.json")).unwrap())
+            .unwrap();
+    let bytes = image(&root, &case);
+    let state = 0x01ff9def;
+    let c = super::ClassicParameter::detect(&bytes, state).unwrap();
+    assert_eq!(c.entry, 0xde3f2);
+    assert_eq!(c.rate_count, 4);
+    assert_eq!(c.rates, 0x1541bc);
+    assert_eq!(c.oem_coefficients, c.rates + 0x56);
+    assert_eq!(c.coefficients, 0x01ff7910);
+    assert!(c.coefficients_are_runtime);
+    let gate = c.selection.unwrap();
+    assert_eq!(gate.site(), 0xde44a);
+    assert_eq!(gate.accept(), 0xde44e);
+    assert_eq!(gate.reject(), 0xde454);
+    assert!(super::ClassicParameter::detect(&bytes, state + 1).is_err());
+    let mut bad = bytes.clone();
+    bad[0xde404..0xde406].copy_from_slice(&0x2405u16.to_le_bytes());
+    assert!(super::ClassicParameter::detect(&bad, state).is_err());
+    let mut bad = bytes;
+    let site = 0xde44e;
+    let op = u16::from_le_bytes(bad[site..site + 2].try_into().unwrap());
+    let pool = ((site + 4) & !3) + usize::from(op & 255) * 4;
+    bad[pool..pool + 4].copy_from_slice(&0x04200000u32.to_le_bytes());
+    assert!(super::ClassicParameter::detect(&bad, state).is_err());
+}
+
+#[test]
 fn classic_parameter_profiles_preserve_state_independent_lookups_and_bind_media_tables() {
     let (root, cases) = fixtures();
     let mut media = 0;
@@ -252,6 +565,18 @@ fn classic_auxiliary_gates_bind_shared_state_native_edges_and_saved_callers() {
         let contracts = super::ClassicConsumer::inspect(&bytes, state)
             .unwrap_or_else(|e| panic!("{} consumers: {e}", case["source_sha256"]));
         assert_eq!(contracts.len(), 11);
+        let rom = super::ClassicConsumer::inspect_rom(&bytes, state).unwrap();
+        assert_eq!(rom.len(), 10);
+        assert!(rom.iter().all(|c| c.entry_media_family.is_none()));
+        let recovery = contracts
+            .iter()
+            .find(|c| c.kind == super::ClassicConsumerKind::ReadBoundary)
+            .unwrap();
+        assert_eq!(recovery.entry_media_family, Some(0xf));
+        let mut wrong_family = bytes.clone();
+        wrong_family[recovery.caller.entry() + 0x4c..recovery.caller.entry() + 0x4e]
+            .copy_from_slice(&0x280eu16.to_le_bytes());
+        assert!(super::ClassicConsumer::inspect_rom(&wrong_family, state).is_err());
         assert_eq!(expected.len(), 11);
         let mut matched = std::collections::BTreeSet::new();
         for contract in &contracts {
@@ -967,4 +1292,129 @@ fn calibration_reports_an_image_shorter_than_its_routine_as_unknown_layout() {
         checked += 1;
     }
     assert!(checked > 0);
+}
+
+#[test]
+fn classic_di_follows_format_branch_across_native_literal_island() {
+    let (root, _) = fixtures();
+    let case: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(root.join("46b41f15-di-island.json")).unwrap())
+            .unwrap();
+    let bytes = image(&root, &case);
+    let di = super::ClassicDi::detect(&bytes).unwrap();
+    assert_eq!(di.prevalidation, 0x10c546);
+    assert_eq!(di.format, 0x10c6ba);
+    assert_eq!(di.state, 0x01ff9ddc);
+    assert_eq!(di.one_register, 0);
+    // The longer branch does not relax the destination's switch contract.
+    let mut bad = bytes.clone();
+    bad[di.format + 6] ^= 1;
+    assert!(super::ClassicDi::detect(&bad).is_err());
+    let mut bad = bytes;
+    bad[di.layers + 26] ^= 8;
+    assert!(super::ClassicDi::detect(&bad).is_err());
+}
+
+#[test]
+fn stack20_di_admission_is_identified_as_legacy_without_a_generic_detour() {
+    let (root, _) = fixtures();
+    let cases: Vec<serde_json::Value> =
+        serde_json::from_slice(&std::fs::read(root.join("uh12-stack20.json")).unwrap()).unwrap();
+    assert_eq!(cases.len(), 2);
+    for case in cases {
+        let bytes = image(&root, &case);
+        let areas = UhdAreas::inspect(&bytes);
+        let di = areas.area(UhdArea::DiscInformation).unwrap();
+        assert_eq!(di.site(), case["site"].as_u64().unwrap() as usize);
+        assert_eq!(di.variant(), "classic_stack20_state_r7");
+        assert_eq!(di.selects_c7(), Some(false));
+        assert!(di.selection().is_none());
+        assert_eq!(areas.media_state_address().unwrap(), 0x01ff9d61);
+        assert_eq!(areas.state_address().unwrap(), 0x01ff9d61);
+        let mut unknown_defaults = bytes.clone();
+        unknown_defaults[0x60bc0..0x60bc2].copy_from_slice(&0x2505u16.to_le_bytes());
+        let unknown_defaults = UhdAreas::inspect(&unknown_defaults);
+        assert!(unknown_defaults.state_address().is_err());
+        assert_eq!(unknown_defaults.media_state_address().unwrap(), 0x01ff9d61);
+        // A missing optional hardware policy does not permit routing roles to
+        // disagree about the live state address.
+        let load = areas.area(UhdArea::ControlBit).unwrap().literals()[0].instruction;
+        let op = u16::from_le_bytes(bytes[load..load + 2].try_into().unwrap());
+        let pool = ((load + 4) & !3) + usize::from(op & 255) * 4;
+        let mut disagreement = bytes.clone();
+        disagreement[pool..pool + 4].copy_from_slice(&0x01ff9d62u32.to_le_bytes());
+        assert!(UhdAreas::inspect(&disagreement)
+            .media_state_address()
+            .is_err());
+        let mut bad = bytes;
+        bad[di.site() + 4] = b'U';
+        assert!(UhdAreas::inspect(&bad)
+            .area(UhdArea::DiscInformation)
+            .is_err());
+    }
+}
+
+#[test]
+fn stack20_di_binds_native_validation_frame_and_noncontiguous_layers() {
+    let (root, _) = fixtures();
+    let cases: Vec<serde_json::Value> =
+        serde_json::from_slice(&std::fs::read(root.join("uh12-stack20.json")).unwrap()).unwrap();
+    for case in cases {
+        let bytes = image(&root, &case);
+        let di = super::LegacyStackDi::detect(&bytes).unwrap();
+        assert_eq!(di.stack_block, 32);
+        assert_eq!(di.identifier_offset, 16);
+        assert_eq!(di.state_register, Some(7));
+        assert_eq!(di.caller.stack_bytes(), 72);
+        assert!(di.layer_store > di.layers + 80);
+        let mut bad = bytes.clone();
+        bad[di.layers + 4] ^= 1; // The native normalization mask is part of the contract.
+        assert!(super::LegacyStackDi::detect(&bad).is_err());
+        let mut bad = bytes;
+        bad[di.prevalidation + 8] ^= 1;
+        assert!(super::LegacyStackDi::detect(&bad).is_err());
+    }
+}
+
+#[test]
+fn older_oem_di_mode_binds_saved_r7_and_native_blx() {
+    use super::{ClassicConsumer, ClassicConsumerKind as K};
+    let (root, _) = fixtures();
+    let cases: Vec<serde_json::Value> =
+        serde_json::from_slice(&std::fs::read(root.join("older-oem-di-mode.json")).unwrap())
+            .unwrap();
+    assert_eq!(cases.len(), 12);
+    for case in cases {
+        let bytes = image(&root, &case);
+        let state = case["state"].as_u64().unwrap() as u32;
+        let region = case["region"].as_u64().unwrap() as usize;
+        let definition = case["state_definition"].as_u64().unwrap() as usize;
+        let c = ClassicConsumer::inspect_kind(&bytes, state, K::DiMode)
+            .unwrap_or_else(|e| panic!("{}: {e}", case["source_sha256"]));
+        assert_eq!(c.region, region);
+        assert_eq!(c.selection.site(), region + 4);
+        assert_eq!(c.selection.accept(), region + 10);
+        assert_eq!(c.selection.reject(), region + 52);
+        assert_eq!(c.state_definition, Some((7, definition)));
+        assert!(c
+            .relocated_load
+            .is_some_and(|(reg, value)| reg == 0 && value >> 16 == 0x01ff));
+        assert!(ClassicConsumer::inspect_kind(&bytes, state + 1, K::DiMode).is_err());
+        // Change the defining literal, selector edge, dense mode and call ISA.
+        let op = u16::from_le_bytes(bytes[definition..definition + 2].try_into().unwrap());
+        let pool = ((definition + 4) & !3) + usize::from(op & 255) * 4;
+        for at in [pool, region + 8, region + 22, region + 28, region + 54] {
+            let mut bad = bytes.clone();
+            bad[at] ^= 1;
+            assert!(
+                ClassicConsumer::inspect_kind(&bad, state, K::DiMode).is_err(),
+                "{} mutation {at:x}",
+                case["source_sha256"]
+            );
+        }
+        // Clobber the saved media pointer after its definition.
+        let mut bad = bytes;
+        bad[definition + 2..definition + 4].copy_from_slice(&0x2700u16.to_le_bytes());
+        assert!(ClassicConsumer::inspect_kind(&bad, state, K::DiMode).is_err());
+    }
 }
