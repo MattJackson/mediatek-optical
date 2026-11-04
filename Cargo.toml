@@ -47,7 +47,7 @@ oem = ["image", "dep:sha2"]
 all-features = true
 
 [dependencies]
-aes = { version = "0.8", optional = true }
+aes = { version = "0.9", optional = true }
 cmac = { version = "0.7", optional = true }
 sha2 = { version = "0.10", optional = true }
 thumb-asm = { version = "=0.14.1", git = "https://github.com/MattJackson/thumb-asm", rev = "0d9b37aa76c964949256146ce9be0cfbe4f823a0", optional = true }
