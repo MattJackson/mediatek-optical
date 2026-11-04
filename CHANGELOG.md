@@ -1,6 +1,18 @@
 # Changelog
 
-## 1.2.0 — Unreleased
+## 1.3.0
+
+Merges the native-binding analysis branch (previously consumed by hosts as 1.2.0 at `21031df`) into the 1.2.0 line below; 1.3.0 contains both.
+
+- Current-reference binding accepts the known OEM/modified DE update-policy marker difference (descriptor byte 0x56 `0xde`/`0xff`) at initial binding only; every other byte of the complete 0x100-byte descriptor must still match, and once bound, revalidation compares the live descriptor snapshot strictly, including DE.
+- Programming: bind the native wide programming loop without a controller prelude (`ProgramLoopVariant::WideWithoutPrelude`), with the same wrapper store, copy-extent and reserved-span checks.
+- UHD analysis binds more native layouts without model dispatch: earliest four-rate getters with runtime coefficients (`ClassicCalibration::base_adjustment`), the early saved-position read routine (`ClassicReadPosition::position_register`), early completion selectors across a split literal pool and pointer alias, early/older DI-mode, read-control, read-status, initialization and media-default selector variants (`ClassicConsumer::inspect_kind`, `state_definition`), UH12 selector, speed-default and request-clamp variants, legacy slim density targets, legacy reverse modes, classic DI literal islands, stack20/stack32 DI admission and registered UHD key paths.
+- `ClassicConsumer::inspect_rom` binds the C-family ROM selector group separately from the preserved W/F-family read recovery, whose native F-family entry gate is reported in `ClassicConsumer::entry_media_family`.
+- Add `analysis::NvRecordCopy`: binds the native NV record copy independently of factory contents.
+- `SavedLink` walks bound callers by control flow and stack depth rather than a fixed 0x1200-byte window. `SavedLink::require_live_definition` follows a taken conditional branch onto a branch on the same condition (unchanged flags) to its destination instead of also exploring that branch's infeasible fall-through, so native shared exit branches no longer refuse a loop that cannot re-reach the read.
+- `ClassicReadPosition::detect` reports an image shorter than one routine grammar as `UnknownLayout` while still searching the other grammar; the early grammar also binds its second status-cell load.
+
+## 1.2.0
 
 - Table and response analysis no longer drops or invents evidence at the edges: `ResponseIo` ignores committer-argument definitions that every path overwrites, or that return or call before the committer call (instead of reporting `Ambiguous`), counts writers whose offset is a bare `movs r2,#imm` and a committer call in the last 4 bytes of the image; `CommandScanner::table_roots` ignores an immediate `BLX` to the Thumb registrar (it enters ARM state) and examines a registrar call and an array loop ending the image; a call to a switch helper cut off by the end of the input is `Truncated` rather than an ordinary call.
 - Analysis refuses more partial evidence: `RequestedRateClamp::detect` also counts a clamp in the last 32 bytes of the image (`Ambiguous`); `AuthCell` requires the auth==6 fall-through to reach the preparation call through straight-line code and direct `BL` calls; `ResponseIo` reports `Ambiguous` when a writer's buffer offset is passed by a committer caller whose argument cannot be proven, including when no proven writer exists, and also counts committer callers that pass a bare `movs r0,#imm` or define `r0` up to 0x60 bytes before the call; `VidGate::agid_base` also binds checked AGID reads through `r0`-`r3`.
