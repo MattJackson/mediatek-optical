@@ -1,0 +1,422 @@
+//! Native parameter lookup profiles. Extend media selection only where C7 is
+//! excluded; a state-independent lookup already treats C7 and C8 alike.
+use super::{conditional, matches, C7Selection, Error, SavedLink};
+use thumb_asm::analysis::literal_value;
+
+/// The lookup's native use of the disc-state cell.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ClassicParameterVariant {
+    /// Distinct tables selected through native media-state gates.
+    MediaSelected,
+    /// One native table, with no disc-state load in the complete getter.
+    StateIndependent,
+}
+/// Complete getter plus its adjacent state-bound setter role. No physical
+/// units or numerical calibration values are inferred or replaced.
+#[derive(Debug, Clone)]
+pub struct ClassicParameter {
+    /// Positively recognized native implementation.
+    pub variant: ClassicParameterVariant,
+    /// Getter entry, including its native saved-register frame.
+    pub entry: usize,
+    /// Common native halfword lookup after the optional selection gate.
+    pub lookup: usize,
+    /// Native default rate list used by the unmodified C7 input selection.
+    pub rates: usize,
+    /// Number of entries in that source-bound default list.
+    pub rate_count: u8,
+    /// The native high-layer table is runtime RAM, not data held in this image.
+    /// Recognition does not infer its contents or certify its producer.
+    pub coefficients_are_runtime: bool,
+    /// Native high-layer coefficient table, or the common table in a
+    /// state-independent getter. No new UHD calibration data is inferred.
+    pub coefficients: usize,
+    /// Native alternative used by OEM C7 in a media-selected implementation.
+    pub oem_coefficients: usize,
+    /// A new C7 detour is needed only for this native selection pair.
+    pub selection: Option<C7Selection>,
+    /// Balanced native getter frame at the selected instructions.
+    pub caller: SavedLink,
+}
+struct Definition {
+    variant: ClassicParameterVariant,
+    frame: usize,
+    rate_count: u8,
+    oem_bias: usize,
+    target_bytes: usize,
+    target_runtime: bool,
+    pattern: &'static [(u16, u16)],
+    setter_state: usize,
+    rates: usize,
+    oem_table: usize,
+    target_table: usize,
+    target_bias: usize,
+    gate: usize,
+    lookup: usize,
+}
+const DEFINITIONS: &[Definition] = &[
+    // source 40eb760e, 0x104e00..0x104e7e; addresses are provenance only.
+    Definition {
+        variant: ClassicParameterVariant::MediaSelected,
+        frame: 0,
+        rate_count: 6,
+        oem_bias: 0x82,
+        target_bytes: 16,
+        target_runtime: false,
+        setter_state: 116,
+        rates: 24,
+        oem_table: 104,
+        target_table: 98,
+        target_bias: 0,
+        gate: 94,
+        lookup: 110,
+        pattern: &[
+            (0xb5f8, 0xffff),
+            (0x4d00, 0xff00),
+            (0x2200, 0xffff),
+            (0x782c, 0xffff),
+            (0x21c8, 0xffff),
+            (0x000b, 0xffff),
+            (0x43a3, 0xffff),
+            (0xd101, 0xffff),
+            (0x2408, 0xffff),
+            (0xe000, 0xffff),
+            (0x2406, 0xffff),
+            (0x4e00, 0xff00),
+            (0x4f00, 0xff00),
+            (0x782b, 0xffff),
+            (0x21c8, 0xffff),
+            (0x4399, 0xffff),
+            (0xd101, 0xffff),
+            (0x5cb1, 0xffff),
+            (0xe000, 0xffff),
+            (0x5cb9, 0xffff),
+            (0x4281, 0xffff),
+            (0xd204, 0xffff),
+            (0x1c52, 0xffff),
+            (0x0612, 0xffff),
+            (0x0e12, 0xffff),
+            (0x42a2, 0xffff),
+            (0xd3f1, 0xffff),
+            (0x42a2, 0xffff),
+            (0xd307, 0xffff),
+            (0x0023, 0xffff),
+            (0x0001, 0xffff),
+            (0x4800, 0xff00),
+            (0xf000, 0xf800),
+            (0xd000, 0xd000),
+            (0x1e64, 0xffff),
+            (0x0622, 0xffff),
+            (0x0e12, 0xffff),
+            (0x7829, 0xffff),
+            (0x23cc, 0xffff),
+            (0x0018, 0xffff),
+            (0x4388, 0xffff),
+            (0xd102, 0xffff),
+            (0x4900, 0xff00),
+            (0x0050, 0xffff),
+            (0xe009, 0xffff),
+            (0x7828, 0xffff),
+            (0x4018, 0xffff),
+            (0x28c8, 0xffff),
+            (0xd102, 0xffff),
+            (0x4900, 0xff00),
+            (0x0050, 0xffff),
+            (0xe002, 0xffff),
+            (0x4900, 0xff00),
+            (0x0050, 0xffff),
+            (0x3182, 0xffff),
+            (0x5a08, 0xffff),
+            (0xbdf8, 0xffff),
+            (0xb5f8, 0xffff),
+            (0x4e00, 0xff00),
+            (0x000c, 0xffff),
+            (0x7835, 0xffff),
+            (0x27cc, 0xffff),
+            (0x403d, 0xffff),
+        ],
+    },
+    // source 0b2cdb82, 0x103870..0x1038aa; addresses are provenance only.
+    Definition {
+        variant: ClassicParameterVariant::StateIndependent,
+        frame: 0,
+        rate_count: 6,
+        oem_bias: 0x82,
+        target_bytes: 12,
+        target_runtime: false,
+        setter_state: 48,
+        rates: 6,
+        oem_table: 36,
+        target_table: 36,
+        target_bias: 130,
+        gate: 36,
+        lookup: 42,
+        pattern: &[
+            (0xb530, 0xffff),
+            (0x0004, 0xffff),
+            (0x4800, 0xff00),
+            (0x4b00, 0xff00),
+            (0x2100, 0xffff),
+            (0x22ff, 0xffff),
+            (0x5c5d, 0xffff),
+            (0x42a5, 0xffff),
+            (0xd301, 0xffff),
+            (0x000a, 0xffff),
+            (0xe004, 0xffff),
+            (0x1c49, 0xffff),
+            (0x0609, 0xffff),
+            (0x0e09, 0xffff),
+            (0x2906, 0xffff),
+            (0xd3f5, 0xffff),
+            (0x2aff, 0xffff),
+            (0xd003, 0xffff),
+            (0x4900, 0xff00),
+            (0x0050, 0xffff),
+            (0x3182, 0xffff),
+            (0x5a08, 0xffff),
+            (0xbd30, 0xffff),
+            (0xb5f8, 0xffff),
+            (0x4e00, 0xff00),
+            (0x000c, 0xffff),
+            (0x7835, 0xffff),
+            (0x27cc, 0xffff),
+            (0x403d, 0xffff),
+        ],
+    },
+    // UH12 native getter loads its table before saving LR. Its entire lookup
+    // is state-independent; only the adjacent setter reads the media cell.
+    Definition {
+        variant: ClassicParameterVariant::StateIndependent,
+        frame: 4,
+        rate_count: 6,
+        oem_bias: 0x82,
+        target_bytes: 12,
+        target_runtime: false,
+        setter_state: 56,
+        rates: 0,
+        oem_table: 44,
+        target_table: 44,
+        target_bias: 130,
+        gate: 44,
+        lookup: 50,
+        pattern: &[
+            (0x4b00, 0xff00),
+            (0x2200, 0xffff),
+            (0xb510, 0xffff),
+            (0x2406, 0xffff),
+            (0x5c99, 0xffff),
+            (0x4281, 0xffff),
+            (0xd204, 0xffff),
+            (0x1c52, 0xffff),
+            (0x0612, 0xffff),
+            (0x0e12, 0xffff),
+            (0x42a2, 0xffff),
+            (0xd3f7, 0xffff),
+            (0x42a2, 0xffff),
+            (0xd307, 0xffff),
+            (0x0023, 0xffff),
+            (0x0001, 0xffff),
+            (0x4800, 0xff00),
+            (0xf000, 0xf800),
+            (0xd000, 0xd000),
+            (0x1e64, 0xffff),
+            (0x0622, 0xffff),
+            (0x0e12, 0xffff),
+            (0x4900, 0xff00),
+            (0x0050, 0xffff),
+            (0x3182, 0xffff),
+            (0x5a08, 0xffff),
+            (0xbd10, 0xffff),
+            (0xb5f8, 0xffff),
+            (0x4e00, 0xff00),
+            (0x000c, 0xffff),
+            (0x7835, 0xffff),
+            (0x27cc, 0xffff),
+            (0x403d, 0xffff),
+        ],
+    },
+    // Early source c88a6901, 0xde3f2. Four default rates and a native
+    // RAM high-layer coefficient table; no RAM contents are transplanted.
+    Definition {
+        variant: ClassicParameterVariant::MediaSelected,
+        frame: 0,
+        rate_count: 4,
+        oem_bias: 0x56,
+        target_bytes: 8,
+        target_runtime: true,
+        setter_state: 110,
+        rates: 14,
+        oem_table: 98,
+        target_table: 92,
+        target_bias: 0,
+        gate: 88,
+        lookup: 104,
+        pattern: &[
+            (0xb5f8, 0xffff),
+            (0x4d00, 0xff00),
+            (0x2200, 0xffff),
+            (0x782c, 0xffff),
+            (0x21c8, 0xffff),
+            (0x000b, 0xffff),
+            (0x4e00, 0xff00),
+            (0x4f00, 0xff00),
+            (0x43a3, 0xffff),
+            (0x2404, 0xffff),
+            (0x782b, 0xffff),
+            (0x21c8, 0xffff),
+            (0x4399, 0xffff),
+            (0xd101, 0xffff),
+            (0x5cb1, 0xffff),
+            (0xe000, 0xffff),
+            (0x5cb9, 0xffff),
+            (0x4281, 0xffff),
+            (0xd204, 0xffff),
+            (0x1c52, 0xffff),
+            (0x0612, 0xffff),
+            (0x0e12, 0xffff),
+            (0x42a2, 0xffff),
+            (0xd3f1, 0xffff),
+            (0x42a2, 0xffff),
+            (0xd307, 0xffff),
+            (0x0023, 0xffff),
+            (0x0001, 0xffff),
+            (0x4800, 0xff00),
+            (0xf000, 0xf800),
+            (0xd000, 0xd000),
+            (0x1e64, 0xffff),
+            (0x0622, 0xffff),
+            (0x0e12, 0xffff),
+            (0x7829, 0xffff),
+            (0x23cc, 0xffff),
+            (0x0018, 0xffff),
+            (0x4388, 0xffff),
+            (0xd102, 0xffff),
+            (0x4900, 0xff00),
+            (0x0050, 0xffff),
+            (0xe009, 0xffff),
+            (0x7828, 0xffff),
+            (0x4018, 0xffff),
+            (0x28c8, 0xffff),
+            (0xd102, 0xffff),
+            (0x4900, 0xff00),
+            (0x0050, 0xffff),
+            (0xe002, 0xffff),
+            (0x4900, 0xff00),
+            (0x0050, 0xffff),
+            (0x3156, 0xffff),
+            (0x5a08, 0xffff),
+            (0xbdf8, 0xffff),
+            (0xb5f8, 0xffff),
+            (0x4e00, 0xff00),
+            (0x000c, 0xffff),
+            (0x7835, 0xffff),
+            (0x27cc, 0xffff),
+            (0x403d, 0xffff),
+        ],
+    },
+];
+fn flash_range(image: &[u8], at: usize, length: usize) -> Result<usize, Error> {
+    if at == 0 || at.checked_add(length).map_or(true, |end| end > image.len()) {
+        return Err(Error::InvalidContract);
+    }
+    Ok(at)
+}
+fn native_range(image: &[u8], at: usize, length: usize, runtime: bool) -> Result<usize, Error> {
+    if runtime
+        && (0x01ff0000..0x02010000).contains(&at)
+        && at.checked_add(length).is_some_and(|end| end <= 0x02010000)
+    {
+        Ok(at)
+    } else if !runtime {
+        flash_range(image, at, length)
+    } else {
+        Err(Error::InvalidContract)
+    }
+}
+impl ClassicParameter {
+    /// Select a complete code grammar and require its adjacent setter to use
+    /// the same state cell as the independently matched disc consumers.
+    pub fn detect(image: &[u8], state: u32) -> Result<Self, Error> {
+        if !(0x01ff0000..0x02010000).contains(&state) {
+            return Err(Error::InvalidContract);
+        }
+        let mut found = None;
+        for def in DEFINITIONS {
+            let length = def.pattern.len() * 2;
+            if image.len() < length {
+                continue;
+            }
+            for entry in (0..=image.len() - length).step_by(2) {
+                if !matches(image, entry, def.pattern) {
+                    continue;
+                }
+                if literal_value(image, entry + def.setter_state) != Some(state) {
+                    return Err(Error::InvalidContract);
+                }
+                let rates =
+                    literal_value(image, entry + def.rates).ok_or(Error::InvalidContract)? as usize;
+                let oem = literal_value(image, entry + def.oem_table)
+                    .ok_or(Error::InvalidContract)? as usize;
+                if rates != oem {
+                    return Err(Error::InvalidContract);
+                }
+                flash_range(image, rates, usize::from(def.rate_count))?;
+                let oem_coefficients = flash_range(
+                    image,
+                    oem.checked_add(def.oem_bias)
+                        .ok_or(Error::InvalidContract)?,
+                    usize::from(def.rate_count) * 2,
+                )?;
+                let table = literal_value(image, entry + def.target_table)
+                    .ok_or(Error::InvalidContract)? as usize;
+                let coefficients = native_range(
+                    image,
+                    table
+                        .checked_add(def.target_bias)
+                        .ok_or(Error::InvalidContract)?,
+                    def.target_bytes,
+                    def.target_runtime,
+                )?;
+                if coefficients % 2 != 0 {
+                    return Err(Error::InvalidContract);
+                }
+                let site = entry + def.gate;
+                let selection = if def.variant == ClassicParameterVariant::MediaSelected {
+                    if literal_value(image, entry + 2) != Some(state) {
+                        return Err(Error::InvalidContract);
+                    }
+                    let reject = conditional(image, site + 2, thumb_asm::Cond::Ne)
+                        .ok_or(Error::InvalidContract)?;
+                    if reject != entry + def.oem_table {
+                        return Err(Error::InvalidContract);
+                    }
+                    Some(C7Selection {
+                        site,
+                        replay: vec![0x28c8],
+                        span: 4,
+                        accept: site + 4,
+                        reject,
+                    })
+                } else {
+                    None
+                };
+                let proof = Self {
+                    variant: def.variant,
+                    entry,
+                    lookup: entry + def.lookup,
+                    rates,
+                    rate_count: def.rate_count,
+                    coefficients_are_runtime: def.target_runtime,
+                    coefficients,
+                    oem_coefficients,
+                    selection,
+                    caller: SavedLink::bind(image, entry + def.frame, site)?,
+                };
+                if found.replace(proof).is_some() {
+                    return Err(Error::Ambiguous);
+                }
+            }
+        }
+        found.ok_or(Error::UnknownLayout)
+    }
+}

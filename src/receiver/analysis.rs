@@ -18,12 +18,20 @@ pub struct SelectedRange {
     /// Unique checked acceptance tail using these selection cells. Reachability
     /// from the signature loop and helper semantics are separate obligations.
     pub acceptance: Option<programming::AcceptanceTail>,
+    /// Save/restore slot paired with this tail and the command frame, when bound.
+    pub state_slot: Option<programming::StateSlotEvidence>,
 }
+
+#[cfg(test)]
+#[path = "analysis_bulk_acceptance_tests.rs"]
+mod bulk_acceptance_tests;
 
 /// A scratch header call and in-place body call sharing the same pointer cell
 /// and AES routine. Both selected-start policies are traced independently.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BulkDecode {
+    /// Range-selection block whose two starts supplied these decode calls.
+    pub selection_address: u32,
     /// Scratch header input/output evidence.
     pub header: Call,
     /// Body call when the selected start is zero.
@@ -43,6 +51,20 @@ pub struct ApplicationAnalysis {
     conflicting_arguments: bool,
 }
 
+// Whether the halfword before `start` opens a 32-bit Thumb-2 encoding, or
+// cannot be read (so `start` is not a proven instruction boundary).
+fn after_wide_prefix(bytes: &[u8], base: u32, start: u32) -> bool {
+    start
+        .checked_sub(2)
+        .and_then(|previous| previous.checked_sub(base))
+        .and_then(|offset| usize::try_from(offset).ok())
+        .and_then(|offset| bytes.get(offset..offset.checked_add(2)?))
+        // An unreadable previous halfword is not evidence of a boundary.
+        .map_or(true, |half| {
+            u16::from_le_bytes([half[0], half[1]]) >> 11 >= 0b11101
+        })
+}
+
 impl ApplicationAnalysis {
     /// Analyze a bounded application code snapshot once. No firmware target,
     /// filename, model or version string contributes to the result.
@@ -60,6 +82,7 @@ impl ApplicationAnalysis {
                     selection,
                     signature,
                     acceptance: None,
+                    state_slot: None,
                 });
             }
             if let Some(proof) = programming::inspect_legacy_integrity(bytes, base, address) {
@@ -67,6 +90,9 @@ impl ApplicationAnalysis {
             }
         }
         let mut scratch: Vec<Call> = Vec::new();
+        // Whether some trace from a proven instruction boundary established
+        // the scratch call at the same index.
+        let mut scratch_boundary: Vec<bool> = Vec::new();
         let mut conflicting_arguments = false;
         for range in &mut ranges {
             let Some(signature) = range.signature else {
@@ -129,17 +155,31 @@ impl ApplicationAnalysis {
                 if !super::matches(routine, super::AES) {
                     continue;
                 }
-                if let Some(previous) = scratch.iter().find(|c| c.address == call.address) {
+                // As for the bulk header below, a start after a 32-bit prefix
+                // halfword may be the second half of one executed instruction;
+                // it counts toward conflicts but cannot alone establish a call.
+                let boundary = !after_wide_prefix(bytes, base, start);
+                if let Some(index) = scratch.iter().position(|c| c.address == call.address) {
+                    let previous = &scratch[index];
                     // r3 is not an AES argument. Different tracing start points
                     // can establish different irrelevant r3 facts.
                     conflicting_arguments |= previous.target != call.target
                         || previous.source != call.source
                         || previous.destination != call.destination
                         || previous.length != call.length;
+                    scratch_boundary[index] |= boundary;
                 } else {
                     scratch.push(call);
+                    scratch_boundary.push(boundary);
                 }
             }
+        }
+        // An AES call on staged bytes whose arguments are unproven is
+        // incomplete evidence, never the absence of a scratch decoder.
+        if scratch_boundary.contains(&false) {
+            conflicting_arguments = true;
+            let mut proven = scratch_boundary.into_iter();
+            scratch.retain(|_| proven.next() == Some(true));
         }
         scratch.sort_by_key(|c| c.address);
         let mut bulk = Vec::new();
@@ -195,6 +235,7 @@ impl ApplicationAnalysis {
             let first = range.selection.address.saturating_sub(512).max(base);
             let mut header: Option<Call> = None;
             let mut ambiguous = false;
+            let mut boundary = false;
             for start in (first..range.selection.address).step_by(2) {
                 let Some(call) =
                     decoding::trace_call(bytes, base, start, [Value::Unknown; 8], |a| {
@@ -221,16 +262,65 @@ impl ApplicationAnalysis {
                 } else {
                     header = Some(call);
                 }
+                // A start after a 32-bit prefix halfword may be the second
+                // half of an instruction the CPU executes as one; such a
+                // trace still counts toward ambiguity but cannot alone
+                // establish the header arguments.
+                boundary |= !after_wide_prefix(bytes, base, start);
             }
-            if ambiguous {
-                conflicting_arguments = true;
-            } else if let Some(header) = header {
-                bulk.push(BulkDecode {
+            // A proven in-place body decode without its header call is
+            // incomplete evidence, never the absence of a bulk decoder.
+            match (ambiguous, header) {
+                (false, Some(header)) if boundary => bulk.push(BulkDecode {
+                    selection_address: range.selection.address,
                     header,
                     from_zero,
                     preserving_boot,
-                });
+                }),
+                _ => conflicting_arguments = true,
             }
+        }
+        for range in &mut ranges {
+            if range.signature.is_some() {
+                continue;
+            }
+            let mut candidates = bulk
+                .iter()
+                .filter(|decode| decode.selection_address == range.selection.address)
+                .flat_map(|decode| {
+                    let cell = match decode.from_zero.source {
+                        Value::Loaded { cell, offset: 0 } => cell,
+                        _ => return Vec::new(),
+                    };
+                    integrity
+                        .iter()
+                        .filter_map(|checks| {
+                            if checks.address <= decode.from_zero.address
+                                || checks.address.checked_sub(decode.from_zero.address)? > 1024
+                            {
+                                return None;
+                            }
+                            programming::inspect_acceptance_with_staging(
+                                bytes,
+                                base,
+                                &range.selection,
+                                cell,
+                                checks,
+                            )
+                        })
+                        .collect::<Vec<_>>()
+                });
+            let first = candidates.next();
+            if candidates.next().is_some() {
+                conflicting_arguments = true;
+            } else {
+                range.acceptance = first;
+            }
+        }
+        for range in &mut ranges {
+            range.state_slot = range.acceptance.as_ref().and_then(|tail| {
+                programming::inspect_state_slot(bytes, base, &range.selection, tail)
+            });
         }
         Some(Self {
             ranges,
@@ -250,10 +340,17 @@ impl ApplicationAnalysis {
         &self.integrity
     }
     /// Argument-traced scratch header decoder calls, not whole-image decoders.
+    /// A call established only by traces that do not start on a proven
+    /// instruction boundary is withheld and sets [`Self::conflicting_arguments`].
     pub fn scratch_decoders(&self) -> &[Call] {
         &self.scratch
     }
-    /// Whether candidate traces disagree about a decoder's actual arguments.
+    /// Whether the evidence is ambiguous or incomplete: candidate traces
+    /// disagree about a decoder's actual arguments, more than one acceptance
+    /// tail matches a range, a proven body decode lacks its header call, or a
+    /// scratch or bulk header call is established only by traces that do not
+    /// start on a proven instruction boundary.
+    /// Consumers must refuse a transfer contract when this is set.
     pub fn conflicting_arguments(&self) -> bool {
         self.conflicting_arguments
     }

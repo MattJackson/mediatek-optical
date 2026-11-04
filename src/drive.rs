@@ -49,7 +49,8 @@ pub trait Transport {
 #[derive(Debug)]
 #[non_exhaustive]
 pub enum Error<E> {
-    /// The transport failed.
+    /// The transport failed. The host error is not exposed through
+    /// `std::error::Error::source` because `E` need only implement `Debug`.
     Transport(E),
     /// The drive returned fewer bytes than required.
     Short {
@@ -121,8 +122,9 @@ fn field<E>(n: usize, max: usize) -> Result<u32, Error<E>> {
 /// descriptor. Changes no drive state.
 ///
 /// Only INQUIRY is required. A drive that refuses the banner or descriptor
-/// read still identifies, with those fields empty; [`Identity::is_mt19`] then
-/// reports `false`.
+/// read still identifies, with that field empty: a refused banner read makes
+/// [`Identity::is_mt19`] report `false`, a refused descriptor read makes
+/// [`Identity::has_descriptor`] report `false`.
 pub fn identify<T: Transport>(t: &mut T) -> Result<Identity, Error<T::Error>> {
     let mut inquiry = [0; cdb::INQUIRY_ALLOC as usize];
     read(

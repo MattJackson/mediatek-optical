@@ -36,13 +36,17 @@ two: a BH16NS40 1.03 (`JB7`, family `11e7527216405467`) and a BH16NS40 1.05
 (`JB8`, family `70f72c46f9603141`) are different boards, and the vendor
 updaters refuse to cross them. `None` means the family cannot be
 established: a wrong size, no chip, a malformed banner, no or several
-records, a record for another chip or platform, or a broken feature template.
+records, a record without a parseable `MTEKMT19xx` tag (the tag may name the
+other chip), a tagged descriptor whose platform code differs from the
+record's, or a broken feature template.
 
 ## Updates
 
 `envelope::Envelope::load(bytes)` recognizes plaintext and OEM AES input,
 validates the canonical image, and retains the original bytes and both hashes.
-Corrupt images, empty integrity tables and raw drive captures are rejected.
+Corrupt images, empty integrity tables, tables with an unrecognised entry
+enabled word (only 1 = active and 0xFFFFFFFF = unused are defined) and raw
+drive captures are rejected.
 Its `input_encoding()` describes the file only: the running receiver determines
 the required transfer encoding. Loading an envelope performs no drive I/O and
 does not authorize writing.
@@ -55,12 +59,41 @@ plan. Unknown or conflicting receiver contracts fail before any write. File
 encoding never chooses transfer encoding; header and body can require different
 representations.
 
-`receiver::PreparedUpdate::flash` requires complete protected-region readback.
-`flash_completed` also confirms exact target startup but returns a `Completion`
-whose `ReadbackQuality` explicitly distinguishes complete and limited readback.
-Every readable mismatch and every failed data write remains an error. Neither
-readiness nor a matching model name alone establishes target startup. The
-120-second readiness bound accommodates the OEM command window.
+`receiver::PreparedUpdate::flash_completed` returns a `Completion` whose
+`ReadbackQuality` explicitly distinguishes complete and limited readback, and
+whose `Startup::evidence()` states how strongly a restart into the target was
+observed. Every readable mismatch and every failed data write remains an error.
+
+After COMMIT the sequence is unchanged: TEST UNIT READY (a failure is only
+reported), REQUEST SENSE, a TEST UNIT READY poll of at most 120 seconds (the OEM
+command window), REQUEST SENSE, read-back, then one INQUIRY and one READ BUFFER
+of the descriptor. Readiness only gates read-back. Neither a not-ready poll nor
+a unit-attention sense is counted as restart evidence: no recorded hardware fact
+establishes either as a restart signal. Success requires read-back, an
+application INQUIRY whose vendor, product and revision equal the target's, and
+the stored descriptor (bytes 0..0x58) equal to the target's. That descriptor is
+read through READ BUFFER, the same path as read-back, so it shows what was
+programmed, not what is running.
+
+The post-write INQUIRY is compared with the receiver identity revalidated
+immediately before the write (operating mode and INQUIRY bytes 8..36 only; a
+`Receiver::from_firmware` receiver stores a synthesized INQUIRY whose other
+bytes are not evidence):
+
+- `StartupEvidence::LeftBoot`: BOOT answered before the write; the target
+  application answers now.
+- `StartupEvidence::IdentityChanged`: the application reported a different
+  vendor, product or revision before the write and reports the target's now.
+  Whether old code could serve INQUIRY from newly programmed flash is not
+  recorded; this is the strongest evidence INQUIRY offers.
+- `StartupEvidence::Unobserved`: the application already reported the target's
+  identity before the write (a reflash or a same-version build). INQUIRY cannot
+  tell the old firmware still running apart from the target having started.
+  `flash_completed` returns this as reduced verification, not confirmed
+  startup. Hosts must check
+  `Startup::evidence()` and, for `Unobserved`, advise a power cycle and
+  re-identification before relying on the new firmware. No command is added to
+  look for a restart, and nothing is retried.
 
 When installed bytes are genuinely unavailable, the explicit
 `prepare_without_installed` path retains target/chip/receiver checks but cannot
@@ -68,6 +101,15 @@ establish installed-family equality. The caller must obtain the corresponding
 consent; the library never invents installed bytes from the target. A Current
 firmware reference may supply offline receiver evidence, with explicit provenance
 and physical metadata binding; post-write verification still uses live reads.
+
+The installed binding, Current-reference revalidation (at detection and again
+immediately before PREPARE) and post-write startup confirmation each compare the
+complete 0x100-byte identity descriptor at 0x1ec000. The descriptor is programmed
+from the image, not written by the drive. Read-back compares only the image's
+CMAC-covered ranges; in every held MT19 image these exclude the descriptor, so
+startup is the only post-write evidence for it. A differing descriptor is
+`receiver::Error::Changed` before a write and `StartupError::TargetMismatch`
+after one.
 
 ## OEM reconstruction
 
@@ -117,6 +159,32 @@ Offsets are 24-bit big-endian.
 The drive erases and programs flash when the last chunk of a complete 2 MiB
 image lands. The commit is a trailing handshake.
 
+### Native command dispatch (static-analysis model)
+
+The `analysis` feature models how drive firmware selects a command handler.
+This is a static-analysis model derived from one disassembly, BH16NS40 1.04
+(SHA-256 `86a46340da93d1f5a1596ab6e42918a9d4e7cb46394408b5ae8fa60f41e0c22f`;
+the copy `bc4e6126b880475d58c21e8639ea81f33facc3d4c8284bf6a739d8e8f6c75921`
+has the same layout). It has not been verified on hardware.
+
+- The dispatcher scans one array root at a time. A registrar called with `BL`
+  sets the initial root. Tail-call (`B`) registrations, one per media type,
+  replace it.
+- It first scans a RAM lookup cache that the registrar initialises. It assumes
+  that a hit in a registered table is copied into the cache, so the cache holds
+  no record that the flash tables do not already hold. This copy-on-hit
+  behaviour is a modelling assumption.
+- In a restricted state it scans only one flash table, which it is handed
+  directly.
+
+`CommandDispatch::record()` computes uniqueness over every table in the model,
+and requires the selected record to be reached from the initial root and from
+every media-type root. The model does not cover:
+
+- whether a tail-call site is live;
+- writers of the array or the cache other than the registrar;
+- indirect registrations.
+
 ## Safety
 
 An update session writes drive firmware. A wrong image, or an interrupted
@@ -150,13 +218,13 @@ application are evaluated independently, including images whose two receivers
 expect different formats. Read failures can prevent detection on a live drive;
 static corpus coverage does not establish physical-device read accessibility.
 
-Explicit `recovery::PreparedRecovery::flash` reports a failed PREPARE through
+Explicit `recovery::PreparedRecovery::flash_completed` reports a failed PREPARE through
 `FlashRuntime::recovery_entry_failed` and proceeds once to the selected image.
 This is recovery host policy, not a claim that the receiver always rejects
-PREPARE. Normal `PreparedUpdate::flash` remains strict. STREAM failures stop
-both paths, no firmware writes retry, and recovery still requires readback
-verification and confirmed application startup. Physical recovery remains
-unvalidated.
+PREPARE. Normal `PreparedUpdate::flash_completed` remains strict. STREAM
+failures stop both paths, no firmware writes retry, and recovery still requires
+readback verification and the target application identity, reporting the
+restart evidence as above. Physical recovery remains unvalidated.
 
 `receiver::entry::inspect_boot_legacy(window, flash_address)` and
 `inspect_boot_dual(window, flash_address)` inspect PREPARE flag-copy grammars
@@ -209,7 +277,12 @@ closed. Encrypted applications with a proven shared 0x67 entry select that
 dialect; the other recognized receivers select the proven mode-one path.
 Both Flash and explicit Recovery store the resulting command in the same
 immutable `TransferPlan`, revalidate its code/table snapshots before writing,
-and execute through the shared transfer/readback engine. `detect_encoding`
+and execute through the shared transfer/readback engine. The snapshot re-read
+is bracketed by INQUIRY identity checks: READ BUFFER returns the same flash
+bytes from BOOT and from the application, so only INQUIRY binds the running
+receiver, and the last revalidation command before the update session is an
+INQUIRY. A Current-reference receiver likewise re-reads INQUIRY after its
+banner and descriptor. `detect_encoding`
 remains a read-only encoding probe and cannot supply an executable plan.
 
 The private website corpus test replays both receiver modes for every package:
@@ -227,4 +300,6 @@ stable identifier such as `mediatek.receiver.changed`, independent of runtime
 values. Match typed variants for parameters and use codes for translation keys;
 English `Display` messages are diagnostic prose. Wrapper errors preserve their
 own stage code and expose typed causes through `std::error::Error::source` when
-`std` is enabled. Handle unknown future identifiers with a generic message.
+`std` is enabled. The source chain ends at `drive::Error`: its transport
+variant carries the host's own error type, which only needs `Debug`, so match
+`drive::Error::Transport(e)` to inspect it. Handle unknown future identifiers with a generic message.

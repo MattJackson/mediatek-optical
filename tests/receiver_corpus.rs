@@ -39,7 +39,9 @@ fn every_website_binary_matches_both_receiver_expectations() {
     .unwrap();
     let root = std::path::PathBuf::from(std::env::var("MTK_HOARD_ROOT").unwrap());
     let rows = report["results"].as_array().unwrap();
-    assert_eq!(rows.len(), report["packages"].as_u64().unwrap() as usize);
+    // Pin the published corpus size so an empty or truncated audit cannot pass.
+    assert_eq!(report["packages"].as_u64(), Some(120));
+    assert_eq!(rows.len(), 120);
     for row in rows {
         let mut image = Image {
             bytes: std::fs::read(root.join(row["path"].as_str().unwrap())).unwrap(),
@@ -51,10 +53,13 @@ fn every_website_binary_matches_both_receiver_expectations() {
             assert_eq!(mode.mode(), if boot { Mode::Boot } else { Mode::Firmware });
             let result = receiver::detect_encoding(&mut image, &mode)
                 .unwrap_or_else(|e| panic!("{} {key}: {e}", row["filename"]));
-            let expected = if row["receivers"][key]["encoding"] == "encrypted" {
-                Encoding::Encrypted
-            } else {
-                Encoding::Plaintext
+            let expected = match row["receivers"][key]["encoding"].as_str() {
+                Some("encrypted") => Encoding::Encrypted,
+                Some("plaintext") => Encoding::Plaintext,
+                other => panic!(
+                    "{} {key}: unexpected audit encoding {other:?}",
+                    row["filename"]
+                ),
             };
             assert_eq!(result.encoding(), expected, "{} {key}", row["filename"]);
         }

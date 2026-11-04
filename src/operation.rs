@@ -30,7 +30,8 @@ pub enum Phase {
     Preparing,
     /// Sending firmware to the drive.
     Writing,
-    /// Waiting for programming and restart to finish.
+    /// Waiting for programming and restart to finish. Readiness in this phase
+    /// only gates read-back; it is never evidence that the drive restarted.
     Restarting,
     /// Comparing bytes read from the drive with the prepared target.
     Verifying,
@@ -83,14 +84,5 @@ impl Progress {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn waiting_does_not_invent_a_percentage() {
-        let waiting = Progress::waiting(Phase::Restarting, Component::Firmware);
-        assert_eq!((waiting.done, waiting.total), (None, None));
-        let measured = Progress::bytes(Phase::Verifying, Component::Firmware, 512, 1024);
-        assert_eq!((measured.done, measured.total), (Some(512), Some(1024)));
-    }
-}
+#[path = "operation_tests.rs"]
+mod tests;

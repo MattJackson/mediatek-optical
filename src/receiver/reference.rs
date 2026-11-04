@@ -59,36 +59,67 @@ impl<E: core::fmt::Debug + 'static> std::error::Error for Error<E> {
 pub(super) struct Binding {
     identity: [u8; 28],
     banner: [u8; layout::BANNER.len],
-    descriptor: [u8; 0x58],
+    descriptor: [u8; layout::DESCRIPTOR.len],
     live_banner: Option<[u8; layout::BANNER.len]>,
+    live_descriptor: Option<[u8; layout::DESCRIPTOR.len]>,
     image_hash: [u8; 32],
 }
+struct Metadata {
+    banner: [u8; layout::BANNER.len],
+    descriptor: [u8; layout::DESCRIPTOR.len],
+}
+
 impl Binding {
-    fn read_banner<T: Transport>(
+    // Mode and identity bytes only: an offline-stage receiver from
+    // `from_firmware` holds a synthetic INQUIRY record.
+    pub(super) fn revalidate_identity<T: Transport>(
         &self,
         t: &mut T,
-    ) -> Result<[u8; layout::BANNER.len], super::Error<T::Error>> {
+    ) -> Result<(), super::Error<T::Error>> {
         let mode = super::detect_mode(t)?;
         if mode.mode() != Mode::Firmware || mode.inquiry()[8..36] != self.identity {
             return Err(super::Error::Changed);
         }
+        Ok(())
+    }
+
+    fn read_metadata<T: Transport>(&self, t: &mut T) -> Result<Metadata, super::Error<T::Error>> {
+        self.revalidate_identity(t)?;
         let mut banner = [0; layout::BANNER.len];
         drive::read_memory(t, layout::BANNER.start as u32, &mut banner)
             .map_err(super::Error::Read)?;
         let mut descriptor = [0; layout::DESCRIPTOR.len];
         drive::read_memory(t, layout::DESCRIPTOR.start as u32, &mut descriptor)
             .map_err(super::Error::Read)?;
+        // DE is an update-policy marker, not receiver/build identity. Only the
+        // known OEM/modified transition is equivalent for initial binding.
+        // Once bound, compare the actual live snapshot strictly, including DE.
+        let same_descriptor = self.live_descriptor.map_or_else(
+            || {
+                descriptor == self.descriptor
+                    || descriptor[..0x56] == self.descriptor[..0x56]
+                        && descriptor[0x57..] == self.descriptor[0x57..]
+                        && matches!(
+                            (descriptor[0x56], self.descriptor[0x56]),
+                            (0xff, 0xde) | (0xde, 0xff)
+                        )
+            },
+            |expected| descriptor == expected,
+        );
         if banner[..16] != self.banner[..16]
-            || descriptor[..0x58] != self.descriptor
+            || !same_descriptor
             || self.live_banner.is_some_and(|expected| banner != expected)
         {
             return Err(super::Error::Changed);
         }
-        Ok(banner)
+        Ok(Metadata { banner, descriptor })
     }
 
+    // INQUIRY is read again last: banner and descriptor reads return the same
+    // flash bytes whichever receiver is running.
     pub(super) fn revalidate<T: Transport>(&self, t: &mut T) -> Result<(), super::Error<T::Error>> {
-        self.read_banner(t).map(|_| ())
+        self.read_metadata(t)?;
+        self.revalidate_identity(t)
     }
 }
 
@@ -116,8 +147,9 @@ impl Receiver {
                 .expect("validated banner")
                 .try_into()
                 .unwrap(),
-            descriptor: descriptor[..0x58].try_into().expect("descriptor metadata"),
+            descriptor: descriptor.try_into().expect("descriptor length"),
             live_banner: None,
+            live_descriptor: None,
             image_hash: *envelope.image_sha256(),
         });
         Ok(receiver)
@@ -149,7 +181,9 @@ pub fn detect<T: Transport>(t: &mut T, envelope: &Envelope) -> Result<Receiver, 
         Error::Binding(_) => unreachable!("offline analysis performs no physical binding"),
     })?;
     let binding = receiver.reference.as_mut().expect("reference receiver");
-    binding.live_banner = Some(binding.read_banner(t).map_err(Error::Binding)?);
+    let Metadata { banner, descriptor } = binding.read_metadata(t).map_err(Error::Binding)?;
+    binding.live_banner = Some(banner);
+    binding.live_descriptor = Some(descriptor);
     // Preserve the actual INQUIRY record for diagnostics, never synthesize live identity.
     let identity = super::detect_mode(t).map_err(Error::Binding)?;
     if identity.mode() != Mode::Firmware || identity.inquiry()[8..36] != binding.identity {
@@ -193,121 +227,5 @@ impl Transport for ImageSource<'_> {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    struct Restricted {
-        image: Vec<u8>,
-        reads: usize,
-    }
-    impl Transport for Restricted {
-        type Error = &'static str;
-        fn sense(&self) -> Option<(u8, u8, u8)> {
-            None
-        }
-        fn exec(&mut self, command: &[u8], data: Data<'_>) -> Result<usize, Self::Error> {
-            self.reads += 1;
-            let Data::In(bytes) = data else {
-                panic!("reference binding must not write")
-            };
-            if command == cdb::inquiry(INQUIRY_LEN as u16) {
-                bytes.fill(0);
-                bytes[0] = 5;
-                bytes[4] = 31;
-                bytes[8..36].copy_from_slice(
-                    &self.image[layout::DESCRIPTOR.start..layout::DESCRIPTOR.start + 28],
-                );
-            } else {
-                let address = ((command[3] as usize) << 16)
-                    | ((command[4] as usize) << 8)
-                    | command[5] as usize;
-                if ![layout::BANNER, layout::DESCRIPTOR]
-                    .iter()
-                    .any(|range| address == range.start && bytes.len() == range.len)
-                {
-                    return Err("physical code reads unavailable");
-                }
-                bytes.copy_from_slice(&self.image[address..address + bytes.len()]);
-            }
-            Ok(bytes.len())
-        }
-    }
-
-    fn fixture() -> (Envelope, Restricted) {
-        let mut image = crate::fixtures::image(&crate::fixtures::BU3, 7);
-        for (i, &byte) in super::super::PLAIN_APP.iter().enumerate() {
-            image[0x9a300 + i] = if byte == super::super::ANY {
-                0
-            } else {
-                byte as u8
-            };
-        }
-        let image = crate::fixtures::sign(image);
-        let envelope = Envelope::load(&image).unwrap();
-        (envelope, Restricted { image, reads: 0 })
-    }
-
-    #[test]
-    fn explicit_reference_binds_without_physical_code_reads() {
-        let (envelope, mut live) = fixture();
-        let receiver = detect(&mut live, &envelope).unwrap();
-        assert_eq!(receiver.provenance(), Provenance::CurrentReference);
-        assert_eq!(receiver.reference_sha256(), Some(envelope.image_sha256()));
-        assert!(receiver.prepare_command().is_some());
-        receiver.revalidate(&mut live).unwrap();
-        assert!(live.reads > 0);
-    }
-
-    #[test]
-    fn offline_stage_requires_actual_matching_application_at_handoff() {
-        let (envelope, mut live) = fixture();
-        let receiver = Receiver::from_firmware(&envelope).unwrap();
-        assert_eq!(live.reads, 0);
-        receiver.revalidate(&mut live).unwrap();
-        live.image[layout::DESCRIPTOR.start + 24..layout::DESCRIPTOR.start + 28]
-            .copy_from_slice(b"INTM");
-        assert!(matches!(
-            receiver.revalidate(&mut live),
-            Err(super::super::Error::Changed)
-        ));
-        live.image[layout::DESCRIPTOR.start + 24..layout::DESCRIPTOR.start + 28]
-            .copy_from_slice(b"BOOT");
-        assert!(detect(&mut live, &envelope).is_err());
-    }
-
-    #[test]
-    fn reference_binding_checks_build_metadata_and_preserves_live_boot_snapshot() {
-        let (envelope, mut live) = fixture();
-        live.image[layout::BANNER.start + 20] ^= 1;
-        let receiver = detect(&mut live, &envelope).unwrap();
-        receiver.revalidate(&mut live).unwrap();
-        live.image[layout::BANNER.start + 20] ^= 2;
-        assert!(receiver.revalidate(&mut live).is_err());
-        let receiver = Receiver::from_firmware(&envelope).unwrap();
-        receiver.revalidate(&mut live).unwrap();
-        live.image[layout::DESCRIPTOR.start + 0x40] ^= 1;
-        assert!(receiver.revalidate(&mut live).is_err());
-    }
-
-    #[test]
-    fn unknown_reference_code_does_not_gain_a_receiver_from_matching_metadata() {
-        let (envelope, mut live) = fixture();
-        let mut image = envelope.image().to_vec();
-        image[0x98000..0xb4000].fill(0);
-        let envelope = Envelope::load(&crate::fixtures::sign(image)).unwrap();
-        assert!(matches!(
-            detect(&mut live, &envelope),
-            Err(Error::Analysis(_))
-        ));
-        assert_eq!(live.reads, 0);
-    }
-
-    #[test]
-    fn reference_is_not_a_source_of_live_readback_bytes() {
-        let (envelope, mut live) = fixture();
-        let receiver = detect(&mut live, &envelope).unwrap();
-        receiver.revalidate(&mut live).unwrap();
-        let mut code = [0; 32];
-        assert!(drive::read_memory(&mut live, 0x9a300, &mut code).is_err());
-    }
-}
+#[path = "reference_tests.rs"]
+mod tests;

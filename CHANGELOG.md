@@ -1,5 +1,130 @@
 # Changelog
 
+## 1.3.0
+
+Merges the native-binding analysis branch (previously consumed by hosts as 1.2.0 at `21031df`) into the 1.2.0 line below; 1.3.0 contains both.
+
+- Removed the old flash entry points that `flash_completed` replaced. `flash_completed` is now the only way to run an update or a recovery; what is written and how it is checked are unchanged.
+  - Removed `receiver::PreparedUpdate::flash` and `recovery::PreparedRecovery::flash`. They ran the same write as `flash_completed` but turned limited read-back or an unobserved restart into an error. Call `flash_completed` and check `Completion::readback` and `Startup::evidence()` yourself.
+  - Removed `FlashError::Incomplete` (code `mediatek.flash.incomplete`). Unreadable protected chunks are reported only as `ReadbackQuality::Limited` in the `Completion`.
+  - Removed `StartupError::Unobserved` (code `mediatek.startup.unobserved`). An unchanged identity is reported only as `StartupEvidence::Unobserved` in the `Completion`.
+- Current-reference binding accepts the known OEM/modified DE update-policy marker difference (descriptor byte 0x56 `0xde`/`0xff`) at initial binding only; every other byte of the complete 0x100-byte descriptor must still match, and once bound, revalidation compares the live descriptor snapshot strictly, including DE.
+- Programming: bind the native wide programming loop without a controller prelude (`ProgramLoopVariant::WideWithoutPrelude`), with the same wrapper store, copy-extent and reserved-span checks.
+- UHD analysis binds more native layouts without model dispatch: earliest four-rate getters with runtime coefficients (`ClassicCalibration::base_adjustment`), the early saved-position read routine (`ClassicReadPosition::position_register`), early completion selectors across a split literal pool and pointer alias, early/older DI-mode, read-control, read-status, initialization and media-default selector variants (`ClassicConsumer::inspect_kind`, `state_definition`), UH12 selector, speed-default and request-clamp variants, legacy slim density targets, legacy reverse modes, classic DI literal islands, stack20/stack32 DI admission and registered UHD key paths.
+- `ClassicConsumer::inspect_rom` binds the C-family ROM selector group separately from the preserved W/F-family read recovery, whose native F-family entry gate is reported in `ClassicConsumer::entry_media_family`.
+- Add `analysis::NvRecordCopy`: binds the native NV record copy independently of factory contents.
+- `SavedLink` walks bound callers by control flow and stack depth rather than a fixed 0x1200-byte window. `SavedLink::require_live_definition` follows a taken conditional branch onto a branch on the same condition (unchanged flags) to its destination instead of also exploring that branch's infeasible fall-through, so native shared exit branches no longer refuse a loop that cannot re-reach the read.
+- `ClassicReadPosition::detect` reports an image shorter than one routine grammar as `UnknownLayout` while still searching the other grammar; the early grammar also binds its second status-cell load.
+
+## 1.2.0
+
+- Table and response analysis no longer drops or invents evidence at the edges: `ResponseIo` ignores committer-argument definitions that every path overwrites, or that return or call before the committer call (instead of reporting `Ambiguous`), counts writers whose offset is a bare `movs r2,#imm` and a committer call in the last 4 bytes of the image; `CommandScanner::table_roots` ignores an immediate `BLX` to the Thumb registrar (it enters ARM state) and examines a registrar call and an array loop ending the image; a call to a switch helper cut off by the end of the input is `Truncated` rather than an ordinary call.
+- Analysis refuses more partial evidence: `RequestedRateClamp::detect` also counts a clamp in the last 32 bytes of the image (`Ambiguous`); `AuthCell` requires the auth==6 fall-through to reach the preparation call through straight-line code and direct `BL` calls; `ResponseIo` reports `Ambiguous` when a writer's buffer offset is passed by a committer caller whose argument cannot be proven, including when no proven writer exists, and also counts committer callers that pass a bare `movs r0,#imm` or define `r0` up to 0x60 bytes before the call; `VidGate::agid_base` also binds checked AGID reads through `r0`-`r3`.
+- `ClassicCalibration::detect` and `ClassicConsumer::inspect` report an image shorter than their routine as `UnknownLayout` rather than `Truncated`; `image::hardware` (and so the family) refuses a boot banner with a further word after the loader token (`MT1959 Boot JB8 A`) instead of keying it as loader `JB8`.
+- `receiver::detect_encoding` also examines a header-decrypt call in the first 32 bytes of its search window (reading the call's setup just before the window), so it conflicts with a plaintext signature instead of losing to it; `programming::inspect_integrity_walker` refuses an odd `start` or `base`; `PrepareError::ReceiverContract` is documented (and displayed) as also covering an image the recognized receiver contract does not accept.
+- Post-write startup confirmation and Current-reference revalidation compare the complete 0x100-byte identity descriptor (previously the first 0x58 bytes), matching `InstalledFirmware`; a differing tail is `StartupError::TargetMismatch` after a write and `receiver::Error::Changed` before one.
+- Post-write startup evidence: `flash_completed` (update and recovery) now reports `Startup::evidence()` (`update::StartupEvidence`): `LeftBoot` when BOOT answered before the write, `IdentityChanged` when the INQUIRY vendor/product/revision changed to the target's, and `Unobserved` when the drive already reported the target's identity before the write (a reflash or same-version build), so the old firmware still running cannot be told apart from the target having started. `flash_completed` may now return `Unobserved`; hosts must consult `evidence()` and, for `Unobserved`, advise a power cycle and re-identification. Previously such a result was presented as confirmed startup. The legacy `flash()` APIs now return `StartupError::Unobserved` (`mediatek.startup.unobserved`, `IssueKind::Verification`) after a write in that case; limited read-back is still reported first as `FlashError::Incomplete`. `recovery::PreparedRecovery::flash` now reports every `StartupError` cause as `recovery::Error::Startup` (code `mediatek.recovery.startup` instead of `mediatek.recovery.flash`), an observable code change for `TargetMismatch`, `Identity` and `Read` too. `Startup::descriptor` is documented as the stored descriptor read through READ BUFFER, not evidence of what is running; readiness and unit attention are never restart evidence. No commands were added or changed, and nothing is retried.
+- Receiver revalidation now re-reads INQUIRY identity after the code/table snapshot (live receivers), after the boot banner and descriptor (Current-reference receivers), and last in `recovery::Receiver::revalidate`. A BOOT/application mode change or identity change during the long snapshot re-read is refused with `mediatek.receiver.changed` (`ExecuteError::Receiver`, or `recovery::Error::Receiver`) before PROBE/PREPARE. Revalidation adds one INQUIRY on the read transport, which matters to hosts with scripted or mock transports; the write sequence is unchanged.
+- Add `CmacError::UnknownEnabled` and `cmac::UNUSED`. `cmac::verify_detailed` and `cmac::resign` refuse an integrity table with any entry whose enabled word is neither 1 nor 0xFFFFFFFF (it was silently treated as unused), and `cmac::verify` returns false. `Envelope::load`, update and recovery preparation therefore reject such an image as `PrepareError::Integrity` before any write. Every 1/0xFFFFFFFF stock table is unaffected. Precedence: `ImageTooSmall`, then `UnknownEnabled`, then `BadRange` (and, for `resign`, `CircularTable`).
+- Analysis refuses more partial evidence: `RequestedRateClamp::detect` also counts a clamp in the last 32 bytes of the image (`Ambiguous`); `AuthCell` requires the auth==6 fall-through to reach the preparation call through straight-line code and direct `BL` calls; `ResponseIo` reports `Ambiguous` when a writer's buffer offset is passed by a committer caller whose argument cannot be proven, including when no proven writer exists, and also counts committer callers that pass a bare `movs r0,#imm` or define `r0` up to 16 bytes before the call; `VidGate::agid_base` also binds checked AGID reads through `r0`-`r3`.
+- `ApplicationAnalysis` no longer reports a scratch decoder established only by a trace starting inside a 32-bit Thumb-2 instruction; such a call is withheld from `scratch_decoders()` and sets `conflicting_arguments()`, matching the bulk-header rule.
+- `analysis::UhdHandling` is no longer exported: no public API produced or accepted it; `UhdAreaContract::selects_c7()` remains the public view.
+- `SavedLink::bind` and `detect` (and the scanner, command, response, VID, speed and UHD roles built on them) share one stack model between queued successor states and stop recording widened register values, so a crafted switch fan-out no longer holds a stack-model copy per queued state (peak memory stays proportional to the 10000-state cap).
+- `SavedLink::bind` (and roles built on it) refuses a walk that spills more than 256 bytes of stack pointers onto the stack with `InvalidContract`, instead of exhausting memory on looping pointer spills.
+- `SavedLink::require_live_definition` (and `require_argument_definition` / `require_register_definition`, used by the response, VID, scanner and UHD completion roles) keeps walking past the read site, so a path that loops back to the read without re-executing the definition is refused with `InvalidContract` instead of proven.
+- Receiver detection fails closed on more partial evidence: `detect_encoding` examines a header-decrypt call ending exactly at the search-window end; `ApplicationAnalysis::conflicting_arguments()` is set when a proven in-place body decode has no header call (instead of reporting no bulk decoder); the compiler-helper command table refuses an UNDEFINED `BLX` suffix with bit 0 set; `PrepareError::Integrity` is also documented (and displayed) as covering an image with no verifiable protected range.
+- `FlashError::Startup` now takes its `IssueKind` from the `StartupError` it wraps: `TargetMismatch` is `Verification`, `Read` is `Connection` and `Identity` is `Update`. `ExecuteError` delegates its kind to its cause, so receiver refusals are reported as `ReceiverMismatch`, `Connection` and so on instead of `IssueKind::Update`.
+- `analysis::Error` codes now carry a host category: `unknown_layout` and `ambiguous` are `UnsupportedFirmware`, `invalid_contract` and `truncated` are `InvalidFirmware` (previously `Unexpected`). `reference::Error::Analysis` reports offline identity or read failures in the supplied Current file as `InvalidFirmware` instead of `Connection`.
+- Add `CmacError::CircularTable`; `cmac::resign` now refuses tables with more than one active table-covering entry, or an active entry whose range covers its own digest bytes.
+- `image::family::hardware` takes the chip only from the banner's leading `MT19xx` field and refuses a bootloader token longer than eight characters instead of truncating it.
+- `Chip::from_banner` (and so `Identity::chip`, `image::detect_chip` and the update and recovery chip gates) takes the chip only from the banner's leading `MT19xx` field at byte 0; a supported label elsewhere in the banner no longer names the chip. `cmac::resign` reports an inverted or out-of-bounds active range as `BadRange` before checking for circular coverage.
+- `analysis::Diagnostic::source()` now returns the underlying cause.
+- `AuthCell` refusal stores must go through the register their literal load defines; an `r0`-based store without a literal load is refused.
+- `RamReferences` also follows a tracked SRAM pointer used as the index of a `[Rn, Rm]` access: with a known base the exact address is recorded in `uses()`/`bytes()`, otherwise the seed is reported in `incomplete()` instead of being dropped silently. `bytes()` is documented to leave out loader-private fill and copy destinations.
+- `RamReferences::incomplete()` now includes seeds whose path reaches an unmodelled branch (`cbz`/`cbnz`, table branches, indirect `bx`); function returns still end a path normally, and an indirect `blx` is treated as a call that returns.
+- Tighten analysis grammars: `TST`/`CMN`/`TEQ` invalidate cached comparisons; a UHD coefficient continuation must read the register holding `0x51b1` and any other write to it or a call ends the constant; scans now include the last offset; missing literal evidence no longer matches; register-specified shifts in caller analysis use only the low byte of the shift amount, so branch pruning no longer drops live paths.
+- `RamReferences` now records 16-bit `stmia`/`ldmia` accesses through a tracked SRAM pointer (and follows their base writeback), and no longer takes quadratic or per-byte time on images with many fill or copy loops.
+- Command and response analysis refuse more false evidence: the scanner grammar must advance ordinary records to the next record; direct (`BL`/`BLX`) registrar calls and array-owning scanner callers that cannot be proven fail the table graph instead of being dropped (an unproven call that repeats a proven root is still accepted); tail-call (`B`) registrations (`ldr r0,=table; movs r1,#0; b registrar`, one per media mode) and direct scanner calls (`ldr r0,=table; bl scanner`) are bound as extra scanned tables, and any other branch to the registrar or the scanner (conditional, `cbz`/`cbnz`, `BLX`, a non-call branch, or a scanner call passing no live literal table) fails the table graph with `InvalidContract`; the committer's DMA length write must follow the length normalization on the same path, using a length loaded after it.
+- `CommandDispatch::records()` now also covers records reached from tail-call (media mode) roots and from flash tables passed straight to the scanner, walked as the native scanner reads them (flags 3 ends, 4 links, anything else advances; padding and unlisted flags are not refused). `CommandDispatch::record()` (and so `ResponseIo`'s INQUIRY selection) computes uniqueness over all of them, returning `Ambiguous` when a media-mode or direct table also serves the opcode, and requires the selected record to be reached from an initial root and from every media-mode root (`UnknownLayout` otherwise); it only ever refuses lookups it previously accepted. `CommandScanner::table_roots()` and `CommandDispatch::roots()` still return only the `BL`-registered roots, but `table_roots()`, `commands()` and `response()` now fail with `InvalidContract` on an unshaped, unaligned or out-of-image tail registration, a scanner call with no bound array or literal table, a direct scan of an SRAM table other than the registrar's lookup cache, or an extra table whose walk cycles, is unaligned or exceeds 1024 records (`Truncated` past the image end). Errors from the initial roots keep precedence. Still not modelled: whether a tail-call site is live (a tail-merged `r0`), writers of the scanner's array or lookup cache other than the registrar, and indirect registrations; the lookup cache is assumed to hold copies of records already reached.
+- `CommandScanner::inspect` refuses a complete scanner grammar whose native frame cannot be proven (`InvalidContract`, or `Ambiguous` beside another scanner) instead of ignoring it. Table-root analysis no longer hashes the whole image once per scanner or registrar call site, so images with many such calls no longer take minutes.
+- UHD analysis: `ClassicPosition`, `ClassicPositionSetup` and `ClassicReadPosition` report an image shorter than their routine as `UnknownLayout` rather than `Truncated`. `ClassicReadPosition` requires the range gates' status load to name the same cell as `status`; the `ReadStatus` consumer join requires its fall-through flag load to define `r0`; read completion refuses an image with both boundary grammars as `Ambiguous` and accepts a 3-bit `ADDS` state-pointer adjustment; a reverse calculation whose shared gate is not a forward calculation is `InvalidContract`; an `LDM` that reloads the `0x51b1` register ends the coefficient constant; the desktop hardware-defaults grammar no longer pins a call-displacement bit. The coefficient walk follows `b.w`, refuses returns and other PC writes and unmodelled wide instructions, and ends the constant on base writeback; the modern forward/reverse calculations claim explicit C7 handling only when their first rejection tests `0xc7`; read completion reports a conflicting veneer boundary instead of `UnknownLayout` when the plain boundary is absent.
+- The legacy BOOT grammar's return must unwind exactly the proven frame (`ADD SP` matching the prologue's `SUB SP`, then `POP {r4-r7,pc}`). Mixed scratch-header contracts require the integrity walker at its literal-pool alignment. Read-back verification no longer compares a reply that reports a full transfer without filling the buffer against the previous chunk's bytes; it is a mismatch.
+- `detect_encoding` propagates read failures instead of choosing an encoding from partial evidence. `Chip::from_banner` ignores bytes after the first NUL. Ambiguous BOOT grammars are refused, unaligned programming-loop targets are rejected, and recovery identification reports a malformed identity as `InvalidIdentity`.
+- Receiver detection refuses a second WRITE BUFFER/type-1 registration for any handler (`UnknownEntry`); a bulk decoder's header call must be traced from a start that is not the second half of a 32-bit instruction, otherwise `conflicting_arguments()` is set; `inspect_mode_three_wrapper` also checks the setup-failure restoring exit.
+- `CommandDispatch::record` refuses a lookup as `Ambiguous` when another reached ordinary record shares the opcode (the native scanner stops there), and `ResponseIo` selects its INQUIRY handler through it, so an even (ARM-state) handler is `InvalidContract` and duplicate INQUIRY records are `Ambiguous`. `VidGate::producer` searches the same 0x200 bytes before the comparison that `AuthCell` accepts.
+- `CommandDispatch::record(0x3c, _)` also counts reached link and terminal records with opcode 0x3c (the scanner invokes them for CDB modes 6/7/10/11/12), `CommandScanner::inspect` counts a scanner grammar ending at the image tail, table roots whose only registrations are unproven fail as `InvalidContract` instead of `UnknownLayout`, and `ClassicSpeed::detect` no longer takes quadratic time on many consumers of one selector times many setters of one OPTM cell.
+
+- Restrict boot-mirror readback detection to complete 2 MiB MT19xx images; older 512 KiB OEM firmware and partial fragments are not raw MT19xx captures.
+
+- Add immutable, source-bound image analysis with cached role outcomes and typed
+  diagnostics. Bind command records to native table registration and linked-table
+  traversal; reject orphan tables, cycles and mismatched source images.
+- Bind response-buffer writers and committers to native caller arguments, exact
+  DMA expressions, guarded normalization and native return frames.
+- Preserve actual compiler-switch register effects during saved-frame analysis,
+  including pointer aliases and spilled frame references.
+- Report static SRAM references through decoded aliases and bounded native bulk
+  loops, with unresolved flow exposed separately from observed bytes. Use the
+  existing A32 decoder for ARM boot-branch evidence; Thumb decoding remains in
+  thumb-asm. Static reference absence is not a runtime free-memory guarantee.
+
+- Bind classic read-completion controller fields, boundary reflection and native ROM recovery dispatch through source instructions, shared state and saved frames. Cover the compiler register and branch-veneer variants without model/hash dispatch.
+
+- Add read-only native speed-policy contracts binding maximum/optimum defaults to the requested-rate clamp through register and address flow. Real source excerpts cover eight default grammars and reject changed clamp branches or maximum bindings; firmware rates are unchanged.
+
+- Add independent DI-recognition and C7-routing contracts with typed native
+  handling, common state-cell validation, original replay instructions and bound
+  continuations. Inventory hardware defaults separately; no UHD capability claim.
+  Bind eleven additional classic controller/read selectors and their saved native
+  callers; recognize moved read-status blocks through their flag cell and joins.
+  Bind DI mode selection and read-boundary reflection; expose displaced literal
+  loads for relocation. Classify complete native parameter getters as
+  media-selected or state-independent, preserving their own calibration tables.
+  Bind the complete paired position-scaling routine and startup calibration
+  lookup to native speed indices and the independently matched parameter getter.
+  Bind the complete native read-position decoder, first-layer reflection mask
+  and both range selectors to shared state cells and saved native frames.
+  Bind native read-controller programming, paired position setup and the
+  independent media-default mode writer, including displaced loads/native joins.
+
+- Expose the validated native authentication refusal separately from an alternate
+  implementation continuation, preserving the classic nibble-4 path contract.
+- Bind classic read-speed selectors to native RMAX/OPTM setter and consumer
+  roles, rejecting impure, ambiguous or disconnected leaf paths.
+
+- Validate all three native CMAC helper bodies and hardware operands at their
+  decoded call targets, allowing proven call relocations across the same
+  implementation while rejecting a wrong helper role or changed helper body.
+- Bind the shared mode-three wrapper's source/destination/length stores to its
+  exact native programming loop and page-helper status structure. Check the
+  complete native integrity-walker grammar and shared staging pointer so hosts
+  can evaluate a bounded allocation-coverage change without model/hash rules.
+- Pair receiver state saves/restores with the checked command frame and actual
+  stack-restoring epilogue, following bounded unconditional return chains.
+  This is component evidence; intervening overwrites and control flow remain
+  separate obligations before authorizing a transfer or changing allocation.
+- Follow explicit forward joins when binding boot/application integrity results.
+  Associate bulk decoder argument evidence with its exact range selection and
+  reuse the checked programming-tail grammar. These are read-only components;
+  intervening control flow and called-helper semantics remain separate checks.
+- Derive programming-tail pointer registers and saved-state slots from operands;
+  follow the common post-call continuation across literal pools. Reject pointer
+  clobbers and mismatched skip/completion joins instead of assuming one frame.
+- Recognize the shared compact and wide programming loops with role-checked relocated RAM
+  cells. Evidence exposes source/destination, staging and remaining-length cells
+  plus selected spans; it does not authorize a transfer or change receiver
+  encoding, allocation or integrity policy.
+- Add opt-in read-only OEM hook analysis, with evidence-selected media and VID
+  grammars and six auth-cell register contracts. Resolve the VID preparation
+  success path before selecting a state-band check; derive literal addresses,
+  validate stack preparation and retain original failure continuations.
+- Reuse the existing two-round VID grammar for MT1939 classic. Recognize its
+  interleaved r6 setup and preserve the distinct non-C/nibble-4 continuation;
+  recognition alone does not establish UHD support or enable host emission.
+- Keep descriptor-pattern candidates distinct from proven native BD controls;
+  their protocol role must not be inferred from matching registers or sense bytes.
+- Keep the transport-only default build free of image analysis and decoding.
+
 ## 1.1.2
 
 - Expose matching allocation-free `ProductIdentity` APIs for vendor, drive model, product suffix, raw product and revision. OEM context such as `PP-100` no longer needs to be mistaken for the drive model by host display code.

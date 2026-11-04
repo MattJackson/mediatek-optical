@@ -1,7 +1,7 @@
 //! Explicit recovery without installed-firmware, model, family or backup policy.
 //! Requires `drive`, `image` and `enc`. Identification and preparation are
 //! read-only; the caller owns consent and write authorization.
-use crate::update::{FlashError, FlashRuntime, FlashTransport, PrepareError, Verified};
+use crate::update::{FlashError, FlashRuntime, FlashTransport, PrepareError};
 use crate::{
     drive::{self, Transport},
     image, layout, receiver, Chip, DriveClass,
@@ -65,7 +65,8 @@ impl<E: core::fmt::Debug + 'static> std::error::Error for Error<E> {
 
 impl Receiver {
     /// Recognize a MediaTek receiver without MMC features or application metadata.
-    /// Returns `None` for a readable non-MediaTek banner. Reads no backup.
+    /// Returns `None` when the device does not identify as a MediaTek receiver
+    /// (an `InvalidIdentity` INQUIRY shape or a non-MediaTek banner). Reads no backup.
     pub fn identify<T: Transport>(t: &mut T) -> Result<Option<Self>, Error<T::Error>> {
         let mode = match receiver::detect_mode(t) {
             Ok(mode) => mode,
@@ -75,7 +76,7 @@ impl Receiver {
         let mut banner = [0; layout::BANNER.len];
         drive::read_memory(t, layout::BANNER.start as u32, &mut banner).map_err(Error::Read)?;
         let Some(evidence) = crate::protocol::Evidence::parse(mode.inquiry(), &banner)
-            .map_err(|_| Error::Changed)?
+            .map_err(|_| Error::Receiver(receiver::Error::InvalidIdentity))?
         else {
             return Ok(None);
         };
@@ -115,7 +116,15 @@ impl Receiver {
     pub fn chip(&self) -> Chip {
         self.chip
     }
-    /// Verify identity, receiver instructions and chip/banner before a write.
+    /// Verify identity, receiver evidence and chip/banner before a write.
+    ///
+    /// INQUIRY identity is read first and again last, after the banner; a
+    /// change in between is [`Error::Receiver`] with
+    /// [`receiver::Error::Changed`].
+    ///
+    /// A receiver from [`Receiver::identify_reference`] re-reads only INQUIRY
+    /// identity, the boot banner and build metadata; its instruction evidence
+    /// comes from the reference image and is not re-read.
     pub fn revalidate<T: Transport>(&self, t: &mut T) -> Result<(), Error<T::Error>> {
         self.receiver.revalidate(t).map_err(Error::Receiver)?;
         let mut banner = [0; layout::BANNER.len];
@@ -123,7 +132,9 @@ impl Receiver {
         if banner != self.banner {
             return Err(Error::Changed);
         }
-        Ok(())
+        self.receiver
+            .revalidate_identity(t)
+            .map_err(Error::Receiver)
     }
     /// Validate a recovery image, bypassing model/family and rollback policy.
     /// No installed image, Current file or backup is needed.
@@ -181,27 +192,10 @@ impl PreparedRecovery {
     pub fn plan(&self) -> &receiver::TransferPlan {
         &self.plan
     }
-    /// Revalidate, PREPARE, stream and verify, then confirm the target started.
-    /// A PREPARE error is reported through `FlashRuntime::recovery_entry_failed`
-    /// and recovery continues once. STREAM errors remain fatal; no writes retry.
-    /// No backup, full pre-read, model or family gate is performed.
-    pub fn flash<R, W, H>(
-        &self,
-        io: FlashTransport<'_, R, W>,
-        runtime: &mut H,
-    ) -> Result<Verified, Error<W::Error>>
-    where
-        W: Transport,
-        R: Transport<Error = W::Error>,
-        H: FlashRuntime<W::Error>,
-    {
-        self.flash_completed(io, runtime)?
-            .into_verified()
-            .map_err(Error::Flash)
-    }
-
-    /// Execute recovery and require exact target startup, preserving limited
-    /// read-back as structured evidence for the host to report.
+    /// Execute recovery and require the target identity after the write,
+    /// preserving limited read-back as structured evidence for the host to
+    /// report. Hosts must check [`crate::update::Startup::evidence`]:
+    /// [`crate::update::StartupEvidence::Unobserved`] is not confirmed startup.
     pub fn flash_completed<R, W, H>(
         &self,
         io: FlashTransport<'_, R, W>,
@@ -233,16 +227,5 @@ fn from_execute<E>(e: receiver::ExecuteError<E>) -> Error<E> {
 }
 
 #[cfg(test)]
-mod from_execute_tests {
-    use super::*;
-    use crate::update::StartupError;
-
-    #[test]
-    fn unconfirmed_startup_maps_to_startup_error() {
-        let e = from_execute::<&'static str>(receiver::ExecuteError::Flash(FlashError::Startup(
-            StartupError::TargetMismatch,
-        )));
-        assert!(matches!(e, Error::Startup(StartupError::TargetMismatch)));
-        assert_eq!(crate::CodedError::code(&e), "mediatek.recovery.startup");
-    }
-}
+#[path = "recovery_from_execute_tests.rs"]
+mod from_execute_tests;

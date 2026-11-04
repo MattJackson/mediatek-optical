@@ -63,6 +63,8 @@ impl CodedError for crate::image::cmac::CmacError {
         match self {
             Self::ImageTooSmall { .. } => "mediatek.cmac.image_too_small",
             Self::BadRange { .. } => "mediatek.cmac.bad_range",
+            Self::CircularTable => "mediatek.cmac.circular_table",
+            Self::UnknownEnabled { .. } => "mediatek.cmac.unknown_enabled",
         }
     }
 }
@@ -129,6 +131,12 @@ impl<E> CodedError for crate::receiver::Error<E> {
 
 #[cfg(all(feature = "drive", feature = "image"))]
 impl<E> CodedError for crate::update::FlashError<E> {
+    fn kind(&self) -> crate::operation::IssueKind {
+        match self {
+            Self::Startup(error) => error.kind(),
+            _ => kind_for_code(self.code()),
+        }
+    }
     fn code(&self) -> &'static str {
         match self {
             Self::Entry(_) => "mediatek.flash.entry",
@@ -137,7 +145,6 @@ impl<E> CodedError for crate::update::FlashError<E> {
             Self::ReadyTimeout(_) => "mediatek.flash.ready_timeout",
             Self::Startup(_) => "mediatek.flash.startup",
             Self::Mismatch { .. } => "mediatek.flash.mismatch",
-            Self::Incomplete { .. } => "mediatek.flash.incomplete",
         }
     }
 }
@@ -155,6 +162,12 @@ impl<E> CodedError for crate::update::StartupError<E> {
 
 #[cfg(all(feature = "drive", feature = "image", feature = "enc"))]
 impl<E> CodedError for crate::receiver::ExecuteError<E> {
+    fn kind(&self) -> crate::operation::IssueKind {
+        match self {
+            Self::Receiver(error) => error.kind(),
+            Self::Flash(error) => error.kind(),
+        }
+    }
     fn code(&self) -> &'static str {
         match self {
             Self::Receiver(_) => "mediatek.execute.receiver",
@@ -167,7 +180,14 @@ impl<E> CodedError for crate::receiver::ExecuteError<E> {
 impl<E> CodedError for crate::receiver::reference::Error<E> {
     fn kind(&self) -> crate::operation::IssueKind {
         match self {
-            Self::Analysis(error) => error.kind(),
+            // Analysis reads only the supplied file: an identity or read
+            // failure there is a firmware defect, never a connection fault.
+            Self::Analysis(error) => match error.kind() {
+                crate::operation::IssueKind::Connection => {
+                    crate::operation::IssueKind::InvalidFirmware
+                }
+                kind => kind,
+            },
             Self::Binding(error) => error.kind(),
         }
     }

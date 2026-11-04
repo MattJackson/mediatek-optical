@@ -1,0 +1,186 @@
+[
+  {
+    "name": "auth-r1-r4",
+    "model": "BD-RE BU40N",
+    "rev": "1.02",
+    "sha256": "97bee5c51fbeb7980c35539bdf44e5d2c1628908721815fcee4ea2b9f22e9263",
+    "source_offset": "0x136952",
+    "producer": 2,
+    "gate": 84,
+    "site": 202,
+    "leading_padding": 2,
+    "fixture_bytes": 2050
+  },
+  {
+    "name": "auth-r0-r0",
+    "model": "BD-RE  BE16NU50",
+    "rev": "1.01",
+    "sha256": "9c46e6972b7950004e9746256c97b79e8e681faad1a4174b542477ad6ff5257e",
+    "source_offset": "0x139a3a",
+    "producer": 2,
+    "gate": 84,
+    "site": 198,
+    "leading_padding": 2,
+    "fixture_bytes": 2050
+  },
+  {
+    "name": "auth-r0-r5",
+    "model": "BD-RE BU40N",
+    "rev": "CB04",
+    "sha256": "78f75561d474d09a4b3bd31ce346395600e2ed5d23431f6bfa02a500ccaee7d4",
+    "source_offset": "0x134258",
+    "producer": 0,
+    "gate": 82,
+    "site": 196,
+    "leading_padding": 0,
+    "fixture_bytes": 2048
+  },
+  {
+    "name": "bu40n-auth",
+    "source_offset": "0x13675c",
+    "sha256": "221ad35b7edd402353e125841893ce651064e8fc6b90368fe84ff19a85a506f4",
+    "leading_padding": 0,
+    "fixture_bytes": 1188
+  },
+  {
+    "name": "wh-auth",
+    "source_offset": "0x13a9ce",
+    "sha256": "97b287072e20c9527de6f34f6d564c8edcc6afb3ecf5675c11b8262c11663061",
+    "leading_padding": 2,
+    "fixture_bytes": 1620
+  },
+  {
+    "name": "bu40n-media",
+    "source_offset": "0x1365be",
+    "sha256": "221ad35b7edd402353e125841893ce651064e8fc6b90368fe84ff19a85a506f4",
+    "leading_padding": 0,
+    "fixture_bytes": 130
+  },
+  {
+    "name": "wh-media",
+    "source_offset": "0x11ced2",
+    "sha256": "97b287072e20c9527de6f34f6d564c8edcc6afb3ecf5675c11b8262c11663061",
+    "leading_padding": 0,
+    "fixture_bytes": 82
+  },
+  {
+    "name": "wh14-classic-vid",
+    "model": "BD-RE WH14NS40",
+    "rev": "1.02",
+    "sha256": "40eb760e23f100d55e86e9c061c73428d4087ef712294e4dbfcefa3093837a1a",
+    "source_offset": "0x17f4d6",
+    "leading_padding": 2,
+    "fixture_bytes": 636,
+    "producer": 2,
+    "gate": 94,
+    "site": 216
+  },
+  {
+    "name": "uh12-program",
+    "model": "BDDVDRW UH12NS40",
+    "rev": "1.03",
+    "sha256": "eeb1c948f1ed98245b7d21d03fe5e333a3349d28453690e2a60b4a8dc01765ba",
+    "source_offset": "0x17000",
+    "leading_padding": 0,
+    "fixture_bytes": 2016,
+    "fixture_sha256": "3c3f9685afb255872bc168fe45e54b42fe6e34df556305578d732f162aa25fda"
+  },
+  {
+    "name": "bp55-program",
+    "model": "BD-RE BP55EB40",
+    "rev": "1.03",
+    "sha256": "0f7b3d34cbf58b033cdad2d234f0ed0a5782de50f9bb42d80b60835d61f569d2",
+    "source_offset": "0x1a000",
+    "leading_padding": 0,
+    "fixture_bytes": 2060,
+    "fixture_sha256": "642844ae861edec362cbd8de585af7deb30fa7b4ef30a0628ff1230d77696406"
+  },
+  {
+    "name": "uh12-integrity-selection",
+    "sha256": "eeb1c948f1ed98245b7d21d03fe5e333a3349d28453690e2a60b4a8dc01765ba",
+    "source_offset": "0xa78bc",
+    "leading_padding": 0,
+    "fixture_bytes": 788,
+    "fixture_sha256": "2917d4588425bbefebed04b55c969f04c1053d809e3363613f78a4195c62259a"
+  },
+  {
+    "name": "uh12-application",
+    "sha256": "eeb1c948f1ed98245b7d21d03fe5e333a3349d28453690e2a60b4a8dc01765ba",
+    "source_offset": "0xa5288",
+    "leading_padding": 0,
+    "fixture_bytes": 10648,
+    "fixture_sha256": "010daf5a7294b821b141a0b6d770bec79d0e237f0fe6a2aa4ff6ad655470cbae"
+  },
+  {
+    "name": "wp50-application",
+    "sha256": "263994abefb0b5a757d7b7b677b4e24dffb537ff124a81ad54426948a83265f1",
+    "source_offset": "0x9a2e0",
+    "leading_padding": 0,
+    "fixture_bytes": 11392,
+    "fixture_sha256": "27122c7d72d1410947ed8d859b879e3b235c93eb090e7a79ca6d801e2c4ebc30"
+  },
+  {
+    "name": "bu40-a103-application",
+    "sha256": "7d7f2465feafbcc05b74fbaff1dced8a55b19ddb1c03297a8027e261045d2e9e",
+    "source_offset": "0x9b520",
+    "leading_padding": 0,
+    "fixture_bytes": 11548,
+    "fixture_sha256": "60a44c0b0fb5f22c29bbb28e4c84f46373b01be9b15033cc7806a05676c855c6"
+  },
+  {
+    "name": "be16-application",
+    "sha256": "7dcc99d276008cf2cfc6214eb0f4b88ec5eb3937f21bb1853b53f2b8d42ea6c8",
+    "source_offset": "0x9b1d0",
+    "leading_padding": 0,
+    "fixture_bytes": 11392,
+    "fixture_sha256": "d6bb11e71c3c608ff4dcbeac71138302706ea7e6a6bec7595717c6fe77fce856"
+  },
+  {
+    "name": "uh12-wrapper",
+    "sha256": "eeb1c948f1ed98245b7d21d03fe5e333a3349d28453690e2a60b4a8dc01765ba",
+    "source_offset": "0x17c44e",
+    "fixture_bytes": 816,
+    "fixture_sha256": "89cebf9d4d6e032c88c44a30a67643656e9752c3ac62eac6b768434322384649"
+  },
+  {
+    "name": "uh12-native-checks",
+    "sha256": "eeb1c948f1ed98245b7d21d03fe5e333a3349d28453690e2a60b4a8dc01765ba",
+    "source_offset": "0x17c27a",
+    "fixture_bytes": 258,
+    "fixture_sha256": "5ce143a99173d0fb8d6a2c35d25fb652a950b05b3712a813451de841f8f0fe6b"
+  },
+  {
+    "name": "uh12-cmac-range",
+    "sha256": "eeb1c948f1ed98245b7d21d03fe5e333a3349d28453690e2a60b4a8dc01765ba",
+    "source_offset": "0x17c0e0",
+    "fixture_bytes": 250,
+    "fixture_sha256": "ca5bd1e97f81ab23b90dd874ff2b712c08b77f0db6cff754e2eae423e86cccff"
+  },
+  {
+    "name": "uh12-cmac-helpers",
+    "sha256": "eeb1c948f1ed98245b7d21d03fe5e333a3349d28453690e2a60b4a8dc01765ba",
+    "source_offset": "0x17f9c",
+    "fixture_bytes": 216,
+    "fixture_sha256": "1ee7c60baa1f9e4cbf9323b8329a380bcb21bede173904eb9ec53a92ade7140b"
+  },
+  {
+    "name": "intm-scratch-header",
+    "model": "BD-RE BH16NS40",
+    "rev": "INTM",
+    "sha256": "c3a18eed17251d1508964647e833ffdfe01b13c28dff9a717dfac6336e7c70e6",
+    "source_offset": "0x9d320",
+    "leading_padding": 0,
+    "fixture_bytes": 1280,
+    "fixture_sha256": "79f38f2041dbf14b471624e489feb6c3c4b2d7c6a7c43660f9123f6ff6719505"
+  },
+  {
+    "name": "intm-aes-prologue",
+    "model": "BD-RE BH16NS40",
+    "rev": "INTM",
+    "sha256": "c3a18eed17251d1508964647e833ffdfe01b13c28dff9a717dfac6336e7c70e6",
+    "source_offset": "0x9b024",
+    "leading_padding": 0,
+    "fixture_bytes": 48,
+    "fixture_sha256": "0de77675d5c175c45fb6c630e067017b4f430b03ae4f3295e787260665dc0b09"
+  }
+]

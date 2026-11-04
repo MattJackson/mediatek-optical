@@ -286,9 +286,12 @@ banner and descriptor are revalidated at execution. Reference code never
 replaces physical post-write reads. An explicit unavailable-installed path
 retains chip/input checks without inventing installed bytes from the target.
 
-Both execution paths require exact target startup and return full/limited
-readback quality. Ready status alone, BOOT, old INTM, a different build, or
-unreadable startup metadata cannot produce a completed target result. A data
+Both execution paths require the target identity and stored build metadata
+after the write and return full/limited readback quality with restart evidence.
+Ready status alone, BOOT, old INTM, a different stored build, or unreadable
+startup metadata cannot produce a completed target result. A different build
+whose INQUIRY identity equals the one reported before the write completes only
+as `StartupEvidence::Unobserved`, which is not confirmed startup. A data
 write failure or mismatching readback triggers no subsequent startup probes.
 
 The secure service remains opaque, and hardware programming is not emulated.
@@ -335,7 +338,8 @@ The encoding detector and entry analyzer now consume the same immutable code
 window captured once. Finishing detection checks physical INQUIRY and the small
 matched signature; it does not immediately repeat the full snapshot capture.
 Execution still re-reads every snapshot from the physical transport before any
-update-session command. The temporary analysis source cannot escape into the
+update-session command, then re-reads INQUIRY: snapshot bytes are flash
+contents and match whichever receiver (BOOT or application) is running. The temporary analysis source cannot escape into the
 stored Receiver or execution. The application test fixture now performs 560
 one-KiB code/table reads during detection, with no extra 1088-byte scan; the
 mandatory execution check performs those 560 reads again.

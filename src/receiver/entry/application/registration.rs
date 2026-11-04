@@ -10,9 +10,11 @@ pub struct Registration {
     pub callback: u32,
 }
 
-/// Find exactly one aligned record containing opcode 0x3B/type 1 and the
-/// supplied Thumb callback. Unknown types, non-Thumb pointers, duplicates,
-/// truncated records and address overflow never supply a registration.
+/// Find exactly one aligned opcode 0x3B/type 1 record and require it to name
+/// the supplied Thumb callback. A second 0x3B/type 1 record for any handler
+/// leaves dispatcher selection ambiguous. Unknown types, non-Thumb pointers,
+/// duplicates, truncated records and address overflow never supply a
+/// registration.
 pub fn inspect_registration(bytes: &[u8], address: u32, callback: u32) -> Option<Registration> {
     if callback & 1 != 0 {
         return None;
@@ -25,45 +27,18 @@ pub fn inspect_registration(bytes: &[u8], address: u32, callback: u32) -> Option
             continue;
         }
         at.checked_add(8)?;
-        if bytes[offset..offset + 4] == [0x3b, 1, 0, 0] && bytes[offset + 4..offset + 8] == pointer
-        {
+        if bytes[offset..offset + 4] == [0x3b, 1, 0, 0] {
             if found.is_some() {
                 return None;
             }
-            found = Some(Registration {
-                record: at,
-                callback,
-            });
+            found = Some(at);
         }
     }
-    found
+    let record = found?;
+    let offset = usize::try_from(record - address).ok()?;
+    (bytes[offset + 4..offset + 8] == pointer).then_some(Registration { record, callback })
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn real_v1_record_binds_opcode_type_and_thumb_pointer_uniquely() {
-        let record = [0x3b, 1, 0, 0, 3, 0xca, 9, 0];
-        assert_eq!(
-            inspect_registration(&record, 0x155ba8, 0x9ca02),
-            Some(Registration {
-                record: 0x155ba8,
-                callback: 0x9ca02
-            })
-        );
-        for i in 0..8 {
-            let mut bad = record;
-            bad[i] ^= 1;
-            assert!(inspect_registration(&bad, 0x155ba8, 0x9ca02).is_none());
-            assert!(inspect_registration(&record[..i], 0x155ba8, 0x9ca02).is_none());
-        }
-        let mut duplicate = record.to_vec();
-        duplicate.extend_from_slice(&record);
-        assert!(inspect_registration(&duplicate, 0x155ba8, 0x9ca02).is_none());
-        assert!(inspect_registration(&record, 0x155ba9, 0x9ca02).is_none());
-        assert!(inspect_registration(&record, u32::MAX - 3, 0x9ca02).is_none());
-        assert!(inspect_registration(&record, 0x155ba8, 0x9ca03).is_none());
-    }
-}
+#[path = "registration_tests.rs"]
+mod tests;

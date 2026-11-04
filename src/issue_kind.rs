@@ -9,6 +9,8 @@ pub(super) fn kind_for_code(code: &str) -> crate::operation::IssueKind {
         | "mediatek.image.undetectable_chip"
         | "mediatek.cmac.image_too_small"
         | "mediatek.cmac.bad_range"
+        | "mediatek.cmac.circular_table"
+        | "mediatek.cmac.unknown_enabled"
         | "mediatek.prepare.receiver_entry"
         | "mediatek.prepare.receiver_contract"
         | "mediatek.prepare.layout"
@@ -27,7 +29,9 @@ pub(super) fn kind_for_code(code: &str) -> crate::operation::IssueKind {
         | "mediatek.layout.conflict"
         | "mediatek.layout.multiple_decryptions"
         | "mediatek.layout.no_program"
-        | "mediatek.layout.image_size" => IssueKind::InvalidFirmware,
+        | "mediatek.layout.image_size"
+        | "mediatek.analysis.invalid_contract"
+        | "mediatek.analysis.truncated" => IssueKind::InvalidFirmware,
         "mediatek.drive.transport"
         | "mediatek.protocol.incomplete"
         | "mediatek.drive.short"
@@ -43,7 +47,9 @@ pub(super) fn kind_for_code(code: &str) -> crate::operation::IssueKind {
         | "mediatek.oem.unknown_boot_page"
         | "mediatek.receiver.unknown"
         | "mediatek.receiver.conflict"
-        | "mediatek.receiver.unknown_entry" => IssueKind::UnsupportedFirmware,
+        | "mediatek.receiver.unknown_entry"
+        | "mediatek.analysis.unknown_layout"
+        | "mediatek.analysis.ambiguous" => IssueKind::UnsupportedFirmware,
         "mediatek.prepare.chip_mismatch" | "mediatek.prepare.family_mismatch" => {
             IssueKind::HardwareMismatch
         }
@@ -64,29 +70,11 @@ pub(super) fn kind_for_code(code: &str) -> crate::operation::IssueKind {
         | "mediatek.recovery.image"
         | "mediatek.recovery.flash"
         | "mediatek.recovery.startup" => IssueKind::Update,
-        "mediatek.flash.mismatch"
-        | "mediatek.flash.incomplete"
-        | "mediatek.startup.target_mismatch" => IssueKind::Verification,
+        "mediatek.flash.mismatch" | "mediatek.startup.target_mismatch" => IssueKind::Verification,
         _ => IssueKind::Unexpected,
     }
 }
 
 #[cfg(test)]
-mod tests {
-    #[test]
-    fn every_declared_code_has_a_deliberate_host_category() {
-        for source in [include_str!("error_codes.rs")] {
-            for code in source.split('"').filter(|s| {
-                s.starts_with("mediatek.")
-                    && s.bytes()
-                        .all(|b| b.is_ascii_lowercase() || b == b'.' || b == b'_')
-            }) {
-                assert_ne!(
-                    super::kind_for_code(code),
-                    crate::operation::IssueKind::Unexpected,
-                    "unclassified error code: {code}"
-                );
-            }
-        }
-    }
-}
+#[path = "issue_kind_tests.rs"]
+mod tests;

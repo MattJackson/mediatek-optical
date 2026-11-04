@@ -1,0 +1,20 @@
+# OEM instruction excerpts
+
+Small read-only instruction/literal-pool excerpts for the shared hook recognizers.
+These are not complete firmware or flashable backups. `sources.json` records the
+original full-image SHA-256, source offset and leading padding. Padding preserves
+the source PC alignment so Thumb literal addressing remains unchanged.
+
+The full source images are held in the firmware-extractor hoard; BU40N 1.00 and
+WH16NS58 1.V9 also have committed full-image integration fixtures in
+freemkv-firmware. Register variants are selected by code evidence, never these
+filenames or hashes.
+
+The WH14NS40 MT1939 excerpt retains the complete shared VID-success setup and
+its alternate nibble-4 branch. It validates a control-flow contract, not UHD
+capability; the existing two-round VID grammar already recognizes this producer.
+
+`classic-speed-sources.json` records sparse native RMAX/OPTM setter, selector
+and consumer excerpts from four code forms. Tests restore their original offsets
+into an erased image; no relocations or guessed firmware padding are written to
+a flashable image. SHA-256 values bind every excerpt to its original input.

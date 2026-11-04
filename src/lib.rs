@@ -20,8 +20,10 @@
 //! - `oem` — `oem`: rebuild the flashable OEM image from a drive read, with
 //!   the provenance of every substituted byte. Implies `image`.
 //! - `image` also enables `update`: an update prepared against the installed
-//!   firmware, refused across chips and hardware families. With `drive`,
-//!   the receiver-bound `receiver::PreparedUpdate::flash` runs it.
+//!   firmware, refused across chips and hardware families. With `drive` and
+//!   `enc`, the receiver-bound `receiver::PreparedUpdate::flash_completed` runs it.
+//! - `analysis` — `analysis`: read-only OEM instruction-layout analysis
+//!   (`image::analysis`). Implies `image`.
 //! - `std` — links the standard library (implied by `image`).
 //!
 //! ## Drive memory
@@ -48,6 +50,8 @@ mod product_identity;
 pub use product_identity::ProductIdentity;
 
 pub mod cdb;
+#[cfg(any(feature = "drive", feature = "analysis"))]
+mod compiler;
 #[cfg(feature = "drive")]
 pub mod drive;
 #[cfg(feature = "enc")]
@@ -100,7 +104,8 @@ impl Chip {
         }
     }
 
-    /// The chip named by the first `MTEKMT19xx` identity tag in `bytes`.
+    /// The chip named by the first `MTEKMT19xx` identity tag in `bytes` whose
+    /// digits name a supported chip; tags with other digits are skipped.
     ///
     /// This is a label parser, not operational chip detection. OEM identity
     /// tags can be stale; [`Identity::chip`] and image analysis use the boot
@@ -115,12 +120,14 @@ impl Chip {
 
     /// The chip named by a boot banner such as `MT1939 Boot JB7`. This is the
     /// source used by live identity and image analysis, even when a descriptor
-    /// carries a conflicting [`Chip::from_tag`] label.
+    /// carries a conflicting [`Chip::from_tag`] label. Only the leading
+    /// `MT19xx` field at byte 0 names the chip; a label elsewhere in the banner
+    /// (e.g. inside the loader token) is never consulted.
     pub fn from_banner(banner: &[u8]) -> Option<Self> {
-        banner
-            .windows(6)
-            .filter(|w| w.starts_with(b"MT19"))
-            .find_map(|w| Self::from_digits(w[4], w[5]))
+        match banner {
+            [b'M', b'T', b'1', b'9', d0, d1, ..] => Self::from_digits(*d0, *d1),
+            _ => None,
+        }
     }
 }
 
@@ -214,14 +221,15 @@ impl DriveClass {
         core::time::Duration::from_millis(500)
     }
 
-    /// Read-back verification compares no byte below this offset: the drive
-    /// serves its boot area remapped ([`layout::BOOT_AREA`]).
+    /// Read-back verification compares no byte below this offset, the end of
+    /// the flash sector holding the remapped boot page ([`layout::BOOT_AREA`]).
     pub const fn verify_floor(self) -> usize {
         layout::BOOT_AREA.end()
     }
 }
 
-/// Trim trailing ASCII spaces and NULs and decode as UTF-8; `""` if invalid.
+/// Trim leading ASCII spaces and trailing spaces and NULs, then decode as
+/// UTF-8; `""` if invalid.
 fn field(raw: &[u8]) -> &str {
     let start = raw.iter().position(|&b| b != b' ').unwrap_or(raw.len());
     let raw = &raw[start..];

@@ -130,11 +130,13 @@ impl Candidate {
         ) {
             return None;
         }
+        // The loop's PC-relative literal pools assume a word-aligned start.
         branch_link(
             wrapper,
             self.wrapper_address,
             self.wrapper_address.checked_add(0x13e)?,
         )
+        .filter(|target| target & 3 == 0)
     }
 
     pub(super) fn bind(
@@ -143,8 +145,14 @@ impl Candidate {
         integrity: &[u8],
         program: &[u8],
     ) -> Option<MixedContract> {
+        // program_address already ties the wrapper to its literal alignment
+        // (an aligned loop target implies a wrapper at 2 mod 4). The integrity
+        // walker's PC-relative literals (staging cell, MMIO) resolve to the
+        // receiver's operands only at 2 mod 4; elsewhere the same halfwords
+        // load different words.
         self.program_address(wrapper)?;
-        if !words_match(integrity, 0, 0, self.form.integrity)
+        if self.integrity_address & 3 != 2
+            || !words_match(integrity, 0, 0, self.form.integrity)
             || !words_match(program, 0, 0, self.form.program)
         {
             return None;
@@ -312,7 +320,7 @@ const COMPACT_APPLICATION: &[u16] = &[
     0x00aa, 0x2fd0, 0x0c22, 0x0200, 0x9e00, 0x01ff, 0x96b8, 0x01ff, // +0ba0
 ];
 #[rustfmt::skip]
-const COMPACT_WRAPPER: &[u16] = &[
+pub(super) const COMPACT_WRAPPER: &[u16] = &[
     0xb5ff, 0x000e, 0x0015, 0x001c, 0x2b04, 0xb081, 0xd302, 0x2000, 0xb005, 0xbdf0, 0x20c0, 0xf6bf, // +0000
     0xec30, 0x9000, 0xf762, 0xf842, 0x2011, 0xf6ff, 0xfa25, 0xf7ff, 0xffaf, 0xf7ff, 0xf876, 0x2800, // +0018
     0xd033, 0x49b2, 0x7808, 0x28ff, 0xd02f, 0x78c8, 0x2804, 0xd22c, 0x4bb0, 0x6918, 0x2203, 0x0312, // +0030
@@ -349,7 +357,7 @@ const COMPACT_WRAPPER: &[u16] = &[
     0x3056, 0x1bfc, 0x0000, 0x7001, 0x0001, 0x0c68, 0x0200, 0x0c60, 0x0200, 0x0c6c, 0x0200, 0xf490, // +0318
 ];
 #[rustfmt::skip]
-const COMPACT_INTEGRITY: &[u16] = &[
+pub(super) const COMPACT_INTEGRITY: &[u16] = &[
     0xb510, 0xf6d7, 0xfbd3, 0x4834, 0x4935, 0x6800, 0x2301, 0x1842, 0x1e49, 0x1841, 0x031b, 0x18c0, // +0000
     0xf7ff, 0xff25, 0xbd10, 0xb5f1, 0x482e, 0x2241, 0x6800, 0x0292, 0x2501, 0x1886, 0xf6d7, 0xfbbe, // +0018
     0x2400, 0x271c, 0x4367, 0x59f0, 0x1c43, 0xd103, 0x4829, 0xf78a, 0xfa62, 0xe03b, 0x9900, 0x4208, // +0030
@@ -366,7 +374,7 @@ const COMPACT_INTEGRITY: &[u16] = &[
     0x0049, // +0138
 ];
 #[rustfmt::skip]
-const COMPACT_PROGRAM: &[u16] = &[
+pub(super) const COMPACT_PROGRAM: &[u16] = &[
     0xb5f8, 0x48ce, 0x6841, 0x1482, 0x4311, 0x6041, 0x6841, 0x1442, 0x4311, 0x6041, 0x6841, 0x0052, // +0000
     0x4311, 0x6041, 0x49c8, 0x6808, 0x2480, 0x4320, 0x6008, 0x4ac6, 0x3280, 0x6890, 0x07c0, 0xd0fc, // +0018
     0x4ac3, 0x68d0, 0x2104, 0x4308, 0x60d0, 0x48c1, 0x3040, 0x6901, 0x0849, 0x0049, 0x6101, 0x4dbf, // +0030
@@ -672,7 +680,7 @@ const WIDE_INTEGRITY: &[u16] = &[
     0x0049, // +0138
 ];
 #[rustfmt::skip]
-const WIDE_PROGRAM: &[u16] = &[
+pub(super) const WIDE_PROGRAM: &[u16] = &[
     0xb5f8, 0x48d7, 0x6841, 0x0889, 0x0089, 0x6041, 0x4ad5, 0x6b10, 0x213c, 0x4388, 0x6310, 0x48d4, // +0000
     0x6841, 0x1482, 0x4311, 0x6041, 0x6841, 0x1442, 0x4311, 0x6041, 0x6841, 0x0052, 0x4311, 0x6041, // +0018
     0x49ce, 0x6808, 0x2480, 0x4320, 0x6008, 0x4acc, 0x3280, 0x6890, 0x07c0, 0xd0fc, 0x49c9, 0x68c8, // +0030
@@ -789,98 +797,34 @@ static FORMS: &[Form] = &[
     },
 ];
 
+// Native aligned-range CMAC input, hardware block feed and stored-digest comparison.
+#[rustfmt::skip]
+pub(super) const COMPACT_CMAC_RANGE: &[u16] = &[
+    0xb5f8, 0x0014, 0x0702, 0x0f12, 0x07a3, 0x0f9b, 0x431a, 0xd16c, 0x4288, 0xd26a, 0x0002, 0x3a10,
+    0x4294, 0xd901, 0x428c, 0xd964, 0x0005, 0x1a08, 0x3010, 0x0906, 0x2201, 0x0692, 0x6810, 0x2110,
+    0x4388, 0x6010, 0x4f89, 0x68b8, 0x2198, 0x4388, 0x60b8, 0xf69b, 0xff3d, 0x2000, 0x2100, 0x0082,
+    0x19d2, 0x6311, 0x1c40, 0x2804, 0xd3f9, 0x68b8, 0x2104, 0x4308, 0x60b8, 0x68b8, 0x2102, 0x4308,
+    0x60b8, 0x1e70, 0x4e7d, 0x2201, 0x3680, 0xe019, 0x6829, 0x6239, 0x686a, 0x1d29, 0x627a, 0x1d09,
+    0x680a, 0x62ba, 0x1d09, 0x680a, 0x62fa, 0x1d0d, 0x6931, 0x2201, 0x4311, 0x6131, 0x6839, 0x4311,
+    0x6039, 0x7939, 0x0789, 0xd5fc, 0x6931, 0x4311, 0x6131, 0x1e40, 0x2800, 0xd1e3, 0xf69b, 0xff42,
+    0x6828, 0x6238, 0x6869, 0x1d28, 0x6279, 0x1d00, 0x6801, 0x62b9, 0x6840, 0x62f8, 0x6930, 0x2201,
+    0x4310, 0x6130, 0x6838, 0x4310, 0x6038, 0x003d, 0x7928, 0x0780, 0xd5fc, 0x6930, 0x4310, 0x6130,
+    0xf69b, 0xff33, 0x2000, 0x0081, 0x1949, 0x6b09, 0x6822, 0x4291, 0xd001, 0x2000, 0xbdf8, 0x1d24,
+    0x1c40, 0x2804, 0xd3f3, 0x2001, 0xbdf8,
+];
+
+// Operand-checked CMAC initialize, final-block and completion helpers.
+#[rustfmt::skip]
+pub(super) const CMAC_RANGE_HELPERS: &[u16] = &[
+    0x4834, 0x2100, 0xb510, 0x2300, 0x008a, 0x1812, 0x6213, 0x1c49, 0x2904, 0xd3f9, 0x492f, 0x2200,
+    0x3180, 0x0094, 0x1864, 0x6223, 0x1c52, 0x2a04, 0xd3f9, 0x6882, 0x2304, 0x431a, 0x6082, 0x6882,
+    0x2302, 0x439a, 0x6082, 0x6882, 0x0852, 0x0052, 0x6082, 0x688a, 0x2441, 0x0264, 0x43a2, 0x32ff,
+    0x32ff, 0x1c92, 0x608a, 0x690a, 0x2301, 0x431a, 0x610a, 0x6802, 0x431a, 0x6002, 0x7902, 0x0792,
+    0xd5fc, 0x6908, 0x4318, 0x6108, 0x6888, 0x43a0, 0x6088, 0xbd10, 0x4a18, 0x3280, 0x6890, 0x2141,
+    0x0249, 0x4388, 0x30ff, 0x30ff, 0x1c80, 0x6090, 0x4770, 0x4a13, 0x3280, 0x6890, 0x2141, 0x0249,
+    0x4388, 0x6090, 0x4770,
+];
+
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use sha2::{Digest, Sha256};
-    use std::path::PathBuf;
-
-    fn held(digest: &str, name: &str) -> Vec<u8> {
-        let root = PathBuf::from(std::env::var("MTK_HOARD_ROOT").expect("set MTK_HOARD_ROOT"));
-        let bytes = std::fs::read(root.join("originals").join(digest).join(name)).unwrap();
-        assert_eq!(format!("{:x}", Sha256::digest(&bytes)), digest);
-        bytes
-    }
-
-    #[test]
-    #[ignore = "requires private MTK_HOARD_ROOT"]
-    fn held_mixed_receivers_bind_flag_header_integrity_and_programming_code() {
-        for (digest, name, expected_start, critical) in [
-            (
-                "c3a18eed17251d1508964647e833ffdfe01b13c28dff9a717dfac6336e7c70e6",
-                "BH16NS40_INTM_c3a18eed.bin",
-                0x1d0000,
-                [
-                    0x9cdb0, 0x9d48c, 0x9d4bc, 0x9d528, 0x9d584, 0x9d61e, 0x9d658, 0x9d69a,
-                ],
-            ),
-            (
-                "29ad302647148e270c15a5a4542aa4796ee9ba25ea9fbf9f2be9465c01c139a7",
-                "BU40N_INTM_29ad3026.bin",
-                0x1c8000,
-                [
-                    0x9cc2c, 0x9d3e0, 0x9d41c, 0x9d488, 0x9d4e4, 0x9d600, 0x9d638, 0x9d67a,
-                ],
-            ),
-        ] {
-            let bytes = held(digest, name);
-            let app = &bytes[0x98000..0xb4000];
-            let analysis = ApplicationAnalysis::inspect(app, 0x98000).unwrap();
-            let candidate = Candidate::inspect(app, 0x98000, &analysis).expect(name);
-            let wrapper_start = candidate.wrapper_address as usize;
-            let wrapper = &bytes[wrapper_start..wrapper_start + candidate.wrapper_bytes()];
-            let program_start = candidate.program_address(wrapper).unwrap() as usize;
-            let program = &bytes[program_start..program_start + candidate.program_bytes()];
-            let integrity_start = candidate.integrity_address as usize;
-            let integrity = &bytes[integrity_start..integrity_start + candidate.integrity_bytes()];
-            let contract = candidate.bind(wrapper, integrity, program).unwrap();
-            assert_eq!(contract.header_range(), 0x3000..0x3010);
-            assert_eq!(
-                contract.programmed_ranges(),
-                &[0x10000..expected_start, 0x1ec000..0x1f0000]
-            );
-            assert_eq!(contract.descriptor_byte(), 0x1ec056);
-            // Cached discovery cannot license changed flag, AES destination,
-            // range, direct signature, CMAC policy, DE check or program mode.
-            for address in critical {
-                let mut changed = app.to_vec();
-                changed[address - 0x98000] ^= 1;
-                assert!(
-                    Candidate::inspect(&changed, 0x98000, &analysis).is_none(),
-                    "{name}: {address:#x}"
-                );
-            }
-            // Poison each independently significant argument copy/store in the
-            // out-of-line wrapper, and both reserved-region skip constants.
-            for offset in [2, 4, 6, 0x128, 0x12c, 0x130] {
-                let mut changed = wrapper.to_vec();
-                changed[offset] ^= 1;
-                assert!(
-                    candidate.bind(&changed, integrity, program).is_none(),
-                    "wrapper {offset:#x}"
-                );
-            }
-            for offset in [
-                candidate.form.skip_start,
-                candidate.form.skip_length,
-                candidate.form.skip_final,
-            ] {
-                let mut changed = program.to_vec();
-                changed[offset as usize] ^= 1;
-                assert!(
-                    candidate.bind(wrapper, integrity, &changed).is_none(),
-                    "program {offset:#x}"
-                );
-            }
-            let mut changed = integrity.to_vec();
-            changed[0x48] ^= 1;
-            assert!(candidate.bind(wrapper, &changed, program).is_none());
-            assert!(candidate
-                .bind(&wrapper[..wrapper.len() - 1], integrity, program)
-                .is_none());
-            assert!(candidate
-                .bind(wrapper, integrity, &program[..program.len() - 1])
-                .is_none());
-        }
-    }
-}
+#[path = "mixed_tests.rs"]
+mod tests;

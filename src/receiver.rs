@@ -216,6 +216,16 @@ impl Receiver {
         self.site.address
     }
     /// Re-read identity and matched instructions immediately before writing.
+    ///
+    /// INQUIRY identity is read first and again after every receiver byte:
+    /// READ BUFFER returns the same flash from BOOT and the application, so
+    /// only INQUIRY binds the running receiver, and a change during the
+    /// code/table re-read is refused with [`Error::Changed`].
+    ///
+    /// A reference-bound receiver (`Provenance::CurrentReference`, built by
+    /// `Receiver::from_firmware`) re-reads only INQUIRY identity, the boot banner
+    /// and build metadata, then INQUIRY identity again; its instruction evidence
+    /// is not re-read.
     pub fn revalidate<T: Transport>(&self, t: &mut T) -> Result<(), Error<T::Error>> {
         #[cfg(all(feature = "image", feature = "enc"))]
         if let Some(reference) = &self.reference {
@@ -226,11 +236,34 @@ impl Receiver {
         if let Some(profile) = &self.profile {
             profile.revalidate(t)?;
         }
+        self.revalidate_live_identity(t)
+    }
+
+    /// Re-read INQUIRY and require the identity bound by detection. This is
+    /// the last command of [`Receiver::revalidate`].
+    #[cfg(all(feature = "image", feature = "enc"))]
+    pub(crate) fn revalidate_identity<T: Transport>(
+        &self,
+        t: &mut T,
+    ) -> Result<(), Error<T::Error>> {
+        // `from_firmware` holds a synthetic INQUIRY; reference receivers bind
+        // only the mode and identity bytes.
+        if let Some(reference) = &self.reference {
+            return reference.revalidate_identity(t);
+        }
+        self.revalidate_live_identity(t)
+    }
+
+    fn revalidate_live_identity<T: Transport>(&self, t: &mut T) -> Result<(), Error<T::Error>> {
+        if detect_mode(t)? != self.identity {
+            return Err(Error::Changed);
+        }
         Ok(())
     }
 
     // Detection finishes with a small coherence check. The complete snapshot
-    // is checked separately, immediately before any mutating execution.
+    // and a trailing identity check run immediately before any mutating
+    // execution, through `revalidate`.
     fn revalidate_signature<T: Transport>(&self, t: &mut T) -> Result<(), Error<T::Error>> {
         if detect_mode(t)? != self.identity {
             return Err(Error::Changed);
@@ -305,21 +338,64 @@ pub fn detect_encoding<T: Transport>(
     let mut found: Option<Receiver> = None;
     // 64-byte overlap preserves instructions spanning a read boundary.
     let mut block = [0; 1088];
-    let mut base = start;
+    // Begin 32 bytes early so a header-decrypt call at the window start still
+    // has its setup context; nothing before `start` is itself a candidate.
+    let mut base = start - 32;
     while base < end {
         let len = core::cmp::min(block.len(), (end - base) as usize);
-        if drive::read_memory(t, base, &mut block[..len]).is_ok() {
-            for off in (0..len.saturating_sub(4)).step_by(2) {
-                let bytes = &block[off..len];
-                let address = base + off as u32;
-                let mut candidate = None;
-                for pattern in [PLAIN_DIRECT, PLAIN_APP, PLAIN_BOOT, PLAIN_LOGGED] {
-                    if matches(bytes, pattern) {
+        // Read the leading context separately so every window byte still
+        // comes from a read starting inside the window.
+        let lead = (start - base.min(start)) as usize;
+        if lead != 0 {
+            drive::read_memory(t, base, &mut block[..lead]).map_err(Error::Read)?;
+        }
+        drive::read_memory(t, base + lead as u32, &mut block[lead..len]).map_err(Error::Read)?;
+        // Inclusive of `len - 4`: a 4-byte call ending at the window end counts.
+        for off in (0..len.saturating_sub(3)).step_by(2) {
+            let bytes = &block[off..len];
+            let address = base + off as u32;
+            if address < start {
+                continue;
+            }
+            let mut candidate = None;
+            for pattern in [PLAIN_DIRECT, PLAIN_APP, PLAIN_BOOT, PLAIN_LOGGED] {
+                if matches(bytes, pattern) {
+                    candidate = Some(Receiver {
+                        identity: mode.clone(),
+                        encoding: Encoding::Plaintext,
+                        site: Evidence::new(address, &bytes[..pattern.len()]),
+                        transform: None,
+                        #[cfg(all(feature = "image", feature = "enc"))]
+                        profile: None,
+                        #[cfg(all(feature = "image", feature = "enc"))]
+                        reference: None,
+                    });
+                }
+            }
+            // Validate a header-decrypt call AND its hardware AES routine.
+            // The caller must pass staged header +0x3000 and length 16.
+            let before = &block[off.saturating_sub(32)..off];
+            if off >= 32
+                && contains(before, &[0x10, 0x22])
+                && (contains(before, &[3, 0x20, 0, 3])
+                    || contains(before, &[3, 0x23]) && contains(before, &[0x1b, 3]))
+            {
+                if let Some(target) = branch_target(bytes, address) {
+                    let valid_range = match mode.mode {
+                        Mode::Boot => target < 0x10000,
+                        Mode::Firmware => (0x10000..0x1c0000).contains(&target),
+                    };
+                    let mut routine = [0; 46];
+                    if valid_range {
+                        drive::read_memory(t, target, &mut routine).map_err(Error::Read)?;
+                    }
+                    if valid_range && matches(&routine, AES) {
+                        let begin = off.saturating_sub(32);
                         candidate = Some(Receiver {
                             identity: mode.clone(),
-                            encoding: Encoding::Plaintext,
-                            site: Evidence::new(address, &bytes[..pattern.len()]),
-                            transform: None,
+                            encoding: Encoding::Encrypted,
+                            site: Evidence::new(base + begin as u32, &block[begin..off + 4]),
+                            transform: Some(Evidence::new(target, &routine)),
                             #[cfg(all(feature = "image", feature = "enc"))]
                             profile: None,
                             #[cfg(all(feature = "image", feature = "enc"))]
@@ -327,46 +403,14 @@ pub fn detect_encoding<T: Transport>(
                         });
                     }
                 }
-                // Validate a header-decrypt call AND its hardware AES routine.
-                // The caller must pass staged header +0x3000 and length 16.
-                let before = &block[off.saturating_sub(32)..off];
-                if off >= 32
-                    && contains(before, &[0x10, 0x22])
-                    && (contains(before, &[3, 0x20, 0, 3])
-                        || contains(before, &[3, 0x23]) && contains(before, &[0x1b, 3]))
-                {
-                    if let Some(target) = branch_target(bytes, address) {
-                        let valid_range = match mode.mode {
-                            Mode::Boot => target < 0x10000,
-                            Mode::Firmware => (0x10000..0x1c0000).contains(&target),
-                        };
-                        let mut routine = [0; 46];
-                        if valid_range
-                            && drive::read_memory(t, target, &mut routine).is_ok()
-                            && matches(&routine, AES)
-                        {
-                            let begin = off.saturating_sub(32);
-                            candidate = Some(Receiver {
-                                identity: mode.clone(),
-                                encoding: Encoding::Encrypted,
-                                site: Evidence::new(base + begin as u32, &block[begin..off + 4]),
-                                transform: Some(Evidence::new(target, &routine)),
-                                #[cfg(all(feature = "image", feature = "enc"))]
-                                profile: None,
-                                #[cfg(all(feature = "image", feature = "enc"))]
-                                reference: None,
-                            });
-                        }
+            }
+            if let Some(candidate) = candidate {
+                if let Some(previous) = &found {
+                    if previous != &candidate {
+                        return Err(Error::Conflict);
                     }
-                }
-                if let Some(candidate) = candidate {
-                    if let Some(previous) = &found {
-                        if previous != &candidate {
-                            return Err(Error::Conflict);
-                        }
-                    } else {
-                        found = Some(candidate);
-                    }
+                } else {
+                    found = Some(candidate);
                 }
             }
         }

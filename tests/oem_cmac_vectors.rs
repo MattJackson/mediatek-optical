@@ -39,3 +39,24 @@ fn all_small_oem_records_match_their_stored_cmac_tags() {
         }
     }
 }
+
+/// The OEM records above are all shorter than `compute_stored_digest`'s
+/// internal chunk buffer. Known answer computed outside this crate
+/// (`openssl mac CMAC`, AES-128-CBC, the crate's CMAC key) over 2003
+/// non-uniform bytes, each 16-byte block reversed (final short block too) and
+/// the digest byte-reversed for storage, so chunk alignment is visible.
+#[test]
+fn long_non_uniform_range_matches_independent_known_answer() {
+    const EXPECTED: [u8; 16] = [
+        0xA6, 0x93, 0x42, 0x92, 0x92, 0xF9, 0xF4, 0xD8, 0x82, 0x34, 0xC2, 0x95, 0x72, 0x75, 0x2A,
+        0x3E,
+    ];
+    let mut data = vec![0u8; 5 + 2003];
+    for (i, byte) in data[5..].iter_mut().enumerate() {
+        *byte = (i * 7 + 3) as u8;
+    }
+    assert_eq!(
+        cmac::compute_stored_digest(&data, 5, data.len() as u32 - 1).unwrap(),
+        EXPECTED
+    );
+}

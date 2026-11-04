@@ -72,8 +72,9 @@ impl Window<'_> {
 
 // Verify the complete local prologue, rather than finding useful bytes in an
 // otherwise unconstrained prefix. This also proves r0 is still the CDB pointer
-// and whether r7 really carries the bit-zero constant.
-fn prologue(w: &Window<'_>, start: u32) -> Option<bool> {
+// and whether r7 really carries the bit-zero constant. Also returns the
+// proven `SUB SP` so the return can be bound to the same frame.
+fn prologue(w: &Window<'_>, start: u32) -> Option<(bool, u16)> {
     for distance in [14, 16, 18] {
         let Some(mut p) = start.checked_sub(distance) else {
             continue;
@@ -89,9 +90,9 @@ fn prologue(w: &Window<'_>, start: u32) -> Option<bool> {
             continue;
         }
         p += 4;
-        if !matches!(w.word(p), Some(0xb085 | 0xb089)) {
+        let Some(stack @ (0xb085 | 0xb089)) = w.word(p) else {
             continue;
-        }
+        };
         p += 2;
         let mut one = false;
         let mut state = false;
@@ -116,7 +117,7 @@ fn prologue(w: &Window<'_>, start: u32) -> Option<bool> {
             && w.word(p) == Some(0x2a00)
             && w.conditional(p + 2, 0xd100).is_some()
         {
-            return Some(one);
+            return Some((one, stack));
         }
     }
     None
@@ -127,7 +128,7 @@ fn candidate(w: &Window<'_>, start: u32) -> Option<LegacyCandidate> {
     if w.bytes(start, 10)? != [0x42, 0x78, 0x12, 0x07, 0x12, 0x0f, 0x42, 0x70, 0x42, 0x78] {
         return None;
     }
-    let preloaded_one = prologue(w, start)?;
+    let (preloaded_one, stack) = prologue(w, start)?;
     let mut p = start.checked_add(10)?;
     // The first literal runs before `CMP r2,#1`, so it may not clobber the CDB
     // pointer (r0), the compared mode nibble (r2) or the preloaded bit-zero one
@@ -149,8 +150,9 @@ fn candidate(w: &Window<'_>, start: u32) -> Option<LegacyCandidate> {
     // later bit clause relying on that implicit value is then rejected.
     let mut one_live = preloaded_one;
     if let Some(local) = w.literal(p) {
-        // After the branch r0's pointer and r2's compare are dead, but r0 stays
-        // reserved; r2 may be the MMIO base and r7 may be rebuilt.
+        // After the branch r2's compare is dead, so r2 may become the MMIO
+        // base and r7 may be rebuilt. r0 still holds the CDB pointer: every
+        // bit clause below reads CDB byte 9 through it (LDRB tmp,[r0,#9]).
         if local.0 == 0 {
             return None;
         }
@@ -221,7 +223,9 @@ fn candidate(w: &Window<'_>, start: u32) -> Option<LegacyCandidate> {
             return None;
         }
     }
-    if w.word(p)? & 0xff80 != 0xb000 || w.word(p.checked_add(2)?)? & 0xff00 != 0xbd00 {
+    // The return must unwind exactly the proven frame: ADD SP by the prologue's
+    // SUB SP amount, then POP {r4-r7,pc} matching PUSH {r4-r7,lr}.
+    if w.word(p)? != 0xb000 | (stack & 0x7f) || w.word(p.checked_add(2)?)? != 0xbdf0 {
         return None;
     }
     Some(LegacyCandidate {
@@ -236,21 +240,40 @@ fn candidate(w: &Window<'_>, start: u32) -> Option<LegacyCandidate> {
 /// Truncated, unknown and ambiguous windows return `None`. This performs no I/O
 /// and grants no permission to issue PREPARE or ignore its result.
 pub fn inspect_boot_legacy(bytes: &[u8], address: u32) -> Option<LegacyCandidate> {
+    match scan_legacy(bytes, address) {
+        Scan::Unique(hit) => Some(hit),
+        Scan::Absent | Scan::Ambiguous => None,
+    }
+}
+
+/// Outcome of scanning a window for one grammar.
+enum Scan<T> {
+    Absent,
+    Unique(T),
+    Ambiguous,
+}
+
+fn scan_legacy(bytes: &[u8], address: u32) -> Scan<LegacyCandidate> {
     let w = Window {
         bytes,
         base: address,
     };
-    let mut found = None;
+    let mut found = Scan::Absent;
     for index in (0..bytes.len().saturating_sub(9)).step_by(2) {
-        let at = address.checked_add(u32::try_from(index).ok()?)?;
+        let Some(at) = u32::try_from(index)
+            .ok()
+            .and_then(|index| address.checked_add(index))
+        else {
+            return Scan::Absent;
+        };
         if at & 1 != 0 {
             continue;
         }
         if let Some(hit) = candidate(&w, at) {
-            if found.is_some() {
-                return None;
+            if matches!(found, Scan::Unique(_)) {
+                return Scan::Ambiguous;
             }
-            found = Some(hit);
+            found = Scan::Unique(hit);
         }
     }
     found
@@ -373,203 +396,46 @@ fn dual_candidate(w: &Window<'_>, start: u32) -> Option<DualCandidate> {
 /// buffer 0x67, MMIO destination and the complete flag-copy control flow.
 /// Unknown, truncated or ambiguous windows return `None`; this does no I/O.
 pub fn inspect_boot_dual(bytes: &[u8], address: u32) -> Option<DualCandidate> {
+    match scan_dual(bytes, address) {
+        Scan::Unique(hit) => Some(hit),
+        Scan::Absent | Scan::Ambiguous => None,
+    }
+}
+
+fn scan_dual(bytes: &[u8], address: u32) -> Scan<DualCandidate> {
     let w = Window {
         bytes,
         base: address,
     };
-    let mut found = None;
+    let mut found = Scan::Absent;
     for index in (0..bytes.len()).step_by(2) {
-        let at = address.checked_add(u32::try_from(index).ok()?)?;
+        let Some(at) = u32::try_from(index)
+            .ok()
+            .and_then(|index| address.checked_add(index))
+        else {
+            return Scan::Absent;
+        };
         if at & 1 != 0 {
             continue;
         }
         if let Some(hit) = dual_candidate(&w, at) {
-            if found.is_some() {
-                return None;
+            if matches!(found, Scan::Unique(_)) {
+                return Scan::Ambiguous;
             }
-            found = Some(hit);
+            found = Scan::Unique(hit);
         }
     }
     found
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    // Instruction/literal excerpts from WH16NS58 V9 SHA256 97b28707...,
-    // checked against the independent disassembly. No firmware payload needed.
-    fn v9_window() -> std::vec::Vec<u8> {
-        let mut bytes = std::vec![0xff; 0x600];
-        for (address, hex) in [
-            (0x352a, "e548f0b5827889b00127e349002a72d142781207120f42704278e04e012a49d0022a01d0062af2d1"),
-            (0x35de, "b16909090901b161417ac90702d0b1693943b161417a890703d5b16902221143b161417a490703d5b16904221143b161407a000703d5b06908210843b06109b0f0bd"),
-            (0x38c0, "fc0d0002800d000240200004"),
-        ] {
-            for i in (0..hex.len()).step_by(2) {
-                bytes[address - 0x3400 + i / 2] = u8::from_str_radix(&hex[i..i+2], 16).unwrap();
-            }
-        }
-        bytes
-    }
-
-    #[test]
-    fn actual_v9_entry_has_fixed_operands_and_bounded_literals() {
-        let bytes = v9_window();
-        assert_eq!(
-            inspect_boot_legacy(&bytes, 0x3400),
-            Some(LegacyCandidate {
-                decoder: 0x353a,
-                entry: 0x35de,
-                end: 0x3620,
-            })
-        );
-        for length in 0..0x4cc {
-            assert!(inspect_boot_legacy(&bytes[..length], 0x3400).is_none());
-        }
-        for address in [
-            0x352e, 0x3532, 0x3536, 0x3546, 0x3548, 0x35de, 0x35e6, 0x35e8, 0x35ea, 0x35ee, 0x361a,
-            0x38c8,
-        ] {
-            let mut changed = bytes.clone();
-            changed[address - 0x3400] ^= 1;
-            assert!(
-                inspect_boot_legacy(&changed, 0x3400).is_none(),
-                "{address:#x}"
-            );
-        }
-    }
-
-    // The V9 window with its entry rebuilt around `base`: an optional literal
-    // load between the decoder and `CMP r2,#1` (`first`) and an optional local
-    // literal at the entry (`local`), each naming its destination register.
-    fn v9_rebuilt(first: u16, local: Option<u16>, base: u16) -> std::vec::Vec<u8> {
-        v9_rebuilt_with(first, local, base, false)
-    }
-
-    // `explicit_one` spells bit zero's constant as a MOV instead of relying on
-    // the preloaded r7.
-    fn v9_rebuilt_with(
-        first: u16,
-        local: Option<u16>,
-        base: u16,
-        explicit_one: bool,
-    ) -> std::vec::Vec<u8> {
-        let mut bytes = v9_window();
-        let mut put = |address: usize, op: u16| {
-            bytes[address - 0x3400..address - 0x3400 + 2].copy_from_slice(&op.to_le_bytes());
-        };
-        put(0x3544, 0x4800 | first << 8 | 0xe0);
-        let mut p = 0x35de;
-        if let Some(reg) = local {
-            put(p, 0x4800 | reg << 8 | 0xba);
-            p += 2;
-        }
-        let load = 0x6800 | (6 << 6) | (base << 3) | 1;
-        let source = if base == 2 { 3 } else { 2 };
-        let mut ops = std::vec![load, 0x0909, 0x0109, 0x6000 | (6 << 6) | (base << 3) | 1];
-        for (bit, tmp, constant) in [
-            (0u16, 1u16, explicit_one.then_some(source)),
-            (1, 1, Some(source)),
-            (2, 1, Some(source)),
-            (3, 0, Some(1)),
-        ] {
-            ops.push(0x7800 | (9 << 6) | tmp);
-            ops.push(((31 - bit) << 6) | (tmp << 3) | tmp);
-            let (condition, length) = match (bit, constant) {
-                (0, None) => (0xd000, 2),
-                (0, Some(_)) => (0xd000, 3),
-                _ => (0xd500, 3),
-            };
-            ops.push(condition | length);
-            ops.push(0x6800 | (6 << 6) | (base << 3) | tmp);
-            let register = constant.unwrap_or(7);
-            if constant.is_some() {
-                ops.push(0x2000 | register << 8 | (1 << bit));
-            }
-            ops.push(0x4300 | (register << 3) | tmp);
-            ops.push(0x6000 | (6 << 6) | (base << 3) | tmp);
-        }
-        ops.extend([0xb009, 0xbdf0]);
-        for op in ops {
-            put(p, op);
-            p += 2;
-        }
-        bytes
-    }
-
-    #[test]
-    fn literal_loads_cannot_clobber_the_cdb_pointer_compare_or_preloaded_one() {
-        // Controls: the rebuilt forms are accepted when no register the proof
-        // relies on (r0 CDB pointer, r2 compare, r7 preloaded one) is touched.
-        assert!(inspect_boot_legacy(&v9_rebuilt(6, None, 6), 0x3400).is_some());
-        assert!(inspect_boot_legacy(&v9_rebuilt(5, Some(3), 3), 0x3400).is_some());
-        // A first literal into r0 is superseded by a local literal, but still
-        // destroys the CDB pointer before the mode nibble is compared.
-        assert!(inspect_boot_legacy(&v9_rebuilt(0, Some(3), 3), 0x3400).is_none());
-        // A first literal into r2 clobbers the compared mode nibble.
-        assert!(inspect_boot_legacy(&v9_rebuilt(2, None, 2), 0x3400).is_none());
-        // The same holds for r7, which carries the preloaded bit-zero one.
-        assert!(inspect_boot_legacy(&v9_rebuilt(7, Some(3), 3), 0x3400).is_none());
-        // After the branch r2 is dead, so a local literal may make it the base.
-        assert!(inspect_boot_legacy(&v9_rebuilt(6, Some(2), 2), 0x3400).is_some());
-        // A local literal into r0 still destroys the CDB pointer.
-        assert!(inspect_boot_legacy(&v9_rebuilt(6, Some(0), 0), 0x3400).is_none());
-        // A local literal into r7 is fine unless bit zero relies on the
-        // preloaded r7 one.
-        assert!(inspect_boot_legacy(&v9_rebuilt(6, Some(7), 7), 0x3400).is_none());
-        assert!(inspect_boot_legacy(&v9_rebuilt_with(6, Some(7), 7, true), 0x3400).is_some());
-    }
-
-    #[test]
-    fn ambiguity_alignment_and_address_overflow_never_select_a_recipe() {
-        let bytes = v9_window();
-        let mut doubled = bytes.clone();
-        doubled.extend_from_slice(&bytes);
-        assert!(inspect_boot_legacy(&doubled, 0x3400).is_none());
-        assert!(inspect_boot_legacy(&bytes, 0x3401).is_none());
-        assert!(inspect_boot_legacy(&bytes, u32::MAX - 16).is_none());
-    }
-
-    #[test]
-    fn both_real_dual_entry_compiler_forms_bind_modes_and_flag_paths() {
-        for (prefix, literal_at, literals, entry, body) in [
-            ("de49f0b5487885b00007000f4870487808220423022401280bd0d74d0a3d022801d0062879d14878062824d18878672821d1d348", 0x38bc,
-             "8a0d0002fc0d000240200004", 0x3576, DUAL_LOCAL),
-            ("dd49f0b5487889b00007000f487048780822042302240127d84e01280bd0d54d0a3d022801d006286cd14878062822d1887867281fd1", 0x38b8,
-             "8a0d0002fc0d000240200004", 0x357a, DUAL_PRELOADED),
-        ] {
-            let mut bytes = std::vec![0xff; 0x600];
-            for (address, hex) in [(0x3544, prefix), (literal_at, literals)] {
-                for i in (0..hex.len()).step_by(2) {
-                    bytes[address - 0x3400 + i / 2] = u8::from_str_radix(&hex[i..i+2], 16).unwrap();
-                }
-            }
-            for (address, hex) in if entry == 0x3576 {
-                [(0x365e, "7ce0"), (0x375a, "01262e7121e7")]
-            } else {
-                [(0x3648, "dbe0"), (0x3802, "2f71cfe6")]
-            } {
-                for i in (0..hex.len()).step_by(2) {
-                    bytes[address - 0x3400 + i / 2] = u8::from_str_radix(&hex[i..i+2], 16).unwrap();
-                }
-            }
-            bytes[entry-0x3400..entry-0x3400+body.len()].copy_from_slice(body);
-            if entry == 0x3576 { bytes[entry-0x3400] = 0xd3; }
-            assert_eq!(inspect_boot_dual(&bytes, 0x3400), Some(DualCandidate {
-                decoder: 0x3544, entry: entry as u32, stream: 0x35ba,
-            }));
-            assert!(inspect_boot_legacy(&bytes, 0x3400).is_none());
-            for address in 0x3554..0x35ba {
-                // Literal relocation is variable; every other body byte and
-                // mode-routing byte is fixed in these complete compiler forms.
-                if address == entry { continue; }
-                let mut changed = bytes.clone(); changed[address-0x3400] ^= 1;
-                assert!(inspect_boot_dual(&changed, 0x3400).is_none(), "{entry:#x}: {address:#x}");
-            }
-            let mut doubled = bytes.clone(); doubled.extend_from_slice(&bytes);
-            assert!(inspect_boot_dual(&doubled, 0x3400).is_none());
-            assert!(inspect_boot_dual(&bytes, u32::MAX - 16).is_none());
-        }
-    }
+/// True when exactly one BOOT grammar matches (positively accepting mode one).
+pub(super) fn boot_grammar_accepted(bytes: &[u8], address: u32) -> bool {
+    matches!(
+        (scan_legacy(bytes, address), scan_dual(bytes, address)),
+        (Scan::Unique(_), Scan::Absent) | (Scan::Absent, Scan::Unique(_))
+    )
 }
+
+#[cfg(test)]
+#[path = "entry_tests.rs"]
+mod tests;

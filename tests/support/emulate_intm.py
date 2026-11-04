@@ -227,6 +227,15 @@ def acceptance_path(current, wire, flags, secure_result):
             "cmac_checks": cmac_checks, "summaries": sorted(summaries)}
 
 
+class MutationRejected(Exception):
+    """The emulated write plan differs from the expected spans.
+
+    Distinct from AssertionError so that hook failures, an exhausted
+    instruction budget or an unbound wrapper are never mistaken for an
+    expected rejection of a mutated image.
+    """
+
+
 def program_path(current, wire, start):
     cpu = machine(current, wire)
     # Enter the real mode-three wrapper with the arguments produced by the
@@ -258,9 +267,10 @@ def program_path(current, wire, start):
             cpu.reg_write(UC_ARM_REG_R0, 1)
             cpu.reg_write(UC_ARM_REG_PC, cpu.reg_read(UC_ARM_REG_LR))
         elif address == 0x17000:
-            assert get(cpu, 0x02000c60) == start
-            assert get(cpu, 0x02000c68) == start
-            assert get(cpu, 0x02000c6c) == SIZE - start
+            if not (get(cpu, 0x02000c60) == start
+                    and get(cpu, 0x02000c68) == start
+                    and get(cpu, 0x02000c6c) == SIZE - start):
+                raise MutationRejected("wrapper arguments do not bind the requested start")
             wrapper_bound = True
             # Skip hardware register initialization and its polling loop. The
             # loop entry itself still establishes its pointers and 64KiB unit.
@@ -282,9 +292,9 @@ def program_path(current, wire, start):
             destination = cpu.reg_read(UC_ARM_REG_R0)
             source = cpu.reg_read(UC_ARM_REG_R1)
             length = cpu.reg_read(UC_ARM_REG_R2)
-            assert source == destination
-            assert length in (0x1000, 0x10000)
-            assert destination + length <= SIZE
+            if not (source == destination and length in (0x1000, 0x10000)
+                    and destination + length <= SIZE):
+                raise MutationRejected("program call arguments are not bound")
             programmed.append([destination, source, length])
             cpu.reg_write(UC_ARM_REG_PC, cpu.reg_read(UC_ARM_REG_LR))
         elif not (0x17054 <= address <= 0x172ea or 0x140a5a <= address <= 0x140b9c):
@@ -292,16 +302,21 @@ def program_path(current, wire, start):
 
     cpu.hook_add(UC_HOOK_CODE, step)
     cpu.emu_start(0x140a5b, 0x200000, count=100000)
-    assert stopped and wrapper_bound, "instruction budget exhausted or wrapper not bound"
-    assert erased == [[destination, length] for destination, _, length in programmed]
+    assert stopped, "instruction budget exhausted"
+    if not wrapper_bound:
+        raise MutationRejected("wrapper not bound")
+    if erased != [[destination, length] for destination, _, length in programmed]:
+        raise MutationRejected("erase and program requests differ")
     spans = []
     for destination, _, length in programmed:
         if spans and spans[-1][1] == destination:
             spans[-1][1] += length
         else:
             spans.append([destination, destination + length])
-    assert spans == [[start, 0x1d0000], [0x1ec000, 0x1f0000]]
-    assert get(cpu, 0x02000c6c) == 0
+    if spans != [[start, 0x1d0000], [0x1ec000, 0x1f0000]]:
+        raise MutationRejected(f"unexpected write spans {spans}")
+    if get(cpu, 0x02000c6c) != 0:
+        raise MutationRejected("remaining length not exhausted")
     return {"start": start, "spans": spans, "writes": len(programmed),
             "instructions": instructions, "hardware_io": "summarized_not_executed",
             "wrapper_bound": wrapper_bound, "summaries": sorted(summaries)}
@@ -360,7 +375,7 @@ def main():
         changed[address] ^= 1
         try:
             program_path(bytes(changed), bytes(mixed), 0x10000)
-        except AssertionError:
+        except MutationRejected:
             mutations_rejected.append(hex(address))
         else:
             raise AssertionError(f"reserved threshold mutation accepted: {address:x}")
@@ -370,7 +385,7 @@ def main():
         changed[address] ^= 1
         try:
             program_path(bytes(changed), bytes(mixed), 0x10000)
-        except AssertionError:
+        except MutationRejected:
             wrapper_mutations_rejected.append(hex(address))
         else:
             raise AssertionError(f"wrapper argument mutation accepted: {address:x}")

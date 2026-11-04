@@ -9,7 +9,7 @@ cargo-fuzz = true
 
 [dependencies]
 libfuzzer-sys = "0.4"
-mediatek-optical = { path = "..", features = ["image", "enc"] }
+mediatek-optical = { path = "..", features = ["analysis", "drive", "enc", "image", "oem"] }
 
 [[bin]]
 name = "firmware"

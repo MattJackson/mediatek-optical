@@ -123,10 +123,10 @@ fn chips_must_match() {
     // drive that reports only a banner is identified fine (here it matches the
     // MT1939 image's chip, so the check proceeds past the chip gate).
     let banner_only = Identity::parse(&[0; INQUIRY_LEN], b"MT1939 Boot Code", &[]).unwrap();
-    assert!(!matches!(
+    assert_eq!(
         PreparedUpdate::check(&mt1939, &banner_only),
-        Err(PrepareError::ChipMismatch { .. } | PrepareError::UnknownDriveChip)
-    ));
+        Ok(family(&mt1939).unwrap())
+    );
 }
 
 #[test]
@@ -203,6 +203,30 @@ fn an_untagged_image_is_matched_by_the_drive_banner() {
 }
 
 #[test]
+fn an_unrecognised_integrity_enabled_word_is_refused_before_any_write() {
+    let running = fixtures::image(&JB7, 1);
+    let mut target = fixtures::image(&JB7, 2);
+    let live = identity_of(&running);
+    assert!(PreparedUpdate::check(&target, &live).is_ok());
+    assert!(prepare(&target, &running).is_ok());
+    assert!(PreparedUpdate::prepare_without_installed(&target, &live).is_ok());
+    let at = cmac::TABLE_OFFSET + cmac::ENTRY_SIZE;
+    target[at..at + 4].copy_from_slice(&0u32.to_le_bytes());
+    assert_eq!(
+        PreparedUpdate::check(&target, &live).unwrap_err(),
+        PrepareError::Integrity
+    );
+    assert_eq!(
+        prepare(&target, &running).unwrap_err(),
+        PrepareError::Integrity
+    );
+    assert_eq!(
+        PreparedUpdate::prepare_without_installed(&target, &live).unwrap_err(),
+        PrepareError::Integrity
+    );
+}
+
+#[test]
 fn invalid_images_are_refused_first() {
     let running = fixtures::image(&JB7, 1);
     let mut short = running.clone();
@@ -270,6 +294,35 @@ fn installed_firmware_must_be_the_live_drive() {
     let bound = InstalledFirmware::new(id.clone(), &running).unwrap();
     assert_eq!(bound.family(), family(&running));
     assert_eq!(bound.identity(), &id);
+}
+
+#[test]
+fn installed_binding_compares_the_complete_descriptor() {
+    let running = fixtures::image(&JB7, 1);
+    let capture = fixtures::drive_read(&running);
+    let id = identity_of(&running);
+    // Control: the untouched capture binds.
+    InstalledFirmware::new(id.clone(), &capture).unwrap();
+    // A capture differing past 0x58 of the descriptor is not the live drive.
+    let mut tail = capture.clone();
+    tail[layout::DESCRIPTOR.start + 0x80] ^= 1;
+    assert_eq!(
+        InstalledFirmware::new(id.clone(), &tail).unwrap_err(),
+        PrepareError::InstalledMismatch
+    );
+    // A short live descriptor keeps its tag but is zero-padded: it is missing
+    // evidence, not a match for the capture's tail.
+    let short = Identity::parse(
+        &[0; INQUIRY_LEN],
+        layout::BANNER.of(&running).unwrap(),
+        &layout::DESCRIPTOR.of(&running).unwrap()[..0x58],
+    )
+    .unwrap();
+    assert!(short.has_descriptor());
+    assert_eq!(
+        InstalledFirmware::new(short, &capture).unwrap_err(),
+        PrepareError::InstalledMismatch
+    );
 }
 
 #[test]

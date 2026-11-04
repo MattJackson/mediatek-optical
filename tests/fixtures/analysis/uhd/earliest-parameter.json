@@ -1,0 +1,85 @@
+{
+  "source_sha256": "c88a69013d557b9c4cf1a4d603c314585f51a258b9747c345184e866eef36306",
+  "parts": [
+    {
+      "file": "c88a6901-parameter-0de300.bin",
+      "offset": 910080,
+      "sha256": "fef2edea5451e222606d5d2ff219d0a483cab10fc56f23baf52e46108d6ec31b"
+    },
+    {
+      "file": "c88a6901-parameter-154180.bin",
+      "offset": 1393024,
+      "sha256": "a18bf5645707cd1512d3840de957e4df78c7832b9d44ff0e2476ad32083d4993"
+    },
+    {
+      "file": "c88a6901-auxiliary-033000.bin",
+      "offset": 208896,
+      "sha256": "1931f6029db6cc37722d1e4a490a39c12cba630c637a364333995caedd984340"
+    },
+    {
+      "file": "c88a6901-auxiliary-034700.bin",
+      "offset": 214784,
+      "sha256": "47c35cda19685dcb05e66fa88425a2f58320f6d5e0ebace3903dc069aaa3a93f"
+    },
+    {
+      "file": "c88a6901-auxiliary-0e2b00.bin",
+      "offset": 928512,
+      "sha256": "5380832d8b0fdf91272af3fb1657c67de8eb69adce7b9b09fd9190f26ebd65af"
+    },
+    {
+      "file": "c88a6901-auxiliary-13c800.bin",
+      "offset": 1296384,
+      "sha256": "e8ee4bf65ac414590b9d6f14a03bbde3cd33c42d17c1d2a68f88732434ddbd9f"
+    },
+    {
+      "file": "c88a6901-auxiliary-069100.bin",
+      "offset": 430336,
+      "sha256": "8cfc0405ace6f7bf02ea315677a35585e4144564d287aa5795c9eed5d7254bf0"
+    },
+    {
+      "file": "c88a6901-auxiliary-0dec00.bin",
+      "offset": 912384,
+      "sha256": "92ea59b3f913600de3e7f74ed8e6ec9ea8188c8e2ff5ae076201d6796de75040"
+    },
+    {
+      "file": "c88a6901-auxiliary-07ee00.bin",
+      "offset": 519680,
+      "sha256": "706111e7883ef92e02c9efa4c7fe20d1d96b419ce97dd7e858069d99d8b6c16d"
+    },
+    {
+      "file": "c88a6901-auxiliary-0b8800.bin",
+      "offset": 755712,
+      "sha256": "cf76a57760a61034382d2bd99ef6073aea6fe22b4d92f596bb6bf620b929a765"
+    },
+    {
+      "file": "c88a6901-auxiliary-143300.bin",
+      "offset": 1323776,
+      "sha256": "e8a8c653763614fea2ea3bb218a1e26da74b1c5b7d8a07648f324ac3beed2dd9"
+    },
+    {
+      "file": "c88a6901-calibration-0dd800.bin",
+      "offset": 907264,
+      "sha256": "86de465e5da37ee107ff58500611c8aa8d4e1563c08905e967b5358d9e4f30b5"
+    },
+    {
+      "file": "c88a6901-read-position-0dcbf0.bin",
+      "offset": 904176,
+      "sha256": "403b0c2a1e16c15fb54c4e41769ea955ddd355fd2974825238183057a8a85cbd"
+    },
+    {
+      "file": "c88a6901-completion-027000.bin",
+      "offset": 159744,
+      "sha256": "f9538b6b0ed103abbf880f60a4d730b3f8ac285d6e385faf739ddf700a11e9b8"
+    },
+    {
+      "file": "c88a6901-completion-06e500.bin",
+      "offset": 451840,
+      "sha256": "dbf1417d12dd9b5349b59e08c11883e0b25526fd1894ea0382277daec2d34318"
+    },
+    {
+      "file": "c88a6901-f-recovery-11a800.bin",
+      "offset": 1157120,
+      "sha256": "dd9869937940210ff5d33cd15c31f944086ead3a499714b840a2bc47608400ac"
+    }
+  ]
+}

@@ -2,8 +2,6 @@
 
 use core::time::Duration;
 
-#[cfg(test)]
-use super::PreparedUpdate;
 use crate::drive::{self, Error, Transport};
 use crate::sense::{self, Triplet};
 use crate::{cdb, layout};
@@ -60,12 +58,16 @@ pub trait FlashRuntime<E> {
     /// checks.
     fn commit_failed(&mut self, _error: &Error<E>) {}
     /// TEST UNIT READY right after COMMIT failed; expected while programming.
+    /// Reported only: neither this failure nor a later unit-attention sense is
+    /// counted as restart evidence.
     fn commit_not_ready(&mut self, _error: &Error<E>) {}
     /// A REQUEST SENSE outcome that does not fail the flash.
     fn status(&mut self, _stage: Stage, _status: Status<'_, E>) {}
     /// The upload is complete; readiness polling starts.
     fn uploaded(&mut self, _bytes: usize) {}
-    /// A readiness poll failed after `elapsed` of polling.
+    /// A readiness poll failed after `elapsed` of polling. Reported only;
+    /// readiness gates read-back and never confers success, which needs
+    /// read-back plus the post-write INQUIRY and descriptor checks.
     fn poll_failed(&mut self, _elapsed: Duration, _error: &Error<E>) {}
     /// Read-back verification starts.
     fn verifying(&mut self) {}
@@ -78,7 +80,8 @@ pub trait FlashRuntime<E> {
 pub struct Verified {
     /// Protected bytes compared, all equal.
     pub checked: usize,
-    /// Protected ranges in the image; `0` when it has none to compare.
+    /// Protected ranges in the image; always at least one, as verification
+    /// without a protected range is refused.
     pub ranges: usize,
 }
 
@@ -125,13 +128,6 @@ pub enum FlashError<E> {
         /// Protected bytes compared.
         checked: usize,
     },
-    /// Chunks holding protected bytes could not be read back.
-    Incomplete {
-        /// Chunks not verified.
-        unverified: usize,
-        /// Protected bytes compared, all equal.
-        checked: usize,
-    },
 }
 
 impl<E: core::fmt::Debug> core::fmt::Display for FlashError<E> {
@@ -163,13 +159,6 @@ impl<E: core::fmt::Debug> core::fmt::Display for FlashError<E> {
                 f,
                 "read-back differs at {address:#08x} (read {read:#04x}, wrote {wrote:#04x}); \
                  {differing} of {checked} protected bytes differ"
-            ),
-            Self::Incomplete {
-                unverified,
-                checked,
-            } => write!(
-                f,
-                "{unverified} protected chunks unreadable; {checked} protected bytes verified"
             ),
         }
     }
@@ -219,35 +208,6 @@ fn status<T: Transport, H: FlashRuntime<T::Error>>(
     }
 }
 
-#[cfg(test)]
-impl PreparedUpdate {
-    /// Write the update and prove it: PROBE, TEST UNIT READY, PREPARE, the
-    /// transfer in STREAM chunks, COMMIT, TEST UNIT READY and REQUEST SENSE;
-    /// then poll TEST UNIT READY until the drive has programmed, REQUEST SENSE
-    /// again, and read back every chunk, comparing the integrity-protected
-    /// ranges with the image.
-    ///
-    /// First capture a backup, enforce tray and consent policy and exclude
-    /// other users of the drive. A failure stops at once; nothing is retried.
-    pub(crate) fn flash<R, W, H>(
-        &self,
-        io: FlashTransport<'_, R, W>,
-        runtime: &mut H,
-    ) -> Result<Verified, FlashError<W::Error>>
-    where
-        W: Transport,
-        R: Transport<Error = W::Error>,
-        H: FlashRuntime<W::Error>,
-    {
-        Payload {
-            class: self.class,
-            image: &self.image,
-            transfer: self.transfer(),
-        }
-        .flash(io, runtime, ExecutionMode::Flash, cdb::Prepare::ModeOne)
-    }
-}
-
 /// Shared transfer and verification implementation; recovery supplies no family policy.
 pub(crate) struct Payload<'a> {
     pub(crate) class: crate::DriveClass,
@@ -269,7 +229,7 @@ impl Payload<'_> {
         runtime: &mut H,
         mode: ExecutionMode,
         prepare: cdb::Prepare,
-    ) -> Result<Verified, FlashError<W::Error>>
+    ) -> Result<super::ReadbackQuality, FlashError<W::Error>>
     where
         W: Transport,
         R: Transport<Error = W::Error>,
@@ -337,13 +297,16 @@ impl Payload<'_> {
         self.verify(io.reads, runtime)
     }
 
-    /// Execute and retain read-back quality, then require exact target startup.
+    /// Execute and retain read-back quality, then require the target identity
+    /// and classify restart evidence against `prior`, the receiver identity
+    /// revalidated immediately before the write.
     pub(crate) fn flash_completed<R, W, H>(
         &self,
         io: FlashTransport<'_, R, W>,
         runtime: &mut H,
         mode: ExecutionMode,
         prepare: cdb::Prepare,
+        prior: &crate::receiver::DetectedMode,
     ) -> Result<super::Completion, FlashError<W::Error>>
     where
         W: Transport,
@@ -359,15 +322,17 @@ impl Payload<'_> {
             mode,
             prepare,
         );
-        super::completion::complete(io.reads, self.image, result)
+        super::completion::complete(io.reads, self.image, result, prior)
     }
 
-    /// Read back every chunk and compare the protected bytes.
+    /// Read back every chunk and compare the protected bytes. Unreadable
+    /// protected chunks, or no protected range at all, are limited
+    /// verification, never complete.
     fn verify<R: Transport, H: FlashRuntime<R::Error>>(
         &self,
         reads: &mut R,
         runtime: &mut H,
-    ) -> Result<Verified, FlashError<R::Error>> {
+    ) -> Result<super::ReadbackQuality, FlashError<R::Error>> {
         let ranges = self.class.verification_ranges(self.image);
         let protected = |at: usize| ranges.iter().any(|r| r.contains(&at));
         let (mut checked, mut differing, mut unverified) = (0, 0, 0);
@@ -383,6 +348,12 @@ impl Payload<'_> {
             ));
             let offset = index * chunk;
             let got = &mut buf[..piece.len()];
+            // Poison with values that cannot match, so a reply that reports a
+            // full count without filling the buffer is a mismatch rather than
+            // a comparison against the previous chunk's read-back.
+            for (slot, &wrote) in got.iter_mut().zip(piece) {
+                *slot = !wrote;
+            }
             match drive::read_memory(reads, offset as u32, got) {
                 Ok(()) => {
                     for (i, (&read, &wrote)) in got.iter().zip(piece).enumerate() {
@@ -420,15 +391,15 @@ impl Payload<'_> {
             });
         }
         if ranges.is_empty() || unverified > 0 {
-            return Err(FlashError::Incomplete {
-                unverified,
+            return Ok(super::ReadbackQuality::Limited {
                 checked,
+                unverified,
             });
         }
         debug_assert_eq!(self.image.len(), layout::IMAGE_SIZE);
-        Ok(Verified {
+        Ok(super::ReadbackQuality::Complete(Verified {
             checked,
             ranges: ranges.len(),
-        })
+        }))
     }
 }

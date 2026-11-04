@@ -30,8 +30,11 @@ use crate::{cdb, layout, Chip, DriveClass, Identity};
 
 #[cfg(feature = "drive")]
 mod completion;
+// Reference receivers (image + enc) test restart classification directly.
+#[cfg(all(test, feature = "drive", feature = "enc"))]
+pub(crate) use completion::classify;
 #[cfg(feature = "drive")]
-pub use completion::{Completion, ReadbackQuality, Startup, StartupError};
+pub use completion::{Completion, ReadbackQuality, Startup, StartupError, StartupEvidence};
 #[cfg(feature = "drive")]
 pub(crate) mod flash;
 #[cfg(feature = "drive")]
@@ -43,14 +46,19 @@ pub use flash::{FlashError, FlashRuntime, FlashTransport, Stage, Status, Verifie
 pub enum PrepareError {
     /// No complete live entry profile was identified before preparation.
     ReceiverEntry,
-    /// Decoder evidence does not yet establish an executable transfer contract.
+    /// Decoder evidence does not yet establish an executable transfer contract,
+    /// or the recognized contract does not accept this image (for example a
+    /// required descriptor byte differs, or an active integrity range reaches
+    /// a region the receiver deliberately preserves).
     ReceiverContract,
     /// The receiver's transfer layout is contradictory; no firmware was sent.
     #[cfg(all(feature = "drive", feature = "enc"))]
     Layout(crate::receiver::layout::Error),
     /// The image is not [`layout::IMAGE_SIZE`] bytes.
     Size(usize),
-    /// The image fails its AES-CMAC integrity table.
+    /// The image fails its AES-CMAC integrity table (including an entry whose
+    /// `enabled` word is unrecognised, see [`cmac::verify`]), or that table
+    /// leaves no protected range that read-back can verify.
     Integrity,
     /// The image is a raw drive read: its boot page is the read-back mirror,
     /// and writing it would store that page in place of the boot page.
@@ -88,9 +96,10 @@ impl core::fmt::Display for PrepareError {
             Self::ReceiverEntry => f.write_str(
                 "receiver entry profile is unknown; detect the live receiver before preparing",
             ),
-            Self::ReceiverContract => {
-                f.write_str("receiver transfer contract is incomplete; no firmware was sent")
-            }
+            Self::ReceiverContract => f.write_str(
+                "receiver transfer contract is incomplete or does not accept this image; \
+                     no firmware was sent",
+            ),
             #[cfg(all(feature = "drive", feature = "enc"))]
             Self::Layout(e) => write!(f, "receiver transfer layout is unsupported: {e}"),
             Self::Size(n) => write!(
@@ -98,7 +107,9 @@ impl core::fmt::Display for PrepareError {
                 "image is {n} bytes; an update image is exactly {} bytes",
                 layout::IMAGE_SIZE
             ),
-            Self::Integrity => f.write_str("image fails its AES-CMAC integrity check"),
+            Self::Integrity => f.write_str(
+                "image fails its AES-CMAC integrity check or has no verifiable protected range",
+            ),
             Self::DriveRead => f.write_str(
                 "image is a raw drive read (its boot page is the read-back copy), not a \
                  flashable image",
@@ -207,6 +218,18 @@ impl DriveClass {
     /// Inclusive byte ranges a read-back must match: every active integrity
     /// entry, clipped to [`DriveClass::verify_floor`]. Per-unit regions are
     /// outside every entry.
+    ///
+    /// Returns no ranges when the integrity table cannot be parsed (a short
+    /// buffer, an out-of-bounds or circular entry) as well as when no active
+    /// entry reaches above the floor. Either way nothing can be verified: an
+    /// empty result is never evidence of a matching read-back, and the
+    /// library's own preparation refuses such an image with
+    /// [`PrepareError::Integrity`].
+    ///
+    /// The result is only meaningful for an image that passed
+    /// [`cmac::verify`]: this filters entries by [`cmac::CmacEntry::is_active`]
+    /// alone and does not itself refuse an unrecognised `enabled` word. Every
+    /// update and recovery path gates on `cmac::verify` before calling it.
     pub fn verification_ranges(self, image: &[u8]) -> Vec<RangeInclusive<usize>> {
         let Ok(entries) = cmac::parse_table(image) else {
             return Vec::new();
@@ -237,7 +260,11 @@ impl InstalledFirmware {
     /// Fails with [`PrepareError::InstalledMismatch`] unless the image is
     /// [`layout::IMAGE_SIZE`] bytes and holds the identity descriptor (when
     /// the identity has one) and the boot banner (when the identity read one)
-    /// the drive reports; at least one of them must be present.
+    /// the drive reports; at least one of them must be present. All
+    /// [`layout::DESCRIPTOR`] bytes must equal the live descriptor: a capture
+    /// and the live read come from the same programmed flash, so any
+    /// difference, including a short live descriptor that
+    /// [`Identity::parse`] zero-pads, is refused.
     pub fn new(identity: Identity, image: &[u8]) -> Result<Self, PrepareError> {
         if image.len() != layout::IMAGE_SIZE {
             return Err(PrepareError::InstalledMismatch);
@@ -378,12 +405,19 @@ impl PreparedUpdate {
         &self.image
     }
 
-    /// The bytes streamed: the image, or its transport envelope.
+    /// The plaintext image as this receiver-independent preparation knows it.
+    /// The wire bytes (for example an AES transport envelope) depend on the
+    /// live receiver and are chosen when binding it; with the `drive` and `enc`
+    /// features read them from the bound `crate::receiver` plan instead.
     pub fn transfer(&self) -> &[u8] {
         self.transfer.as_deref().unwrap_or(&self.image)
     }
 
-    /// The commands of the update session; see [`DriveClass::steps`].
+    /// The OEM reference command sequence for this dialect; see
+    /// [`DriveClass::steps`]. This is not the receiver-bound session: binding
+    /// the live receiver may substitute the PREPARE command and, for recovery,
+    /// drop PROBE/READY. With the `drive` and `enc` features read the commands
+    /// actually sent from the bound `crate::receiver` prepared update.
     pub fn steps(&self) -> Vec<Step> {
         self.class.steps()
     }

@@ -20,11 +20,29 @@ fn files(root: &Path, out: &mut Vec<PathBuf>) {
     }
 }
 
-fn images() -> (PathBuf, Vec<PathBuf>) {
+/// Every physical file under the hoard's MediaTek buckets, unfiltered.
+fn hoard_files() -> (PathBuf, Vec<PathBuf>) {
     let root = PathBuf::from(std::env::var("MTK_HOARD_ROOT").expect("set MTK_HOARD_ROOT"));
     let mut paths = Vec::new();
-    files(&root.join("images/mediatek"), &mut paths);
+    let legacy = root.join("images/mediatek");
+    if legacy.is_dir() {
+        files(&legacy, &mut paths);
+    } else {
+        for bucket in ["oem", "dump", "mk", "omni"] {
+            let directory = root.join(bucket).join("mediatek");
+            if directory.is_dir() {
+                files(&directory, &mut paths);
+            }
+        }
+    }
     paths.sort();
+    (root, paths)
+}
+
+/// The hoard's normalized `<sha256>.bin` firmware images.
+fn images() -> (PathBuf, Vec<PathBuf>) {
+    let (root, mut paths) = hoard_files();
+    paths.retain(|path| path.extension().is_some_and(|ext| ext == "bin"));
     (root, paths)
 }
 
@@ -237,12 +255,15 @@ fn intm_and_v9_argument_proofs_match_independent_disassembly() {
     assert_eq!(tail.program_call, 0x9d69c);
     assert_eq!(tail.program_target, 0x140a5a);
     assert_eq!(tail.tag_check, 0x9ccba);
-    assert_eq!(tail.marker_check, 0x9cc90);
+    assert_eq!(
+        tail.marker_check,
+        mediatek_optical::receiver::programming::ResultCheck::Call(0x9cc90)
+    );
     assert_eq!(tail.descriptor_byte, 0x1ec056);
     assert_eq!(tail.error, 0x9d094);
     for offset in [
         4, 6, 14, 20, 22, 24, 26, 28, 32, 38, 40, 42, 48, 50, 58, 60, 62, 68, 70, 76, 78, 80, 84,
-        86, 90, 92, 98,
+        86, 90, 92,
     ] {
         let mut changed = intm.clone();
         changed[0x9d63e + offset] ^= 1;
@@ -254,6 +275,21 @@ fn intm_and_v9_argument_proofs_match_independent_disassembly() {
             "acceptance mutation {offset:x}"
         );
     }
+    // A different saved-state slot is a different component contract, rather
+    // than an invalid opcode. Frame/prologue binding must validate that slot;
+    // cached evidence must never silently survive its change.
+    let mut changed_slot = intm.clone();
+    changed_slot[0x9d63e + 98] ^= 1;
+    let changed_tail = mediatek_optical::receiver::programming::inspect_acceptance_tail(
+        &changed_slot,
+        0,
+        &selection,
+        &signature,
+        &integrity,
+    )
+    .unwrap();
+    assert_ne!(changed_tail.saved_state_offset, tail.saved_state_offset);
+    assert_ne!(changed_tail, tail);
     for start in [0, 0x10000] {
         let mut registers = unknown;
         registers[4] = Value::Constant(selection.offset_cell);
@@ -355,6 +391,30 @@ fn aes_prologue(bytes: &[u8], address: u32) -> bool {
 }
 
 #[test]
+#[ignore = "requires private MTK_HOARD_ROOT"]
+fn scratch_call_seen_only_from_inside_a_wide_instruction_is_not_proven() {
+    use mediatek_optical::receiver::analysis::ApplicationAnalysis;
+    let (_, paths) = images();
+    let intm = firmware(
+        &paths,
+        "c3a18eed17251d1508964647e833ffdfe01b13c28dff9a717dfac6336e7c70e6",
+    );
+    let mut window = intm[0x98000..0xb4000].to_vec();
+    let cached = ApplicationAnalysis::inspect(&window, 0x98000).unwrap();
+    assert_eq!(cached.scratch_decoders()[0].address, 0x9d48e);
+    // r2 now comes from `ldr.w r2, [r4, #0x210]`, a runtime value, and the
+    // original `movs r2, #16` becomes `movs r2, r2`. Only a trace starting at the
+    // load's second halfword decodes `movs r2, #16`.
+    for (address, word) in [(0x9d47c, 0xf8d4u16), (0x9d47e, 0x2210), (0x9d488, 0x0012)] {
+        let at = address - 0x98000;
+        window[at..at + 2].copy_from_slice(&word.to_le_bytes());
+    }
+    let changed = ApplicationAnalysis::inspect(&window, 0x98000).unwrap();
+    assert!(changed.scratch_decoders().is_empty());
+    assert!(changed.conflicting_arguments());
+}
+
+#[test]
 #[ignore = "offline candidate validation; requires private MTK_HOARD_ROOT"]
 fn intm_mixed_candidate_preserves_boot_and_passes_held_image_integrity() {
     use mediatek_optical::{
@@ -441,7 +501,7 @@ fn intm_mixed_candidate_preserves_boot_and_passes_held_image_integrity() {
 #[test]
 #[ignore = "discovery only; requires MTK_HOARD_ROOT and optionally MTK_DECODING_REPORT"]
 fn every_normalized_mediatek_file_is_accounted_for_in_discovery() {
-    let (root, paths) = images();
+    let (root, paths) = hoard_files();
     assert!(!paths.is_empty());
     let mut rows = Vec::new();
     let mut counts = BTreeMap::<String, usize>::new();
@@ -581,7 +641,46 @@ fn every_normalized_mediatek_file_is_accounted_for_in_discovery() {
         std::fs::write(path, serde_json::to_vec_pretty(&report).unwrap()).unwrap();
     }
     eprintln!("{} files: {}", paths.len(), report["counts"]);
-    assert_eq!(report["rows"].as_array().unwrap().len(), paths.len());
+    // The inventory must account for every file exactly once, with only the
+    // documented statuses, and discovery must never claim a proven contract.
+    let rows = report["rows"].as_array().unwrap();
+    let mut seen = std::collections::BTreeSet::new();
+    for row in rows {
+        assert!(
+            seen.insert(row["path"].as_str().unwrap()),
+            "duplicate row {row}"
+        );
+        let status = row["status"].as_str().unwrap();
+        assert!(
+            [
+                "non_firmware_file",
+                "outside_2MiB_discovery",
+                "discovered_not_proven"
+            ]
+            .contains(&status),
+            "unexpected status {status}"
+        );
+        assert_eq!(
+            row["receivers"].as_array().unwrap().is_empty(),
+            status != "discovered_not_proven",
+            "{} receivers disagree with status {status}",
+            row["path"]
+        );
+        for receiver in row["receivers"].as_array().unwrap() {
+            assert_eq!(receiver["contract_status"], "unproven");
+            assert!(receiver["encoding"].is_null());
+        }
+    }
+    assert_eq!(seen.len(), paths.len());
+    let by_status: usize = [
+        "non_firmware_file",
+        "outside_2MiB_discovery",
+        "discovered_not_proven",
+    ]
+    .iter()
+    .map(|status| counts.get(*status).copied().unwrap_or(0))
+    .sum();
+    assert_eq!(by_status, paths.len());
 }
 
 #[test]

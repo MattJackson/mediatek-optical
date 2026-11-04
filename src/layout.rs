@@ -45,8 +45,9 @@ pub const BOOT_MIRROR: Range = Range {
     len: 0x400,
 };
 
-/// The boot area: the 4 KiB flash sector holding [`BOOT_PAGE`]. The drive
-/// serves it remapped, so read-back verification skips it.
+/// The boot area: the 4 KiB flash sector holding [`BOOT_PAGE`]. Only
+/// [`BOOT_PAGE`] is known to read back remapped; read-back verification
+/// conservatively compares no byte of the whole sector.
 pub const BOOT_AREA: Range = Range {
     name: "boot area",
     start: 0,
@@ -69,6 +70,14 @@ pub const BANNER: Range = Range {
 
 /// The identity descriptor: vendor, model, revision, SKU and the
 /// `MTEKMT19xx` tag at `+0x34`, mirroring the drive's INQUIRY.
+///
+/// The region is programmed from the update image: it is not in
+/// [`DRIVE_WRITTEN`], and the held receivers' programmed spans resume at
+/// `0x1EC000` (`tests/DECODING_FACTS.md`, "Production integration"). Identity
+/// bindings (installed firmware, Current-reference revalidation and
+/// post-write startup) therefore compare all of its bytes. Read-back compares
+/// only the image's CMAC-covered ranges; in every held MT19 image these
+/// exclude the descriptor, so startup is the only post-write evidence for it.
 pub const DESCRIPTOR: Range = Range {
     name: "identity descriptor",
     start: 0x1E_C000,
