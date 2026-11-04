@@ -673,11 +673,27 @@ impl SavedLink {
                 if ins.mnemonic != "b" {
                     return Err(Error::InvalidContract);
                 }
-                let target = ins.branch_target().ok_or(Error::InvalidContract)? as usize;
-                queue.push_back((target, live, depth));
-                if ins.cond.is_some() {
+                let mut target = ins.branch_target().ok_or(Error::InvalidContract)? as usize;
+                if let Some(cond) = ins.cond {
+                    // A taken branch onto a branch on the same condition reaches it
+                    // with unchanged flags, so that branch is taken too. Native code
+                    // shares one exit branch this way; its fall-through is infeasible.
+                    for _ in 0..8 {
+                        match decode_at(image, target) {
+                            Some(shared)
+                                if target != site
+                                    && shared.mnemonic == "b"
+                                    && shared.cond == Some(cond) =>
+                            {
+                                target =
+                                    shared.branch_target().ok_or(Error::InvalidContract)? as usize;
+                            }
+                            _ => break,
+                        }
+                    }
                     queue.push_back((next, live, depth));
                 }
+                queue.push_back((target, live, depth));
             } else {
                 queue.push_back((next, live, depth));
             }

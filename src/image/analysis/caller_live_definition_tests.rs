@@ -294,3 +294,22 @@ fn long_native_caller_is_bounded_by_flow_and_retains_saved_slot_guards() {
     image[0x1400..0x1402].copy_from_slice(&0xbd10u16.to_le_bytes()); // POP {R4,PC}
     assert!(SavedLink::bind(&image, 0, 2).is_err());
 }
+
+#[test]
+fn live_definition_follows_a_shared_branch_on_unchanged_flags() {
+    // push {r4,lr}; movs r0,#5; L: bl X (site); cmp r4,#0; b<tail> S; pop {r4,pc};
+    // S: bne E; b L; E: pop {r4,pc}; X: bx lr.
+    // A taken BNE onto the shared BNE arrives with the same flags, so it cannot
+    // fall through to the loop back to L, where the call has clobbered r0.
+    let image = |tail: u16| {
+        thumb(&[
+            0xb510, 0x2005, 0xf000, 0xf806, 0x2c00, tail, 0xbd10, 0xd100, 0xe7f8, 0xbd10, 0x4770,
+        ])
+    };
+    assert!(SavedLink::require_live_definition(&image(0xd100), 0, 4, 2, 4, 0).is_ok());
+    // BEQ onto the BNE: the shared branch falls through and loops back.
+    assert_eq!(
+        SavedLink::require_live_definition(&image(0xd000), 0, 4, 2, 4, 0),
+        Err(Error::InvalidContract)
+    );
+}
