@@ -4,11 +4,11 @@ fn every_declared_code_has_a_deliberate_host_category() {
         include_str!("error_codes.rs"),
         include_str!("image/analysis/mod.rs"),
     ] {
-        let codes: Vec<&str> = source
+        let mut codes = source
             .split('"')
             .filter(|s| s.starts_with("mediatek.") && !s.contains(char::is_whitespace))
-            .collect();
-        assert!(!codes.is_empty(), "no error codes extracted");
+            .peekable();
+        assert!(codes.peek().is_some(), "no error codes extracted");
         for code in codes {
             assert_ne!(
                 super::kind_for_code(code),
