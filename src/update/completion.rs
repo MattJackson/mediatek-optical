@@ -81,37 +81,12 @@ pub struct Completion {
     /// How much of the programmed firmware could be verified by read-back.
     pub readback: ReadbackQuality,
 }
-impl Completion {
-    /// Compatibility with callers that require complete protected read-back
-    /// and an observed restart. Limited verification and an unobserved restart
-    /// remain errors through the legacy API; limited read-back is reported
-    /// first.
-    pub(crate) fn into_verified<E>(self) -> Result<Verified, FlashError<E>> {
-        let verified = match self.readback {
-            ReadbackQuality::Complete(verified) => verified,
-            ReadbackQuality::Limited {
-                checked,
-                unverified,
-            } => {
-                return Err(FlashError::Incomplete {
-                    checked,
-                    unverified,
-                })
-            }
-        };
-        if self.startup.evidence == StartupEvidence::Unobserved {
-            return Err(FlashError::Startup(StartupError::Unobserved));
-        }
-        Ok(verified)
-    }
-}
-
 /// Why target startup could not be established or observed.
 ///
 /// Hosts must keep a wildcard arm; the set of variants may grow.
 ///
 /// ```compile_fail,E0004
-/// fn f(e: mediatek_optical::update::StartupError<()>) -> u8 { match e { mediatek_optical::update::StartupError::Identity { .. } => 0, mediatek_optical::update::StartupError::Read { .. } => 1, mediatek_optical::update::StartupError::TargetMismatch { .. } => 2, mediatek_optical::update::StartupError::Unobserved { .. } => 3, } }
+/// fn f(e: mediatek_optical::update::StartupError<()>) -> u8 { match e { mediatek_optical::update::StartupError::Identity { .. } => 0, mediatek_optical::update::StartupError::Read { .. } => 1, mediatek_optical::update::StartupError::TargetMismatch { .. } => 2, } }
 /// ```
 #[derive(Debug)]
 #[non_exhaustive]
@@ -122,10 +97,6 @@ pub enum StartupError<E> {
     Read(drive::Error<E>),
     /// BOOT, an old target or different build is still running.
     TargetMismatch,
-    /// Read-back and the target identity matched, but the drive reported the
-    /// same identity before the write ([`StartupEvidence::Unobserved`]). Only
-    /// the legacy `flash` APIs return this; it follows a completed write.
-    Unobserved,
 }
 impl<E: core::fmt::Debug> core::fmt::Display for StartupError<E> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
@@ -135,10 +106,6 @@ impl<E: core::fmt::Debug> core::fmt::Display for StartupError<E> {
             Self::TargetMismatch => {
                 f.write_str("live firmware identity or build differs from the selected target")
             }
-            Self::Unobserved => f.write_str(
-                "readback matched, but the drive reported the same identity before and after \
-                 writing, so a restart into the target was not observed",
-            ),
         }
     }
 }
@@ -147,7 +114,7 @@ impl<E: core::fmt::Debug + 'static> std::error::Error for StartupError<E> {
         match self {
             Self::Identity(source) => Some(source),
             Self::Read(source) => Some(source),
-            Self::TargetMismatch | Self::Unobserved => None,
+            Self::TargetMismatch => None,
         }
     }
 }
@@ -155,22 +122,12 @@ impl<E: core::fmt::Debug + 'static> std::error::Error for StartupError<E> {
 pub(super) fn complete<T: drive::Transport>(
     reads: &mut T,
     image: &[u8],
-    result: Result<Verified, FlashError<T::Error>>,
+    result: Result<ReadbackQuality, FlashError<T::Error>>,
     prior: &receiver::DetectedMode,
 ) -> Result<Completion, FlashError<T::Error>> {
-    let readback = match result {
-        Ok(verified) => ReadbackQuality::Complete(verified),
-        Err(FlashError::Incomplete {
-            checked,
-            unverified,
-        }) => ReadbackQuality::Limited {
-            checked,
-            unverified,
-        },
-        // Transfer failures, programming faults and mismatches are never
-        // downgraded by an identity check, and trigger no further commands.
-        Err(error) => return Err(error),
-    };
+    // Transfer failures, programming faults and mismatches are never
+    // downgraded by an identity check, and trigger no further commands.
+    let readback = result?;
     let startup = confirm_startup(reads, image, prior).map_err(FlashError::Startup)?;
     Ok(Completion { startup, readback })
 }

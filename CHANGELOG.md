@@ -4,6 +4,10 @@
 
 Merges the native-binding analysis branch (previously consumed by hosts as 1.2.0 at `21031df`) into the 1.2.0 line below; 1.3.0 contains both.
 
+- Removed the old flash entry points that `flash_completed` replaced. `flash_completed` is now the only way to run an update or a recovery; what is written and how it is checked are unchanged.
+  - Removed `receiver::PreparedUpdate::flash` and `recovery::PreparedRecovery::flash`. They ran the same write as `flash_completed` but turned limited read-back or an unobserved restart into an error. Call `flash_completed` and check `Completion::readback` and `Startup::evidence()` yourself.
+  - Removed `FlashError::Incomplete` (code `mediatek.flash.incomplete`). Unreadable protected chunks are reported only as `ReadbackQuality::Limited` in the `Completion`.
+  - Removed `StartupError::Unobserved` (code `mediatek.startup.unobserved`). An unchanged identity is reported only as `StartupEvidence::Unobserved` in the `Completion`.
 - Current-reference binding accepts the known OEM/modified DE update-policy marker difference (descriptor byte 0x56 `0xde`/`0xff`) at initial binding only; every other byte of the complete 0x100-byte descriptor must still match, and once bound, revalidation compares the live descriptor snapshot strictly, including DE.
 - Programming: bind the native wide programming loop without a controller prelude (`ProgramLoopVariant::WideWithoutPrelude`), with the same wrapper store, copy-extent and reserved-span checks.
 - UHD analysis binds more native layouts without model dispatch: earliest four-rate getters with runtime coefficients (`ClassicCalibration::base_adjustment`), the early saved-position read routine (`ClassicReadPosition::position_register`), early completion selectors across a split literal pool and pointer alias, early/older DI-mode, read-control, read-status, initialization and media-default selector variants (`ClassicConsumer::inspect_kind`, `state_definition`), UH12 selector, speed-default and request-clamp variants, legacy slim density targets, legacy reverse modes, classic DI literal islands, stack20/stack32 DI admission and registered UHD key paths.

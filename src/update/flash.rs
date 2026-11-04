@@ -128,13 +128,6 @@ pub enum FlashError<E> {
         /// Protected bytes compared.
         checked: usize,
     },
-    /// Chunks holding protected bytes could not be read back.
-    Incomplete {
-        /// Chunks not verified.
-        unverified: usize,
-        /// Protected bytes compared, all equal.
-        checked: usize,
-    },
 }
 
 impl<E: core::fmt::Debug> core::fmt::Display for FlashError<E> {
@@ -166,13 +159,6 @@ impl<E: core::fmt::Debug> core::fmt::Display for FlashError<E> {
                 f,
                 "read-back differs at {address:#08x} (read {read:#04x}, wrote {wrote:#04x}); \
                  {differing} of {checked} protected bytes differ"
-            ),
-            Self::Incomplete {
-                unverified,
-                checked,
-            } => write!(
-                f,
-                "{unverified} protected chunks unreadable; {checked} protected bytes verified"
             ),
         }
     }
@@ -243,7 +229,7 @@ impl Payload<'_> {
         runtime: &mut H,
         mode: ExecutionMode,
         prepare: cdb::Prepare,
-    ) -> Result<Verified, FlashError<W::Error>>
+    ) -> Result<super::ReadbackQuality, FlashError<W::Error>>
     where
         W: Transport,
         R: Transport<Error = W::Error>,
@@ -339,12 +325,14 @@ impl Payload<'_> {
         super::completion::complete(io.reads, self.image, result, prior)
     }
 
-    /// Read back every chunk and compare the protected bytes.
+    /// Read back every chunk and compare the protected bytes. Unreadable
+    /// protected chunks, or no protected range at all, are limited
+    /// verification, never complete.
     fn verify<R: Transport, H: FlashRuntime<R::Error>>(
         &self,
         reads: &mut R,
         runtime: &mut H,
-    ) -> Result<Verified, FlashError<R::Error>> {
+    ) -> Result<super::ReadbackQuality, FlashError<R::Error>> {
         let ranges = self.class.verification_ranges(self.image);
         let protected = |at: usize| ranges.iter().any(|r| r.contains(&at));
         let (mut checked, mut differing, mut unverified) = (0, 0, 0);
@@ -403,15 +391,15 @@ impl Payload<'_> {
             });
         }
         if ranges.is_empty() || unverified > 0 {
-            return Err(FlashError::Incomplete {
-                unverified,
+            return Ok(super::ReadbackQuality::Limited {
                 checked,
+                unverified,
             });
         }
         debug_assert_eq!(self.image.len(), layout::IMAGE_SIZE);
-        Ok(Verified {
+        Ok(super::ReadbackQuality::Complete(Verified {
             checked,
             ranges: ranges.len(),
-        })
+        }))
     }
 }

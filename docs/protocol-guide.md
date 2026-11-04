@@ -59,8 +59,7 @@ plan. Unknown or conflicting receiver contracts fail before any write. File
 encoding never chooses transfer encoding; header and body can require different
 representations.
 
-`receiver::PreparedUpdate::flash` requires complete protected-region readback
-and an observed restart. `flash_completed` returns a `Completion` whose
+`receiver::PreparedUpdate::flash_completed` returns a `Completion` whose
 `ReadbackQuality` explicitly distinguishes complete and limited readback, and
 whose `Startup::evidence()` states how strongly a restart into the target was
 observed. Every readable mismatch and every failed data write remains an error.
@@ -91,8 +90,7 @@ bytes are not evidence):
   identity before the write (a reflash or a same-version build). INQUIRY cannot
   tell the old firmware still running apart from the target having started.
   `flash_completed` returns this as reduced verification, not confirmed
-  startup; the legacy `flash` APIs return `StartupError::Unobserved`
-  (`mediatek.startup.unobserved`, `IssueKind::Verification`). Hosts must check
+  startup. Hosts must check
   `Startup::evidence()` and, for `Unobserved`, advise a power cycle and
   re-identification before relying on the new firmware. No command is added to
   look for a restart, and nothing is retried.
@@ -220,15 +218,13 @@ application are evaluated independently, including images whose two receivers
 expect different formats. Read failures can prevent detection on a live drive;
 static corpus coverage does not establish physical-device read accessibility.
 
-Explicit `recovery::PreparedRecovery::flash` reports a failed PREPARE through
+Explicit `recovery::PreparedRecovery::flash_completed` reports a failed PREPARE through
 `FlashRuntime::recovery_entry_failed` and proceeds once to the selected image.
 This is recovery host policy, not a claim that the receiver always rejects
-PREPARE. Normal `PreparedUpdate::flash` remains strict. STREAM failures stop
-both paths, no firmware writes retry, and recovery still requires readback
-verification and the target application identity; `flash_completed` reports
-the restart evidence as above, and the legacy `flash` returns
-`recovery::Error::Startup` when it is `Unobserved`. Physical recovery remains
-unvalidated.
+PREPARE. Normal `PreparedUpdate::flash_completed` remains strict. STREAM
+failures stop both paths, no firmware writes retry, and recovery still requires
+readback verification and the target application identity, reporting the
+restart evidence as above. Physical recovery remains unvalidated.
 
 `receiver::entry::inspect_boot_legacy(window, flash_address)` and
 `inspect_boot_dual(window, flash_address)` inspect PREPARE flag-copy grammars

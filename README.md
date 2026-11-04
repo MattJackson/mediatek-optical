@@ -123,14 +123,13 @@ hardware-family compatibility without writing, and builds an immutable entry and
 encoding plan. Execution revalidates before writes; file encoding never chooses
 the transfer encoding. Unknown or conflicting contracts are errors.
 
-`PreparedUpdate::flash` requires complete protected-region readback.
-`flash_completed` returns a `Completion` with the post-write target identity,
-its restart evidence (`Startup::evidence()`) and explicit complete or limited
-`ReadbackQuality`. Hosts must check the evidence: `Unobserved` means the drive
-reported the same identity before and after the write, so a restart into the
-target was not observed; advise a power cycle and re-identification. The legacy
-`flash` APIs return an error in that case. Every readable mismatch and failed
-data write remains an error. `recovery::PreparedRecovery` is the explicit
+`PreparedUpdate::flash_completed` returns a `Completion` with the post-write
+target identity, its restart evidence (`Startup::evidence()`) and explicit
+complete or limited `ReadbackQuality`. Hosts must check both: limited read-back
+is not full verification, and `Unobserved` means the drive reported the same
+identity before and after the write, so a restart into the target was not
+observed; advise a power cycle and re-identification. Every readable mismatch
+and failed data write remains an error. `recovery::PreparedRecovery` is the explicit
 recovery path and has the same startup rules.
 
 [examples/flash.rs](examples/flash.rs) provides a compiled host integration with

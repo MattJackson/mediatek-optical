@@ -15,7 +15,7 @@ exclusive access and durable reporting.
 | Load firmware | `envelope::Envelope::load` | `envelope::Envelope::load` |
 | Bind installed evidence | `Receiver::from_installed` with a captured Kernel/Normal pair | `InstalledFirmware::new` and `receiver::detect` against live code |
 | Prepare an update | `Receiver::prepare` | `Receiver::prepare` |
-| Execute with complete verification | `PreparedUpdate::flash` | `PreparedUpdate::flash` |
+| Execute with complete verification | `PreparedUpdate::flash` | — (use `flash_completed`) |
 | Execute with explicit limited readback | `PreparedUpdate::flash_completed` → `FlashOutcome` | `PreparedUpdate::flash_completed` → `Completion` |
 | Supply read/write transports | `receiver::FlashTransport` | `update::FlashTransport` |
 | Supply timing and host callbacks | `receiver::ExecutionRuntime` | `update::FlashRuntime` |
@@ -29,8 +29,9 @@ Identity accessors use the same `vendor`, `product`, `revision` and raw-response
 conventions. Firmware formats differ: Pioneer normally updates separate Kernel
 and Normal components; MediaTek validates one complete 2 MiB image.
 
-`flash` requires complete relevant readback. A Normal-only Pioneer update does
-not write or verify a Kernel. MediaTek `flash_completed` requires the target
+Pioneer `flash` requires complete relevant readback. A Normal-only Pioneer update does
+not write or verify a Kernel. MediaTek has one execution entry point:
+`flash_completed` requires the target
 identity after the write and reports restart evidence through
 `Startup::evidence()`, which hosts must check (`Unobserved` is not confirmed
 startup); it retains limited readback explicitly; every readable mismatch and failed

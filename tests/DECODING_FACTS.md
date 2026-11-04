@@ -291,7 +291,7 @@ after the write and return full/limited readback quality with restart evidence.
 Ready status alone, BOOT, old INTM, a different stored build, or unreadable
 startup metadata cannot produce a completed target result. A different build
 whose INQUIRY identity equals the one reported before the write completes only
-as `StartupEvidence::Unobserved`, which the legacy `flash` APIs refuse. A data
+as `StartupEvidence::Unobserved`, which is not confirmed startup. A data
 write failure or mismatching readback triggers no subsequent startup probes.
 
 The secure service remains opaque, and hardware programming is not emulated.

@@ -21,7 +21,7 @@
 //!   the provenance of every substituted byte. Implies `image`.
 //! - `image` also enables `update`: an update prepared against the installed
 //!   firmware, refused across chips and hardware families. With `drive` and
-//!   `enc`, the receiver-bound `receiver::PreparedUpdate::flash` runs it.
+//!   `enc`, the receiver-bound `receiver::PreparedUpdate::flash_completed` runs it.
 //! - `analysis` — `analysis`: read-only OEM instruction-layout analysis
 //!   (`image::analysis`). Implies `image`.
 //! - `std` — links the standard library (implied by `image`).

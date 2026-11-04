@@ -100,7 +100,7 @@ fn live_image() -> Vec<u8> {
 }
 
 #[test]
-fn legacy_recovery_never_reports_success_when_restart_is_unobserved() {
+fn recovery_reports_an_unobserved_restart_as_evidence_not_confirmed_startup() {
     // Reflashing the installed build: INQUIRY reports the same vendor,
     // product and revision before and after the write, so it cannot tell the
     // old firmware still running apart from the target having started.
@@ -110,13 +110,15 @@ fn legacy_recovery_never_reports_success_when_restart_is_unobserved() {
         .unwrap()
         .unwrap();
     let prepared = identified.prepare(&image).unwrap();
-    let result = prepared.flash(
-        FlashTransport {
-            reads: &mut Handle(drive.clone()),
-            writes: &mut Handle(drive.clone()),
-        },
-        &mut Clock,
-    );
+    let completion = prepared
+        .flash_completed(
+            FlashTransport {
+                reads: &mut Handle(drive.clone()),
+                writes: &mut Handle(drive.clone()),
+            },
+            &mut Clock,
+        )
+        .unwrap();
     assert!(
         drive
             .borrow()
@@ -125,14 +127,12 @@ fn legacy_recovery_never_reports_success_when_restart_is_unobserved() {
             .any(|(cdb, _)| cdb[..2] == [0x3B, 0x07]),
         "the write completed"
     );
-    let error = result.expect_err("an unobserved restart is never a verified recovery");
-    assert!(
-        matches!(error, Error::Startup(StartupError::Unobserved)),
-        "{error:?}"
-    );
-    assert_eq!(crate::CodedError::code(&error), "mediatek.recovery.startup");
     assert_eq!(
-        crate::CodedError::kind(&error),
-        crate::operation::IssueKind::Verification
+        completion.startup.evidence(),
+        crate::update::StartupEvidence::Unobserved
     );
+    assert!(matches!(
+        completion.readback,
+        crate::update::ReadbackQuality::Complete(_)
+    ));
 }

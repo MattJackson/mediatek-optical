@@ -1,7 +1,7 @@
 //! Explicit recovery without installed-firmware, model, family or backup policy.
 //! Requires `drive`, `image` and `enc`. Identification and preparation are
 //! read-only; the caller owns consent and write authorization.
-use crate::update::{FlashError, FlashRuntime, FlashTransport, PrepareError, Verified};
+use crate::update::{FlashError, FlashRuntime, FlashTransport, PrepareError};
 use crate::{
     drive::{self, Transport},
     image, layout, receiver, Chip, DriveClass,
@@ -45,7 +45,6 @@ impl<E: core::fmt::Debug> core::fmt::Display for Error<E> {
             Self::Receiver(e)=>write!(f,"{e}"), Self::Reference(e)=>write!(f,"{e}"), Self::Read(e)=>write!(f,"{e}"),
             Self::Image(e)=>write!(f,"{e}"), Self::Flash(e)=>write!(f,"{e}"),
             Self::Changed=>f.write_str("MediaTek boot banner changed; re-plan recovery"),
-            Self::Startup(e @ crate::update::StartupError::Unobserved)=>write!(f,"recovery wrote and verified the selected firmware but did not observe a restart into it; power-cycle and re-identify the drive: {e}"),
             Self::Startup(e)=>write!(f,"recovery did not confirm startup of the selected firmware; drive may still be in BOOT: {e}"),
         }
     }
@@ -193,27 +192,6 @@ impl PreparedRecovery {
     pub fn plan(&self) -> &receiver::TransferPlan {
         &self.plan
     }
-    /// Revalidate, PREPARE, stream and verify, then require complete read-back
-    /// and an observed restart into the target. An unchanged identity returns
-    /// [`Error::Startup`] with [`crate::update::StartupError::Unobserved`].
-    /// A PREPARE error is reported through `FlashRuntime::recovery_entry_failed`
-    /// and recovery continues once. STREAM errors remain fatal; no writes retry.
-    /// No backup, full pre-read, model or family gate is performed.
-    pub fn flash<R, W, H>(
-        &self,
-        io: FlashTransport<'_, R, W>,
-        runtime: &mut H,
-    ) -> Result<Verified, Error<W::Error>>
-    where
-        W: Transport,
-        R: Transport<Error = W::Error>,
-        H: FlashRuntime<W::Error>,
-    {
-        self.flash_completed(io, runtime)?
-            .into_verified()
-            .map_err(|e| from_execute(receiver::ExecuteError::Flash(e)))
-    }
-
     /// Execute recovery and require the target identity after the write,
     /// preserving limited read-back as structured evidence for the host to
     /// report. Hosts must check [`crate::update::Startup::evidence`]:

@@ -70,10 +70,7 @@ pub(super) fn kind_for_code(code: &str) -> crate::operation::IssueKind {
         | "mediatek.recovery.image"
         | "mediatek.recovery.flash"
         | "mediatek.recovery.startup" => IssueKind::Update,
-        "mediatek.flash.mismatch"
-        | "mediatek.flash.incomplete"
-        | "mediatek.startup.target_mismatch"
-        | "mediatek.startup.unobserved" => IssueKind::Verification,
+        "mediatek.flash.mismatch" | "mediatek.startup.target_mismatch" => IssueKind::Verification,
         _ => IssueKind::Unexpected,
     }
 }
