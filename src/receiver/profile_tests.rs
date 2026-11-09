@@ -209,3 +209,69 @@ fn execution_refuses_identity_change_during_snapshot_revalidation() {
         assert!(writes.reads.is_empty());
     }
 }
+
+#[test]
+#[ignore = "requires private MTK_HOARD_ROOT"]
+fn dual_entry_plans_use_mode_one_with_full_and_preserved_boot_flags() {
+    use sha2::{Digest, Sha256};
+    let root = std::path::PathBuf::from(std::env::var("MTK_HOARD_ROOT").unwrap());
+    for (digest, name, preserves_boot) in [
+        (
+            "4af842c0acf4a9ff42b5554d6d1d320b245ab4973b174a8b7ccf1f941f7ab715",
+            "BU40N_FR07_4af842c0.bin",
+            false,
+        ),
+        (
+            "29ad302647148e270c15a5a4542aa4796ee9ba25ea9fbf9f2be9465c01c139a7",
+            "BU40N_INTM_29ad3026.bin",
+            true,
+        ),
+    ] {
+        let image = std::fs::read(root.join("originals").join(digest).join(name)).unwrap();
+        assert_eq!(format!("{:x}", Sha256::digest(&image)), digest);
+        let app = &image[0x98000..0xb4000];
+        let candidate = entry::application::inspect(app, 0x98000).unwrap();
+        let prelude = entry::application::inspect_prologue(app, 0x98000, &candidate).unwrap();
+        assert!(matches!(
+            entry::application::inspect_mode_six(app, 0x98000, &candidate, &prelude),
+            Some(entry::application::ModeSix::Entry67 { .. })
+        ));
+        assert!(entry::inspect_boot_dual(&image[0x3400..0x3a00], 0x3400).is_some());
+        for boot in [false, true] {
+            let mut live = device();
+            live.image = image.clone();
+            if boot {
+                let mut identity: [u8; 28] = image
+                    [layout::DESCRIPTOR.start..layout::DESCRIPTOR.start + 28]
+                    .try_into()
+                    .unwrap();
+                identity[24..28].copy_from_slice(b"BOOT");
+                live.identity = Some(identity);
+            }
+            let mode = crate::receiver::detect_mode(&mut live).unwrap();
+            let receiver = detect(&mut live, &mode).unwrap();
+            assert_eq!(receiver.prepare_command(), Some(cdb::Prepare::ModeOne));
+            let identity = Identity::parse(
+                &[0; INQUIRY_LEN],
+                layout::BANNER.of(&image).unwrap(),
+                layout::DESCRIPTOR.of(&image).unwrap(),
+            )
+            .unwrap();
+            let prepared = receiver
+                .prepare_without_installed(&Envelope::load(&image).unwrap(), &identity)
+                .unwrap();
+            let expected = if preserves_boot && !boot {
+                cdb::Prepare::ModeOnePreserveBoot
+            } else {
+                cdb::Prepare::ModeOne
+            };
+            assert_eq!(prepared.plan().prepare_command(), expected);
+            let flags = if preserves_boot && !boot { 0x0a } else { 0x0b };
+            assert_eq!(
+                prepared.plan().prepare_command().command(),
+                [0x3b, 1, 0, 0, 0, 0, 0, 0, 0, flags, 0, 0]
+            );
+            assert_eq!(live.writes, 0);
+        }
+    }
+}

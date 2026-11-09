@@ -104,6 +104,32 @@ impl Receiver {
             banner,
         })
     }
+    /// Identify using user-supplied receiver code when live code is restricted.
+    /// The file's identity/build need not match the drive. Its native receiver
+    /// contract remains distinct from the live banner/chip and session metadata;
+    /// this does not verify equivalence to the running receiver's code.
+    pub fn identify_user_supplied_reference<T: Transport>(
+        t: &mut T,
+        envelope: &crate::envelope::Envelope,
+    ) -> Result<Self, Error<T::Error>> {
+        let receiver =
+            receiver::reference::detect_user_supplied(t, envelope).map_err(Error::Reference)?;
+        let mut banner = [0; layout::BANNER.len];
+        drive::read_memory(t, layout::BANNER.start as u32, &mut banner).map_err(|error| {
+            Error::Reference(receiver::reference::Error::Session(receiver::Error::Read(
+                error,
+            )))
+        })?;
+        receiver
+            .revalidate(t)
+            .map_err(|error| Error::Reference(receiver::reference::Error::Session(error)))?;
+        let chip = Chip::from_banner(&banner).ok_or(Error::Changed)?;
+        Ok(Self {
+            receiver,
+            chip,
+            banner,
+        })
+    }
     /// Active operating mode.
     pub fn mode(&self) -> receiver::Mode {
         self.receiver.mode()

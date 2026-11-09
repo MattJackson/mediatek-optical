@@ -373,7 +373,7 @@ fn application_preludes_and_flag_stores_match_the_independent_census() {
 
 #[test]
 #[cfg(all(feature = "image", feature = "enc"))]
-#[ignore = "requires MTK_IMAGE_ROOT, MTK_RECEIVER_CENSUS and MTK_APP_FLAGS_CENSUS"]
+#[ignore = "requires MTK_IMAGE_ROOT and MTK_RECEIVER_CENSUS"]
 fn live_detection_selects_prepare_and_encoding_for_every_published_receiver() {
     use mediatek_optical::{
         cdb,
@@ -414,10 +414,6 @@ fn live_detection_selects_prepare_and_encoding_for_every_published_receiver() {
     }
     let census: serde_json::Value = serde_json::from_slice(
         &std::fs::read(std::env::var("MTK_RECEIVER_CENSUS").unwrap()).unwrap(),
-    )
-    .unwrap();
-    let flags: serde_json::Value = serde_json::from_slice(
-        &std::fs::read(std::env::var("MTK_APP_FLAGS_CENSUS").unwrap()).unwrap(),
     )
     .unwrap();
     let mut files = BTreeMap::new();
@@ -476,17 +472,7 @@ fn live_detection_selects_prepare_and_encoding_for_every_published_receiver() {
                 );
             }
             assert_eq!(detected.encoding(), expected_encoding);
-            let alternate = !boot
-                && expected_encoding == Encoding::Encrypted
-                && flags["images"][hash]["mode_six"]["buffer_id"] == 0x67;
-            assert_eq!(
-                detected.prepare_command(),
-                Some(if alternate {
-                    cdb::Prepare::ModeSix67
-                } else {
-                    cdb::Prepare::ModeOne
-                })
-            );
+            assert_eq!(detected.prepare_command(), Some(cdb::Prepare::ModeOne));
             // Exercise the shared executable-plan constructor with a real
             // canonical image, not only the diagnostic encoding label.
             let recovery = mediatek_optical::recovery::Receiver::identify(&mut device)

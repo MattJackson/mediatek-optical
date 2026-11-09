@@ -1,5 +1,5 @@
 //! Live entry selection from the same bounded grammars used by corpus tests.
-use super::{entry, Encoding, Error, Mode, Receiver};
+use super::{entry, Error, Mode, Receiver};
 use crate::{
     cdb,
     drive::{self, Transport},
@@ -84,7 +84,7 @@ impl Profile {
                 let prelude =
                     entry::application::inspect_prologue(&code.bytes, code.address, &candidate)
                         .ok_or(Error::UnknownEntry)?;
-                let mode_six = entry::application::inspect_mode_six(
+                entry::application::inspect_mode_six(
                     &code.bytes,
                     code.address,
                     &candidate,
@@ -133,12 +133,9 @@ impl Profile {
                         mixed = candidate.bind(&wrapper, &integrity, &program);
                     }
                 }
-                match (receiver.encoding(), mode_six) {
-                    (Encoding::Encrypted, entry::application::ModeSix::Entry67 { .. }) => {
-                        cdb::Prepare::ModeSix67
-                    }
-                    _ => cdb::Prepare::ModeOne,
-                }
+                // Mode one reaches the proven option body in every recognized
+                // application grammar, including dual-entry receivers.
+                cdb::Prepare::ModeOne
             }
         };
         Ok(Self {

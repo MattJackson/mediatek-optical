@@ -18,6 +18,10 @@ pub enum Provenance {
     /// Instructions came from an explicit firmware reference. Live identity and
     /// build metadata must match before execution; live code was not verified.
     CurrentReference,
+    /// Instructions came from user-supplied firmware. Its model and build are
+    /// not compared with the drive; actual physical metadata pins this session.
+    /// Live receiver code and its equivalence to the reference were not verified.
+    UserSuppliedReference,
 }
 
 /// Reference analysis or physical metadata binding failed.
@@ -34,6 +38,9 @@ pub enum Error<E> {
     Analysis(super::Error<&'static str>),
     /// Live metadata could not be read or did not match the reference.
     Binding(super::Error<E>),
+    /// Physical metadata capture or session revalidation failed. This does not
+    /// indicate a mismatch between the user-supplied file and the drive.
+    Session(super::Error<E>),
 }
 impl<E: core::fmt::Debug> core::fmt::Display for Error<E> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
@@ -43,6 +50,7 @@ impl<E: core::fmt::Debug> core::fmt::Display for Error<E> {
                 f,
                 "Current firmware does not match the running receiver: {e}"
             ),
+            Self::Session(e) => write!(f, "MediaTek receiver session could not be bound: {e}"),
         }
     }
 }
@@ -51,12 +59,14 @@ impl<E: core::fmt::Debug + 'static> std::error::Error for Error<E> {
         match self {
             Self::Analysis(source) => Some(source),
             Self::Binding(source) => Some(source),
+            Self::Session(source) => Some(source),
         }
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct Binding {
+    provenance: Provenance,
     identity: [u8; 28],
     banner: [u8; layout::BANNER.len],
     descriptor: [u8; layout::DESCRIPTOR.len],
@@ -67,6 +77,18 @@ pub(super) struct Binding {
 struct Metadata {
     banner: [u8; layout::BANNER.len],
     descriptor: [u8; layout::DESCRIPTOR.len],
+}
+
+impl Metadata {
+    fn read<T: Transport>(t: &mut T) -> Result<Self, super::Error<T::Error>> {
+        let mut banner = [0; layout::BANNER.len];
+        drive::read_memory(t, layout::BANNER.start as u32, &mut banner)
+            .map_err(super::Error::Read)?;
+        let mut descriptor = [0; layout::DESCRIPTOR.len];
+        drive::read_memory(t, layout::DESCRIPTOR.start as u32, &mut descriptor)
+            .map_err(super::Error::Read)?;
+        Ok(Self { banner, descriptor })
+    }
 }
 
 impl Binding {
@@ -85,12 +107,7 @@ impl Binding {
 
     fn read_metadata<T: Transport>(&self, t: &mut T) -> Result<Metadata, super::Error<T::Error>> {
         self.revalidate_identity(t)?;
-        let mut banner = [0; layout::BANNER.len];
-        drive::read_memory(t, layout::BANNER.start as u32, &mut banner)
-            .map_err(super::Error::Read)?;
-        let mut descriptor = [0; layout::DESCRIPTOR.len];
-        drive::read_memory(t, layout::DESCRIPTOR.start as u32, &mut descriptor)
-            .map_err(super::Error::Read)?;
+        let Metadata { banner, descriptor } = Metadata::read(t)?;
         // DE is an update-policy marker, not receiver/build identity. Only the
         // known OEM/modified transition is equivalent for initial binding.
         // Once bound, compare the actual live snapshot strictly, including DE.
@@ -141,6 +158,7 @@ impl Receiver {
         }
         let mut receiver = super::detect(&mut source, &mode).map_err(Error::Analysis)?;
         receiver.reference = Some(Binding {
+            provenance: Provenance::CurrentReference,
             identity: descriptor[..28].try_into().expect("descriptor identity"),
             banner: layout::BANNER
                 .of(image)
@@ -157,11 +175,9 @@ impl Receiver {
 
     /// Source of the cached instruction evidence.
     pub fn provenance(&self) -> Provenance {
-        if self.reference.is_some() {
-            Provenance::CurrentReference
-        } else {
-            Provenance::LiveCode
-        }
+        self.reference
+            .as_ref()
+            .map_or(Provenance::LiveCode, |binding| binding.provenance)
     }
 
     /// Canonical image digest when the receiver uses explicit reference code.
@@ -178,7 +194,9 @@ impl Receiver {
 pub fn detect<T: Transport>(t: &mut T, envelope: &Envelope) -> Result<Receiver, Error<T::Error>> {
     let mut receiver = Receiver::from_firmware(envelope).map_err(|error| match error {
         Error::Analysis(error) => Error::Analysis(error),
-        Error::Binding(_) => unreachable!("offline analysis performs no physical binding"),
+        Error::Binding(_) | Error::Session(_) => {
+            unreachable!("offline analysis performs no physical binding")
+        }
     })?;
     let binding = receiver.reference.as_mut().expect("reference receiver");
     let Metadata { banner, descriptor } = binding.read_metadata(t).map_err(Error::Binding)?;
@@ -191,6 +209,44 @@ pub fn detect<T: Transport>(t: &mut T, envelope: &Envelope) -> Result<Receiver, 
     }
     receiver.identity = identity;
     receiver.revalidate(t).map_err(Error::Binding)?;
+    Ok(receiver)
+}
+
+/// Analyze user-supplied firmware as receiver instruction evidence and pin the
+/// actual physical application session independently of the file's identity or
+/// build metadata. The caller owns selection of a suitable reference: this does
+/// not establish that its code matches the running receiver. Target validation,
+/// receiver grammar/encoding checks and pre-write session revalidation remain
+/// mandatory. No file bytes substitute for physical reads or verification.
+pub fn detect_user_supplied<T: Transport>(
+    t: &mut T,
+    envelope: &Envelope,
+) -> Result<Receiver, Error<T::Error>> {
+    let mut receiver = Receiver::from_firmware(envelope).map_err(|error| match error {
+        Error::Analysis(error) => Error::Analysis(error),
+        Error::Binding(_) | Error::Session(_) => {
+            unreachable!("offline analysis performs no physical binding")
+        }
+    })?;
+    let identity = super::detect_mode(t).map_err(Error::Session)?;
+    if identity.mode() != Mode::Firmware {
+        return Err(Error::Session(super::Error::InvalidIdentity));
+    }
+    let Metadata { banner, descriptor } = Metadata::read(t).map_err(Error::Session)?;
+    if super::detect_mode(t).map_err(Error::Session)? != identity {
+        return Err(Error::Session(super::Error::Changed));
+    }
+    let binding = receiver.reference.as_mut().expect("reference receiver");
+    binding.provenance = Provenance::UserSuppliedReference;
+    binding.identity = identity.inquiry()[8..36]
+        .try_into()
+        .expect("inquiry identity");
+    binding.banner = banner;
+    binding.descriptor = descriptor;
+    binding.live_banner = Some(banner);
+    binding.live_descriptor = Some(descriptor);
+    receiver.identity = identity;
+    receiver.revalidate(t).map_err(Error::Session)?;
     Ok(receiver)
 }
 

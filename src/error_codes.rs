@@ -189,12 +189,14 @@ impl<E> CodedError for crate::receiver::reference::Error<E> {
                 kind => kind,
             },
             Self::Binding(error) => error.kind(),
+            Self::Session(error) => error.kind(),
         }
     }
     fn code(&self) -> &'static str {
         match self {
             Self::Analysis(_) => "mediatek.reference.analysis",
             Self::Binding(_) => "mediatek.reference.binding",
+            Self::Session(_) => "mediatek.reference.session",
         }
     }
 }

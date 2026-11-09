@@ -3,6 +3,9 @@ use super::*;
 struct Restricted {
     image: Vec<u8>,
     reads: usize,
+    mutate_at_read: Option<(usize, usize)>,
+    fail_at_read: Option<usize>,
+    short_at_read: Option<usize>,
     // Once the descriptor is read, INQUIRY reports this revision.
     revision_after_descriptor: Option<[u8; 4]>,
     revision: Option<[u8; 4]>,
@@ -14,6 +17,18 @@ impl Transport for Restricted {
     }
     fn exec(&mut self, command: &[u8], data: Data<'_>) -> Result<usize, Self::Error> {
         self.reads += 1;
+        if self.fail_at_read == Some(self.reads) {
+            return Err("physical metadata unavailable");
+        }
+        if self.short_at_read == Some(self.reads) {
+            return Ok(0);
+        }
+        if let Some((read, offset)) = self.mutate_at_read {
+            if self.reads == read {
+                self.image[offset] ^= 1;
+            }
+        }
+
         let Data::In(bytes) = data else {
             panic!("reference binding must not write")
         };
@@ -61,6 +76,9 @@ fn fixture() -> (Envelope, Restricted) {
         Restricted {
             image,
             reads: 0,
+            mutate_at_read: None,
+            fail_at_read: None,
+            short_at_read: None,
             revision_after_descriptor: None,
             revision: None,
         },
@@ -267,4 +285,211 @@ fn reference_revalidation_rechecks_identity_after_metadata() {
         receiver.revalidate(&mut live),
         Err(super::super::Error::Changed)
     ));
+}
+
+#[test]
+fn user_supplied_reference_pins_actual_metadata_without_matching_the_file() {
+    let (envelope, mut live) = fixture();
+    let d = layout::DESCRIPTOR.start;
+    live.image[d + 8..d + 24].copy_from_slice(b"OTHER DRIVE     ");
+    live.image[d + 24..d + 28].copy_from_slice(b"LIVE");
+    live.image[d + 0x28..d + 0x30].copy_from_slice(b"20261108");
+    live.image[d + 0x46..d + 0x4c].copy_from_slice(b"SKU123");
+    live.image[d + 0x56] = 0xde;
+    live.image[layout::BANNER.start..layout::BANNER.start + 16]
+        .copy_from_slice(b"MT1959 Boot NEW ");
+    live.image[layout::BANNER.start + 31] ^= 1;
+    let actual = super::super::detect_mode(&mut live).unwrap();
+    let strict = Receiver::from_firmware(&envelope).unwrap();
+    assert_ne!(strict.identity, actual);
+    assert!(strict.revalidate(&mut live).is_err());
+    assert!(matches!(
+        detect(&mut live, &envelope),
+        Err(Error::Binding(_))
+    ));
+
+    let before = live.reads;
+    let receiver = detect_user_supplied(&mut live, &envelope).unwrap();
+    assert_eq!(
+        live.reads - before,
+        8,
+        "only bracketed physical metadata and revalidation"
+    );
+    assert_eq!(receiver.provenance(), Provenance::UserSuppliedReference);
+    assert_eq!(receiver.reference_sha256(), Some(envelope.image_sha256()));
+    assert_eq!(receiver.identity, actual);
+    assert_eq!(receiver.profile, strict.profile);
+    assert_eq!(receiver.site, strict.site);
+    assert_eq!(receiver.transform, strict.transform);
+    assert_eq!(receiver.encoding(), strict.encoding());
+    let binding = receiver.reference.as_ref().unwrap();
+    assert_eq!(binding.identity, actual.inquiry()[8..36]);
+    assert_eq!(
+        binding.banner,
+        live.image[layout::BANNER.start..layout::BANNER.end()]
+    );
+    assert_eq!(
+        binding.descriptor,
+        live.image[d..d + layout::DESCRIPTOR.len]
+    );
+    assert_eq!(binding.live_banner, Some(binding.banner));
+    assert_eq!(binding.live_descriptor, Some(binding.descriptor));
+    receiver.revalidate(&mut live).unwrap();
+
+    // The prepared executor's startup baseline must stay physical even
+    // though its instruction profile and reference hash came from the file.
+    let identity = crate::Identity::parse(
+        actual.inquiry(),
+        layout::BANNER.of(&live.image).unwrap(),
+        layout::DESCRIPTOR.of(&live.image).unwrap(),
+    )
+    .unwrap();
+    let prepared = receiver
+        .prepare_without_installed(&envelope, &identity)
+        .unwrap();
+    assert_eq!(prepared.plan().receiver().identity, actual);
+    let mut code = [0; 32];
+    assert!(drive::read_memory(&mut live, 0x9a300, &mut code).is_err());
+}
+
+#[test]
+fn user_supplied_reference_rejects_changes_to_actual_session_snapshots() {
+    for offset in [
+        layout::DESCRIPTOR.start + 8,
+        layout::DESCRIPTOR.start + 24,
+        layout::BANNER.start + 31,
+        layout::DESCRIPTOR.start + 0x40,
+        layout::DESCRIPTOR.start + 0x56,
+        layout::DESCRIPTOR.start + 0x57,
+        layout::DESCRIPTOR.start + 0x80,
+        layout::DESCRIPTOR.end() - 1,
+    ] {
+        let (envelope, mut live) = fixture();
+        let receiver = detect_user_supplied(&mut live, &envelope).unwrap();
+        live.image[offset] ^= 1;
+        assert!(matches!(
+            receiver.revalidate(&mut live),
+            Err(super::super::Error::Changed)
+        ));
+    }
+    let (envelope, mut live) = fixture();
+    let receiver = detect_user_supplied(&mut live, &envelope).unwrap();
+    receiver.revalidate(&mut live).unwrap();
+
+    // Descriptor bytes can remain identical even though INQUIRY changes
+    // immediately after that read. Every later revalidation is bracketed.
+    live.revision_after_descriptor = Some(*b"LIVE");
+    assert!(matches!(
+        receiver.revalidate(&mut live),
+        Err(super::super::Error::Changed)
+    ));
+}
+
+#[test]
+fn user_supplied_reference_rejects_capture_races_and_read_failures() {
+    for (read, offset) in [
+        // Between the bracketing INQUIRY reads.
+        (3, layout::DESCRIPTOR.start + 8),
+        // After capture, during the mandatory strict revalidation.
+        (5, layout::DESCRIPTOR.start + 24),
+        (6, layout::BANNER.start + 20),
+        (7, layout::DESCRIPTOR.start + 0x56),
+    ] {
+        let (envelope, mut live) = fixture();
+        live.mutate_at_read = Some((read, offset));
+        assert!(matches!(
+            detect_user_supplied(&mut live, &envelope),
+            Err(Error::Session(super::super::Error::Changed))
+        ));
+    }
+    for read in 1..=8 {
+        let (envelope, mut live) = fixture();
+        live.fail_at_read = Some(read);
+        let error = detect_user_supplied(&mut live, &envelope).unwrap_err();
+        assert!(matches!(
+            error,
+            Error::Session(super::super::Error::Read(_))
+        ));
+        assert_eq!(
+            crate::CodedError::code(&error),
+            "mediatek.reference.session"
+        );
+        assert_eq!(
+            crate::CodedError::kind(&error),
+            crate::CodedError::kind(&super::super::Error::Read(drive::Error::Transport(
+                "failure"
+            )))
+        );
+        assert!(!error.to_string().contains("does not match"));
+        assert!(std::error::Error::source(&error).is_some());
+    }
+    for read in 1..=8 {
+        let (envelope, mut live) = fixture();
+        live.short_at_read = Some(read);
+        assert!(matches!(
+            detect_user_supplied(&mut live, &envelope),
+            Err(Error::Session(super::super::Error::Read(
+                drive::Error::Short { .. }
+            )))
+        ));
+    }
+}
+
+#[test]
+fn user_supplied_reference_requires_valid_application_analysis_and_live_mode() {
+    assert!(Envelope::load(&[0; 32]).is_err());
+    let (envelope, mut live) = fixture();
+    for boot_file in [false, true] {
+        let mut image = envelope.image().to_vec();
+        if boot_file {
+            image[layout::DESCRIPTOR.start + 24..layout::DESCRIPTOR.start + 28]
+                .copy_from_slice(b"BOOT");
+        } else {
+            image[0x98000..0xb4000].fill(0);
+        }
+        let unknown = Envelope::load(&crate::fixtures::sign(image)).unwrap();
+        assert!(matches!(
+            detect_user_supplied(&mut live, &unknown),
+            Err(Error::Analysis(_))
+        ));
+        assert_eq!(live.reads, 0);
+    }
+    live.image[layout::DESCRIPTOR.start + 24..layout::DESCRIPTOR.start + 28]
+        .copy_from_slice(b"BOOT");
+    assert!(matches!(
+        detect_user_supplied(&mut live, &envelope),
+        Err(Error::Session(super::super::Error::InvalidIdentity))
+    ));
+}
+
+#[test]
+fn user_supplied_recovery_keeps_actual_and_native_profile_chip_gates() {
+    use crate::{fixtures, recovery, update::PrepareError, Chip};
+    let (envelope, mut live) = fixture();
+    live.image[layout::BANNER.start..layout::BANNER.end()].fill(0);
+    assert!(recovery::Receiver::identify_user_supplied_reference(&mut live, &envelope).is_err());
+    live.image[layout::BANNER.start..layout::BANNER.start + 16]
+        .copy_from_slice(b"MT1939 Boot Code");
+    let receiver =
+        recovery::Receiver::identify_user_supplied_reference(&mut live, &envelope).unwrap();
+    assert_eq!(receiver.chip(), Chip::Mt1939);
+    // This target matches the file profile but fails the physical-chip gate.
+    assert!(matches!(
+        receiver.prepare(envelope.image()),
+        Err(PrepareError::ChipMismatch {
+            image: Chip::Mt1959,
+            drive: Chip::Mt1939
+        })
+    ));
+    // This target matches the physical chip but fails the native-profile gate.
+    let target = fixtures::image(&fixtures::JB7, 9);
+    assert!(matches!(
+        receiver.prepare(&target),
+        Err(PrepareError::ChipMismatch {
+            image: Chip::Mt1939,
+            drive: Chip::Mt1959
+        })
+    ));
+    live.image[layout::BANNER.start + 20] ^= 1;
+    assert!(receiver.revalidate(&mut live).is_err());
 }
