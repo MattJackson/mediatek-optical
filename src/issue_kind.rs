@@ -35,6 +35,7 @@ pub(super) fn kind_for_code(code: &str) -> crate::operation::IssueKind {
         "mediatek.drive.transport"
         | "mediatek.protocol.incomplete"
         | "mediatek.drive.short"
+        | "mediatek.reference.session"
         | "mediatek.receiver.read"
         | "mediatek.receiver.invalid_identity"
         | "mediatek.startup.read"

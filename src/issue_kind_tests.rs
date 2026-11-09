@@ -57,3 +57,19 @@ fn an_unrecognised_cmac_enabled_word_is_invalid_firmware() {
     assert_eq!(e.code(), "mediatek.cmac.unknown_enabled");
     assert_eq!(e.kind(), IssueKind::InvalidFirmware);
 }
+
+#[cfg(all(feature = "drive", feature = "image", feature = "enc"))]
+#[test]
+fn reference_session_errors_classify_by_their_physical_cause() {
+    use crate::{operation::IssueKind, receiver, CodedError};
+    assert_eq!(
+        super::kind_for_code("mediatek.reference.session"),
+        IssueKind::Connection
+    );
+    let changed = receiver::reference::Error::<()>::Session(receiver::Error::Changed);
+    assert_eq!(changed.kind(), IssueKind::ReceiverMismatch);
+    let read = receiver::reference::Error::<()>::Session(receiver::Error::Read(
+        crate::drive::Error::Transport(()),
+    ));
+    assert_eq!(read.kind(), IssueKind::Connection);
+}
