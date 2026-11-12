@@ -17,8 +17,8 @@ fn installed(image: &[u8]) -> InstalledFirmware {
     InstalledFirmware::new(identity_of(image), &fixtures::drive_read(image)).unwrap()
 }
 
-fn prepare(target: &[u8], running: &[u8]) -> Result<PreparedUpdate, PrepareError> {
-    PreparedUpdate::prepare(target, &installed(running))
+fn prepare(target: &[u8], running: &[u8]) -> Result<ValidatedUpdate, PreparationError> {
+    ValidatedUpdate::prepare(target, &installed(running))
 }
 
 #[test]
@@ -40,7 +40,7 @@ fn same_family_prepares_for_another_build() {
     assert_eq!(prepared.image(), &target[..]);
     assert_eq!(prepared.transfer(), &target[..]);
     assert_eq!(
-        PreparedUpdate::check(&target, &identity_of(&running)),
+        ValidatedUpdate::check(&target, &identity_of(&running)),
         Ok(prepared.family())
     );
 }
@@ -64,20 +64,20 @@ fn another_board_line_of_the_same_model_is_refused() {
     assert_ne!(f7, f9);
     assert_eq!(
         prepare(&jb9, &jb7).unwrap_err(),
-        PrepareError::FamilyMismatch {
+        PreparationError::FamilyMismatch {
             installed: f7,
             target: f9
         }
     );
     assert_eq!(
         prepare(&jb7, &jb9).unwrap_err(),
-        PrepareError::FamilyMismatch {
+        PreparationError::FamilyMismatch {
             installed: f9,
             target: f7
         }
     );
     // The image alone is a valid update for the drive's chip.
-    assert_eq!(PreparedUpdate::check(&jb9, &identity_of(&jb7)), Ok(f9));
+    assert_eq!(ValidatedUpdate::check(&jb9, &identity_of(&jb7)), Ok(f9));
 }
 
 /// Strip the hardware record so no family can be derived, keeping the
@@ -96,15 +96,15 @@ fn unknown_families_are_refused() {
     assert!(cmac::verify(&nameless));
     assert_eq!(
         prepare(&nameless, &running).unwrap_err(),
-        PrepareError::UnknownTargetFamily
+        PreparationError::UnknownTargetFamily
     );
     assert_eq!(
         prepare(&running, &nameless).unwrap_err(),
-        PrepareError::UnknownInstalledFamily
+        PreparationError::UnknownInstalledFamily
     );
     assert_eq!(
         prepare(&nameless, &nameless).unwrap_err(),
-        PrepareError::UnknownTargetFamily
+        PreparationError::UnknownTargetFamily
     );
 }
 
@@ -114,7 +114,7 @@ fn chips_must_match() {
     let mt1959 = fixtures::image(&BU3, 1);
     assert_eq!(
         prepare(&mt1939, &mt1959).unwrap_err(),
-        PrepareError::ChipMismatch {
+        PreparationError::ChipMismatch {
             image: Chip::Mt1939,
             drive: Chip::Mt1959
         }
@@ -124,7 +124,7 @@ fn chips_must_match() {
     // MT1939 image's chip, so the check proceeds past the chip gate).
     let banner_only = Identity::parse(&[0; INQUIRY_LEN], b"MT1939 Boot Code", &[]).unwrap();
     assert_eq!(
-        PreparedUpdate::check(&mt1939, &banner_only),
+        ValidatedUpdate::check(&mt1939, &banner_only),
         Ok(family(&mt1939).unwrap())
     );
 }
@@ -138,7 +138,7 @@ fn unavailable_installed_evidence_retains_all_target_and_chip_gates() {
         .copy_from_slice(b"2.00");
     let target = fixtures::sign(target);
     assert_eq!(
-        PreparedUpdate::prepare_without_installed(&target, &live)
+        ValidatedUpdate::prepare_without_installed(&target, &live)
             .unwrap()
             .image(),
         target
@@ -152,25 +152,25 @@ fn unavailable_installed_evidence_retains_all_target_and_chip_gates() {
     let mut corrupt = target.clone();
     corrupt[0x12000] ^= 1;
     assert_eq!(
-        PreparedUpdate::prepare_without_installed(&corrupt, &live).unwrap_err(),
-        PrepareError::Integrity
+        ValidatedUpdate::prepare_without_installed(&corrupt, &live).unwrap_err(),
+        PreparationError::Integrity
     );
     assert_eq!(
-        PreparedUpdate::prepare_without_installed(&target[..100], &live).unwrap_err(),
-        PrepareError::Size(100)
+        ValidatedUpdate::prepare_without_installed(&target[..100], &live).unwrap_err(),
+        PreparationError::Size(100)
     );
     assert_eq!(
-        PreparedUpdate::prepare_without_installed(&fixtures::drive_read(&target), &live)
+        ValidatedUpdate::prepare_without_installed(&fixtures::drive_read(&target), &live)
             .unwrap_err(),
-        PrepareError::DriveRead
+        PreparationError::DriveRead
     );
     assert_eq!(
-        PreparedUpdate::prepare_without_installed(&without_record(&JB7), &live).unwrap_err(),
-        PrepareError::UnknownTargetFamily
+        ValidatedUpdate::prepare_without_installed(&without_record(&JB7), &live).unwrap_err(),
+        PreparationError::UnknownTargetFamily
     );
     assert!(matches!(
-        PreparedUpdate::prepare_without_installed(&fixtures::image(&BU3, 2), &live),
-        Err(PrepareError::ChipMismatch { .. })
+        ValidatedUpdate::prepare_without_installed(&fixtures::image(&BU3, 2), &live),
+        Err(PreparationError::ChipMismatch { .. })
     ));
 }
 
@@ -186,19 +186,19 @@ fn an_untagged_image_is_matched_by_the_drive_banner() {
     let image = fixtures::sign(image);
     let banner = |text: &[u8]| Identity::parse(&[0; INQUIRY_LEN], text, &[]).unwrap();
     assert_eq!(
-        PreparedUpdate::check(&image, &banner(b"MT1939 Boot Code")),
-        Err(PrepareError::UnknownTargetFamily)
+        ValidatedUpdate::check(&image, &banner(b"MT1939 Boot Code")),
+        Err(PreparationError::UnknownTargetFamily)
     );
     assert_eq!(
-        PreparedUpdate::check(&image, &banner(b"MT1959 Boot BU5")),
-        Err(PrepareError::ChipMismatch {
+        ValidatedUpdate::check(&image, &banner(b"MT1959 Boot BU5")),
+        Err(PreparationError::ChipMismatch {
             image: Chip::Mt1939,
             drive: Chip::Mt1959
         })
     );
     assert_eq!(
-        PreparedUpdate::check(&image, &banner(b"")),
-        Err(PrepareError::UnknownDriveChip)
+        ValidatedUpdate::check(&image, &banner(b"")),
+        Err(PreparationError::UnknownDriveChip)
     );
 }
 
@@ -207,22 +207,22 @@ fn an_unrecognised_integrity_enabled_word_is_refused_before_any_write() {
     let running = fixtures::image(&JB7, 1);
     let mut target = fixtures::image(&JB7, 2);
     let live = identity_of(&running);
-    assert!(PreparedUpdate::check(&target, &live).is_ok());
+    assert!(ValidatedUpdate::check(&target, &live).is_ok());
     assert!(prepare(&target, &running).is_ok());
-    assert!(PreparedUpdate::prepare_without_installed(&target, &live).is_ok());
+    assert!(ValidatedUpdate::prepare_without_installed(&target, &live).is_ok());
     let at = cmac::TABLE_OFFSET + cmac::ENTRY_SIZE;
     target[at..at + 4].copy_from_slice(&0u32.to_le_bytes());
     assert_eq!(
-        PreparedUpdate::check(&target, &live).unwrap_err(),
-        PrepareError::Integrity
+        ValidatedUpdate::check(&target, &live).unwrap_err(),
+        PreparationError::Integrity
     );
     assert_eq!(
         prepare(&target, &running).unwrap_err(),
-        PrepareError::Integrity
+        PreparationError::Integrity
     );
     assert_eq!(
-        PreparedUpdate::prepare_without_installed(&target, &live).unwrap_err(),
-        PrepareError::Integrity
+        ValidatedUpdate::prepare_without_installed(&target, &live).unwrap_err(),
+        PreparationError::Integrity
     );
 }
 
@@ -233,19 +233,19 @@ fn invalid_images_are_refused_first() {
     short.pop();
     assert_eq!(
         prepare(&short, &running).unwrap_err(),
-        PrepareError::Size(layout::IMAGE_SIZE - 1)
+        PreparationError::Size(layout::IMAGE_SIZE - 1)
     );
     let mut tampered = fixtures::image(&JB7, 2);
     tampered[0x1_2000] ^= 1;
     assert_eq!(
         prepare(&tampered, &running).unwrap_err(),
-        PrepareError::Integrity
+        PreparationError::Integrity
     );
     let read = fixtures::drive_read(&fixtures::image(&JB7, 2));
     assert!(cmac::verify(&read));
     assert_eq!(
         prepare(&read, &running).unwrap_err(),
-        PrepareError::DriveRead
+        PreparationError::DriveRead
     );
     let mut nameless = fixtures::image(&JB7, 2);
     nameless[layout::DESCRIPTOR.start + 0x34..layout::DESCRIPTOR.start + 0x3E].fill(b' ');
@@ -255,7 +255,7 @@ fn invalid_images_are_refused_first() {
     let nameless = fixtures::sign(nameless);
     assert_eq!(
         prepare(&nameless, &running).unwrap_err(),
-        PrepareError::UnknownChip
+        PreparationError::UnknownChip
     );
 }
 
@@ -267,28 +267,28 @@ fn installed_firmware_must_be_the_live_drive() {
     other[layout::DESCRIPTOR.start + 0x18] ^= 1;
     assert_eq!(
         InstalledFirmware::new(id.clone(), &other).unwrap_err(),
-        PrepareError::InstalledMismatch
+        PreparationError::InstalledMismatch
     );
     let mut banner = fixtures::drive_read(&running);
     banner[layout::BANNER.start + 13] ^= 1;
     assert_eq!(
         InstalledFirmware::new(id.clone(), &banner).unwrap_err(),
-        PrepareError::InstalledMismatch
+        PreparationError::InstalledMismatch
     );
     assert_eq!(
         InstalledFirmware::new(id.clone(), &running[..0x1000]).unwrap_err(),
-        PrepareError::InstalledMismatch
+        PreparationError::InstalledMismatch
     );
     let mut long = running.clone();
     long.push(0);
     assert_eq!(
         InstalledFirmware::new(id.clone(), &long).unwrap_err(),
-        PrepareError::InstalledMismatch
+        PreparationError::InstalledMismatch
     );
     let blank = Identity::parse(&[0; INQUIRY_LEN], &[], &[]).unwrap();
     assert_eq!(
         InstalledFirmware::new(blank, &running).unwrap_err(),
-        PrepareError::InstalledMismatch
+        PreparationError::InstalledMismatch
     );
     // The stored image binds as well as a drive read of it.
     let bound = InstalledFirmware::new(id.clone(), &running).unwrap();
@@ -308,7 +308,7 @@ fn installed_binding_compares_the_complete_descriptor() {
     tail[layout::DESCRIPTOR.start + 0x80] ^= 1;
     assert_eq!(
         InstalledFirmware::new(id.clone(), &tail).unwrap_err(),
-        PrepareError::InstalledMismatch
+        PreparationError::InstalledMismatch
     );
     // A short live descriptor keeps its tag but is zero-padded: it is missing
     // evidence, not a match for the capture's tail.
@@ -321,7 +321,7 @@ fn installed_binding_compares_the_complete_descriptor() {
     assert!(short.has_descriptor());
     assert_eq!(
         InstalledFirmware::new(short, &capture).unwrap_err(),
-        PrepareError::InstalledMismatch
+        PreparationError::InstalledMismatch
     );
 }
 

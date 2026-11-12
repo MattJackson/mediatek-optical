@@ -511,7 +511,7 @@ fn every_normalized_mediatek_file_is_accounted_for_in_discovery() {
         let firmware = path.extension().is_some_and(|extension| extension == "bin");
         let image_validation = if firmware {
             use mediatek_optical::envelope::{Envelope, Error, InputEncoding};
-            use mediatek_optical::update::PrepareError;
+            use mediatek_optical::update::PreparationError;
             assert_eq!(
                 path.file_stem().unwrap().to_str().unwrap(),
                 digest,
@@ -536,9 +536,9 @@ fn every_normalized_mediatek_file_is_accounted_for_in_discovery() {
                 }
                 Err(error) => {
                     let status = match &error {
-                        Error::Image(PrepareError::Size(_)) => "unsupported_size",
-                        Error::Image(PrepareError::DriveRead) => "drive_capture",
-                        Error::Image(PrepareError::Integrity) => "integrity_rejected",
+                        Error::Image(PreparationError::Size(_)) => "unsupported_size",
+                        Error::Image(PreparationError::DriveRead) => "drive_capture",
+                        Error::Image(PreparationError::Integrity) => "integrity_rejected",
                         Error::UnknownFraming => "unsupported_framing",
                         Error::Ambiguous => "ambiguous",
                         _ => "validation_rejected",
@@ -746,6 +746,8 @@ fn intm_to_v9_prepares_exact_mixed_wire_with_boot_preserved() {
     let env = Envelope::load(&missing_marker).unwrap();
     assert!(matches!(
         receiver.prepare(&env, &installed),
-        Err(update::PrepareError::ReceiverContract)
+        Err(update::PreparationError::ReceiverContract {
+            reason: update::ContractReason::DescriptorByte
+        })
     ));
 }

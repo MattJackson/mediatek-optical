@@ -9,8 +9,8 @@ pub struct CommandDispatch<'a> {
     scanner: CommandScanner,
     roots: BTreeSet<usize>,
     records: Vec<CommandRecord>,
-    /// Records reached from the initial (`BL`-registered) roots.
-    initial: BTreeSet<usize>,
+    /// Records reached from each initial (`BL`-registered) root.
+    initial: Vec<BTreeSet<usize>>,
     /// Records reached from each tail-call (media mode) root.
     modes: Vec<BTreeSet<usize>>,
 }
@@ -28,11 +28,15 @@ impl<'a> CommandDispatch<'a> {
     /// `InvalidContract`; a walk past the image end is `Truncated`. These
     /// tables are bound only after the initial roots' own evidence.
     pub fn inspect(image: &'a [u8]) -> Result<Self, Error> {
-        let scanner = CommandScanner::inspect(image)?;
+        Self::from_scanner(image, CommandScanner::inspect(image)?)
+    }
+    /// [`Self::inspect`] with the scanner already inspected on `image`.
+    pub(super) fn from_scanner(image: &'a [u8], scanner: CommandScanner) -> Result<Self, Error> {
         let tables = scanner.tables(image)?;
         let roots = tables.initial;
         let mut records = Vec::new();
         let mut retained = BTreeSet::new();
+        let mut initial = Vec::new();
         for root in &roots {
             let mut visited = BTreeSet::new();
             let mut at = *root;
@@ -66,8 +70,8 @@ impl<'a> CommandDispatch<'a> {
                     }
                 }
             }
+            initial.push(visited);
         }
-        let initial = retained.clone();
         let extra = tables.extra?;
         let mut modes = Vec::new();
         for root in &extra.modes {
@@ -122,10 +126,16 @@ impl<'a> CommandDispatch<'a> {
     ///
     /// Uniqueness is computed over every record in [`Self::records`], so a
     /// media-mode or direct table serving the same opcode makes the lookup
-    /// `Ambiguous`. The selected record must also be reached from an initial
-    /// root and from every tail-call (media mode) root; otherwise the lookup
-    /// is `UnknownLayout`. This only ever refuses lookups the initial roots
-    /// alone would accept. The limits listed on [`Self::records`] apply.
+    /// `Ambiguous`. The selected record must also be reached from every
+    /// initial root and every tail-call (media mode) root: each registrar call
+    /// clears the scanner's array and installs one root, so a root that does
+    /// not reach the record would not run it. Otherwise the lookup is
+    /// `UnknownLayout`. This only ever refuses lookups the initial roots
+    /// alone would accept. The every-root rule assumes a single scanner array:
+    /// all `BL`-registered roots are kept in one set without tracking which
+    /// array each registrar fills, so an image whose registrars fill different
+    /// arrays used by different scanner callers is refused as `UnknownLayout`
+    /// even for a record the second array serves (fail-closed). The limits listed on [`Self::records`] apply.
     pub fn record(&self, opcode: u8, flags: u8) -> Result<&CommandRecord, Error> {
         let mut matches = self.records.iter().filter(|record| {
             record.opcode == opcode
@@ -135,14 +145,20 @@ impl<'a> CommandDispatch<'a> {
         if matches.next().is_some() {
             return Err(Error::Ambiguous);
         }
-        if !self.initial.contains(&first.off) || first.flags != flags {
+        if first.flags != flags || !self.initial.iter().any(|reach| reach.contains(&first.off)) {
             return Err(Error::UnknownLayout);
         }
         if first.handler & 1 == 0 || first.handler as usize >= self.image.len() {
             return Err(Error::InvalidContract);
         }
-        // A media mode whose table never reaches the record would not run it.
-        if self.modes.iter().any(|reach| !reach.contains(&first.off)) {
+        // A registered root or media mode whose table never reaches the
+        // record would not run it.
+        if self
+            .initial
+            .iter()
+            .chain(&self.modes)
+            .any(|reach| !reach.contains(&first.off))
+        {
             return Err(Error::UnknownLayout);
         }
         Ok(first)

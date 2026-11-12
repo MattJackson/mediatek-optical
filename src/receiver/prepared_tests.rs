@@ -11,7 +11,7 @@ fn contradictory_layout_keeps_its_cause() {
     ];
     assert!(matches!(
         wire(&image, &operations),
-        Err(update::PrepareError::Layout(Error::Conflict { .. }))
+        Err(update::PreparationError::Layout(Error::Conflict { .. }))
     ));
 }
 use crate::{
@@ -46,7 +46,7 @@ fn an_image_with_no_verifiable_ranges_is_refused_before_any_write() {
             class,
             update::flash::ExecutionMode::Flash
         ),
-        Err(update::PrepareError::Integrity)
+        Err(update::PreparationError::Integrity)
     ));
 }
 
@@ -111,4 +111,145 @@ fn input_envelope_never_selects_the_running_receivers_wire_encoding() {
             }
         }
     }
+}
+
+fn contract_refusal(
+    application: Option<super::super::analysis::ApplicationAnalysis>,
+    mixed: Option<super::super::mixed::MixedContract>,
+    image: &[u8],
+) -> Result<TransferPlan, update::PreparationError> {
+    let mut profile = super::super::profile::Profile::testing();
+    profile.application = application;
+    profile.mixed = mixed;
+    let receiver = Receiver {
+        identity: super::super::DetectedMode {
+            mode: super::super::Mode::Firmware,
+            inquiry: [0; INQUIRY_LEN],
+        },
+        encoding: Encoding::Plaintext,
+        site: super::super::Evidence::new(0x98000, &[1, 2]),
+        transform: None,
+        reference: None,
+        profile: Some(profile),
+    };
+    TransferPlan::new(
+        &receiver,
+        image,
+        crate::DriveClass::of(crate::Chip::Mt1959),
+        update::flash::ExecutionMode::Flash,
+    )
+}
+
+fn scratch_call() -> super::super::decoding::Call {
+    use super::super::decoding::{Call, Value};
+    Call {
+        address: 0x9d000,
+        target: 0x9e000,
+        source: Value::Loaded {
+            cell: 0x2000_0000,
+            offset: 0x3000,
+        },
+        destination: Value::Stack(0),
+        length: 16,
+        fourth_argument: Value::Unknown,
+    }
+}
+
+#[test]
+fn receiver_evidence_refusals_name_the_receiver() {
+    use super::super::analysis::ApplicationAnalysis;
+    use update::{ContractReason, PreparationError};
+    let image = fixtures::image(&BU3, 7);
+    // Conflicting decoder arguments, and a scratch decoder without a
+    // recognized mixed contract, are facts about the receiver code.
+    for (application, mixed) in [
+        (ApplicationAnalysis::testing(Vec::new(), true), None),
+        (
+            ApplicationAnalysis::testing(vec![scratch_call()], false),
+            None,
+        ),
+    ] {
+        assert_eq!(
+            contract_refusal(Some(application), mixed, &image).err(),
+            Some(PreparationError::ReceiverContract {
+                reason: ContractReason::ReceiverEvidence
+            })
+        );
+    }
+}
+
+#[test]
+fn a_descriptor_byte_refusal_names_the_image() {
+    use super::super::{analysis::ApplicationAnalysis, mixed::MixedContract};
+    use update::{ContractReason, PreparationError};
+    let image = fixtures::image(&BU3, 7);
+    let mixed = MixedContract::testing([0x10000..0x1d0000, 0x1ec000..0x1f0000]);
+    assert_ne!(image[mixed.descriptor_byte()], 0xde);
+    assert_eq!(
+        contract_refusal(
+            Some(ApplicationAnalysis::testing(vec![scratch_call()], false)),
+            Some(mixed),
+            &image
+        )
+        .err(),
+        Some(PreparationError::ReceiverContract {
+            reason: ContractReason::DescriptorByte
+        })
+    );
+}
+
+#[test]
+fn an_integrity_range_into_a_preserved_region_names_the_image() {
+    use super::super::{analysis::ApplicationAnalysis, mixed::MixedContract};
+    use update::{ContractReason, PreparationError};
+    // The descriptor byte is accepted; the receiver programs nothing that
+    // covers the image's active integrity ranges.
+    let mixed = MixedContract::testing([0x10000..0x10000, 0x10000..0x10000]);
+    let mut image = fixtures::image(&BU3, 7);
+    image[mixed.descriptor_byte()] = 0xde;
+    let image = crate::image::cmac::resign(&image).unwrap();
+    assert!(crate::image::cmac::parse_table(&image)
+        .unwrap()
+        .iter()
+        .any(|entry| entry.is_active()));
+    assert_eq!(
+        contract_refusal(
+            Some(ApplicationAnalysis::testing(vec![scratch_call()], false)),
+            Some(mixed),
+            &image
+        )
+        .err(),
+        Some(PreparationError::ReceiverContract {
+            reason: ContractReason::PreservedRange
+        })
+    );
+}
+
+#[test]
+fn an_image_that_is_not_whole_aes_blocks_is_refused_by_its_size() {
+    // Encrypting the transfer needs whole AES blocks; that is the image's
+    // length, not a receiver contract.
+    let mut image = fixtures::image(&BU3, 7);
+    image.push(0);
+    let receiver = Receiver {
+        identity: super::super::DetectedMode {
+            mode: super::super::Mode::Firmware,
+            inquiry: [0; INQUIRY_LEN],
+        },
+        encoding: Encoding::Encrypted,
+        site: super::super::Evidence::new(0x98000, &[1, 2]),
+        transform: None,
+        reference: None,
+        profile: Some(super::super::profile::Profile::testing()),
+    };
+    assert_eq!(
+        TransferPlan::new(
+            &receiver,
+            &image,
+            crate::DriveClass::of(crate::Chip::Mt1959),
+            update::flash::ExecutionMode::Flash
+        )
+        .err(),
+        Some(update::PreparationError::Size(layout::IMAGE_SIZE + 1))
+    );
 }

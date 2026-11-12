@@ -1,6 +1,6 @@
 //! Source-bound legacy reverse arithmetic substrate. This does not establish a
 //! mode producer/lifecycle or authorize installation of a conversion.
-use super::{conditional, half, matches, Error, SavedLink, UhdArea, UhdAreas};
+use super::{conditional, half, matches, pattern_starts, Error, SavedLink, UhdArea, UhdAreas};
 use thumb_asm::analysis::literal_value;
 use thumb_asm::isa::decode_at;
 
@@ -92,7 +92,7 @@ fn mode_consumer(image: &[u8], state: u32, value: u16) -> Result<u32, Error> {
         (0x0040, 0xffff),
     ];
     let mut found = None;
-    for at in (6..image.len().saturating_sub(pattern.len() * 2)).step_by(2) {
+    for at in pattern_starts(image, 6, &pattern) {
         if !matches(image, at, &pattern) {
             continue;
         }
@@ -395,5 +395,25 @@ mod tests {
                 "accepted mutation at {at:x}"
             );
         }
+    }
+
+    #[test]
+    fn mode_consumer_ending_the_image_is_counted() {
+        // The consumer grammar as the final 24 bytes of the image. Its first
+        // literal lies inside the grammar, so it is no state cell: the
+        // candidate refuses instead of being skipped as absent.
+        let pattern: [u16; 12] = [
+            0x4800, 0x7800, 0x2800, 0xd100, 0x7829, 0x4800, 0xf000, 0xf800, 0x7820, 0x4900, 0x0840,
+            0x0040,
+        ];
+        let mut image = vec![0; 0x40];
+        for (n, op) in pattern.iter().enumerate() {
+            let at = 0x28 + 2 * n;
+            image[at..at + 2].copy_from_slice(&op.to_le_bytes());
+        }
+        assert_eq!(
+            mode_consumer(&image, 0x01ff9d61, 0),
+            Err(Error::InvalidContract)
+        );
     }
 }

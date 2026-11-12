@@ -241,10 +241,10 @@ fn identity_preserves_inquiry_bytes_without_lossy_normalization() {
 
 #[test]
 fn failure_messages_retain_actionable_values() {
-    use mediatek_optical::update::{FlashError, PrepareError};
+    use mediatek_optical::update::{FlashError, PreparationError};
     let unsupported = "MT1900".parse::<Chip>().unwrap_err().to_string();
     assert!(unsupported.contains("MT1959") && unsupported.contains("MT1939"));
-    let size = PrepareError::Size(123).to_string();
+    let size = PreparationError::Size(123).to_string();
     assert!(size.contains("123") && size.contains("2097152"));
     let range = cmac::CmacError::BadRange {
         start: 0xabc,

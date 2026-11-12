@@ -36,9 +36,11 @@ fn wide_loop_without_prelude_binds_complete_native_code_and_reserved_spans() {
         {
             continue;
         }
-        let mut changed = NO_PRELUDE.to_vec();
-        changed[at] ^= 1;
-        assert!(inspect_program_loop(&changed).is_none(), "{at:#x}");
+        for byte in [at, at + 1] {
+            let mut changed = NO_PRELUDE.to_vec();
+            changed[byte] ^= 1;
+            assert!(inspect_program_loop(&changed).is_none(), "{byte:#x}");
+        }
     }
     for at in NO_PRELUDE_RAM_WORDS {
         let alias = if at == NO_PRELUDE_RAM_WORDS[0] {

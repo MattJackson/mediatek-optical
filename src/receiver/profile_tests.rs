@@ -66,7 +66,7 @@ fn device() -> Device {
     }
 }
 struct Runtime;
-impl update::FlashRuntime<&'static str> for Runtime {
+impl update::ExecutionRuntime<&'static str> for Runtime {
     fn elapsed(&self) -> std::time::Duration {
         std::time::Duration::ZERO
     }
@@ -96,7 +96,7 @@ fn detection_captures_once_but_execution_revalidates_every_snapshot() {
         layout::DESCRIPTOR.of(&image).unwrap(),
     )
     .unwrap();
-    let update = update::PreparedUpdate::prepare_without_installed(&image, &identity).unwrap();
+    let update = update::ValidatedUpdate::prepare_without_installed(&image, &identity).unwrap();
     let prepared = receiver.bind_prepared(&update).unwrap();
     // Mutation outside the small encoding signature must be caught before
     // PROBE/PREPARE/STREAM, by physical snapshot validation at execution.
@@ -111,7 +111,7 @@ fn detection_captures_once_but_execution_revalidates_every_snapshot() {
     );
     assert!(matches!(
         result,
-        Err(crate::receiver::ExecuteError::Receiver(Error::Changed))
+        Err(crate::receiver::ExecutionError::Receiver(Error::Changed))
     ));
     assert_eq!(writes.writes, 0);
     assert!(writes.reads.is_empty());
@@ -137,17 +137,17 @@ fn validated_target_cannot_bind_to_a_receiver_of_another_chip() {
         layout::DESCRIPTOR.of(&image).unwrap(),
     )
     .unwrap();
-    let validated = update::PreparedUpdate::prepare_without_installed(&image, &identity).unwrap();
+    let validated = update::ValidatedUpdate::prepare_without_installed(&image, &identity).unwrap();
     assert!(matches!(
         receiver.bind_prepared(&validated),
-        Err(update::PrepareError::ChipMismatch {
+        Err(update::PreparationError::ChipMismatch {
             image: crate::Chip::Mt1939,
             drive: crate::Chip::Mt1959
         })
     ));
     assert!(matches!(
         receiver.prepare_without_installed(&Envelope::load(&image).unwrap(), &identity),
-        Err(update::PrepareError::ChipMismatch { .. })
+        Err(update::PreparationError::ChipMismatch { .. })
     ));
     assert_eq!(live.writes, 0);
 }
@@ -189,7 +189,7 @@ fn execution_refuses_identity_change_during_snapshot_revalidation() {
             layout::DESCRIPTOR.of(&image).unwrap(),
         )
         .unwrap();
-        let update = update::PreparedUpdate::prepare_without_installed(&image, &identity).unwrap();
+        let update = update::ValidatedUpdate::prepare_without_installed(&image, &identity).unwrap();
         let prepared = receiver.bind_prepared(&update).unwrap();
         live.identity_after = Some((0x1afc00, changed));
         let mut writes = device();
@@ -203,7 +203,7 @@ fn execution_refuses_identity_change_during_snapshot_revalidation() {
         assert_eq!(live.identity, Some(changed), "change during snapshots");
         assert!(matches!(
             result,
-            Err(crate::receiver::ExecuteError::Receiver(Error::Changed))
+            Err(crate::receiver::ExecutionError::Receiver(Error::Changed))
         ));
         assert_eq!(writes.writes, 0);
         assert!(writes.reads.is_empty());

@@ -58,9 +58,9 @@ struct Definition {
     pattern: &'static [(u16, u16)],
     gate: usize,
     /// Pinned conditional-branch target offset from the region. Not enforced
-    /// for `MediaDefaults` and `ReadStatus`, whose targets move between
-    /// builds and are bound positively in `inspect` instead; their values
-    /// record the reference build only.
+    /// for `MediaDefaults`, `ReadStatus`, `Control18` and `ParameterClass`,
+    /// whose targets move between builds and are bound positively in
+    /// `inspect_kind` instead; their values record the reference build only.
     target: usize,
     target_accepts: bool,
 }

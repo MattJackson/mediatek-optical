@@ -16,7 +16,9 @@ use mediatek_optical::{
     receiver::{analysis::ApplicationAnalysis, entry},
 };
 
-/// Every read-only instruction-grammar recognizer reachable from an image.
+/// The image roles and the classic UHD recognizers driven from them. Other
+/// public recognizers (for example `NvRecordCopy`, `RamReferences`,
+/// `SavedLink::detect` and the legacy UHD grammars) are not exercised here.
 fn analyze(image: &[u8]) {
     let analysis = ImageAnalysis::inspect(image);
     let _ = analysis.identity();
@@ -76,6 +78,7 @@ fuzz_target!(|data: &[u8]| {
         let _ = Envelope::load(&whole);
         let _ = oem::rebuild(&whole, &oem::Catalog::default());
     } else {
+        let _ = image::hardware(data);
         let _ = Envelope::load(data);
         let _ = oem::rebuild(data, &oem::Catalog::default());
     }

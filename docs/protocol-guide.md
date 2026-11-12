@@ -59,7 +59,7 @@ plan. Unknown or conflicting receiver contracts fail before any write. File
 encoding never chooses transfer encoding; header and body can require different
 representations.
 
-`receiver::PreparedUpdate::flash_completed` returns a `Completion` whose
+`receiver::PreparedUpdate::flash_completed` returns a `FlashOutcome` whose
 `ReadbackQuality` explicitly distinguishes complete and limited readback, and
 whose `Startup::evidence()` states how strongly a restart into the target was
 observed. Every readable mismatch and every failed data write remains an error.
@@ -71,7 +71,7 @@ of the descriptor. Readiness only gates read-back. Neither a not-ready poll nor
 a unit-attention sense is counted as restart evidence: no recorded hardware fact
 establishes either as a restart signal. Success requires read-back, an
 application INQUIRY whose vendor, product and revision equal the target's, and
-the stored descriptor (bytes 0..0x58) equal to the target's. That descriptor is
+the complete stored 0x100-byte descriptor equal to the target's. That descriptor is
 read through READ BUFFER, the same path as read-back, so it shows what was
 programmed, not what is running.
 
@@ -129,14 +129,14 @@ and `oem::content_key`.
 
 ## Receiver-bound updates
 
-Enable `drive`, `image` and `enc`. Identify the physical drive, bind the captured
+Enable `drive` and `envelope`. Identify the physical drive, bind the captured
 installed image, detect the receiver, load the target `envelope::Envelope`, then
 prepare and execute. Both read and write transports must address the same drive,
 with exclusive access held for the entire operation.
 
 [examples/flash.rs](../examples/flash.rs) is a compiled generic host integration
-example using `Transport`, `FlashRuntime` and `FlashTransport`. It returns the
-structured completion result; its `main` does not access hardware. The low-level
+example using `Transport`, `ExecutionRuntime` and `FlashTransport`. It returns the
+structured `FlashOutcome`; its `main` does not access hardware. The low-level
 `drive::Session` is a protocol primitive and supplies no compatibility or
 completion guarantee.
 
@@ -219,7 +219,7 @@ expect different formats. Read failures can prevent detection on a live drive;
 static corpus coverage does not establish physical-device read accessibility.
 
 Explicit `recovery::PreparedRecovery::flash_completed` reports a failed PREPARE through
-`FlashRuntime::recovery_entry_failed` and proceeds once to the selected image.
+`ExecutionRuntime::recovery_entry_failed` and proceeds once to the selected image.
 This is recovery host policy, not a claim that the receiver always rejects
 PREPARE. Normal `PreparedUpdate::flash_completed` remains strict. STREAM
 failures stop both paths, no firmware writes retry, and recovery still requires
@@ -273,8 +273,8 @@ lookup execution, pre-dispatch predicates and completion remain separate proofs.
 For executable operations, use `receiver::detect(transport, &mode)`. It binds
 encoding, the complete entry prelude/body, mode-six guard, compiler helper and
 WRITE BUFFER registration to bounded live reads. Unknown entry code fails
-closed. Encrypted applications with a proven shared 0x67 entry select that
-dialect; the other recognized receivers select the proven mode-one path.
+closed. Every recognized receiver selects the proven mode-one PREPARE,
+including encrypted applications with a proven shared 0x67 entry.
 Both Flash and explicit Recovery store the resulting command in the same
 immutable `TransferPlan`, revalidate its code/table snapshots before writing,
 and execute through the shared transfer/readback engine. The snapshot re-read
@@ -298,8 +298,10 @@ cargo test --all-features --test receiver_corpus -- --ignored --nocapture
 Typed errors implement `mediatek_optical::CodedError`. `error.code()` returns a
 stable identifier such as `mediatek.receiver.changed`, independent of runtime
 values. Match typed variants for parameters and use codes for translation keys;
-English `Display` messages are diagnostic prose. Wrapper errors preserve their
-own stage code and expose typed causes through `std::error::Error::source` when
-`std` is enabled. The source chain ends at `drive::Error`: its transport
+English `Display` messages are diagnostic prose. Execution wrappers
+(`receiver::ExecutionError`, `recovery::Error`) report their cause's code, so a
+failure has the same code on every path; match the wrapper variant or use
+`phase()` and `firmware_write_started()` for the stage. Wrappers expose typed
+causes through `std::error::Error::source` when `std` is enabled. The source chain ends at `drive::Error`: its transport
 variant carries the host's own error type, which only needs `Debug`, so match
 `drive::Error::Transport(e)` to inspect it. Handle unknown future identifiers with a generic message.

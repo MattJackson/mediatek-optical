@@ -1,6 +1,6 @@
-//! An update prepared against the drive's installed firmware.
+//! An update image validated against the drive's installed firmware.
 //!
-//! [`PreparedUpdate::prepare`] takes the image to write and the
+//! [`ValidatedUpdate::prepare`] takes the image to write and the
 //! [`InstalledFirmware`] (the live [`Identity`] plus a complete read of the
 //! drive, or the image rebuilt from one) and refuses, before any command:
 //!
@@ -34,23 +34,33 @@ mod completion;
 #[cfg(all(test, feature = "drive", feature = "enc"))]
 pub(crate) use completion::classify;
 #[cfg(feature = "drive")]
-pub use completion::{Completion, ReadbackQuality, Startup, StartupError, StartupEvidence};
+pub use completion::{FlashOutcome, ReadbackQuality, Startup, StartupError, StartupEvidence};
 #[cfg(feature = "drive")]
 pub(crate) mod flash;
 #[cfg(feature = "drive")]
-pub use flash::{FlashError, FlashRuntime, FlashTransport, Stage, Status, Verified};
+pub use flash::{ExecutionRuntime, FlashError, FlashTransport, Stage, Status, Verified};
 
 /// Why an update was refused before any device command.
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[non_exhaustive]
-pub enum PrepareError {
+pub enum PreparationError {
     /// No complete live entry profile was identified before preparation.
     ReceiverEntry,
     /// Decoder evidence does not yet establish an executable transfer contract,
     /// or the recognized contract does not accept this image (for example a
     /// required descriptor byte differs, or an active integrity range reaches
-    /// a region the receiver deliberately preserves).
-    ReceiverContract,
+    /// a region the receiver deliberately preserves). It is also returned when
+    /// a user-supplied reference names a different chip than the target image:
+    /// that reference's receiver contract refuses the image, whereas a
+    /// reference read from the drive reports `ChipMismatch` instead.
+    ///
+    /// `reason` tells the cases apart and says which input the refusal is
+    /// about: the receiver (the live drive's code or the reference it was
+    /// built from) or the image.
+    ReceiverContract {
+        /// Why the contract refused the image.
+        reason: ContractReason,
+    },
     /// The receiver's transfer layout is contradictory; no firmware was sent.
     #[cfg(all(feature = "drive", feature = "enc"))]
     Layout(crate::receiver::layout::Error),
@@ -90,13 +100,45 @@ pub enum PrepareError {
     },
 }
 
-impl core::fmt::Display for PrepareError {
+/// Why [`PreparationError::ReceiverContract`] refused an image.
+///
+/// Hosts must keep a wildcard arm; the set of reasons may grow. An unknown
+/// reason blames neither the receiver nor the image.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum ContractReason {
+    /// The receiver was built from a user-supplied reference whose chip
+    /// differs from the image's. The update and recovery chip gates have
+    /// already matched the image to the live drive, so the reference is for
+    /// another chip than the drive: the reference is at fault.
+    ReferenceChip,
+    /// The receiver's decoder evidence does not establish an executable
+    /// transfer contract (conflicting or incomplete decoder arguments, a
+    /// scratch decoder without a recognized mixed contract, or a bulk decoder
+    /// this crate cannot bind). This is a fact about the receiver code (the
+    /// live drive's, or the reference's), not about the image.
+    ReceiverEvidence,
+    /// The recognized mixed contract requires a descriptor byte of the image
+    /// to be `0xDE` and it is not. The image does not fit the receiver's
+    /// contract; that blames the image only when the contract is
+    /// authoritative for the drive (live code, or a bound Current reference).
+    /// A user-supplied reference's contract comes from a file not matched to
+    /// the drive, so either file may be at fault.
+    DescriptorByte,
+    /// An active integrity range of the image reaches a region the
+    /// recognized receiver deliberately preserves. As for
+    /// [`Self::DescriptorByte`], this blames the image only when the contract
+    /// is authoritative for the drive.
+    PreservedRange,
+}
+
+impl core::fmt::Display for PreparationError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             Self::ReceiverEntry => f.write_str(
                 "receiver entry profile is unknown; detect the live receiver before preparing",
             ),
-            Self::ReceiverContract => f.write_str(
+            Self::ReceiverContract { .. } => f.write_str(
                 "receiver transfer contract is incomplete or does not accept this image; \
                      no firmware was sent",
             ),
@@ -143,7 +185,7 @@ impl core::fmt::Display for PrepareError {
     }
 }
 
-impl std::error::Error for PrepareError {
+impl std::error::Error for PreparationError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
             #[cfg(all(feature = "drive", feature = "enc"))]
@@ -219,17 +261,17 @@ impl DriveClass {
     /// entry, clipped to [`DriveClass::verify_floor`]. Per-unit regions are
     /// outside every entry.
     ///
-    /// Returns no ranges when the integrity table cannot be parsed (a short
-    /// buffer, an out-of-bounds or circular entry) as well as when no active
-    /// entry reaches above the floor. Either way nothing can be verified: an
-    /// empty result is never evidence of a matching read-back, and the
-    /// library's own preparation refuses such an image with
-    /// [`PrepareError::Integrity`].
+    /// Returns no ranges when the integrity table cannot be parsed (a buffer
+    /// too short to hold it) as well as when no active entry reaches above
+    /// the floor. Either way nothing can be verified: an empty result is never
+    /// evidence of a matching read-back, and the library's own preparation
+    /// refuses such an image with [`PreparationError::Integrity`].
     ///
     /// The result is only meaningful for an image that passed
     /// [`cmac::verify`]: this filters entries by [`cmac::CmacEntry::is_active`]
-    /// alone and does not itself refuse an unrecognised `enabled` word. Every
-    /// update and recovery path gates on `cmac::verify` before calling it.
+    /// alone and does not itself refuse an unrecognised `enabled` word or an
+    /// out-of-bounds or self-covering entry, which are returned as ranges.
+    /// Every update and recovery path gates on `cmac::verify` before calling it.
     pub fn verification_ranges(self, image: &[u8]) -> Vec<RangeInclusive<usize>> {
         let Ok(entries) = cmac::parse_table(image) else {
             return Vec::new();
@@ -257,7 +299,7 @@ impl InstalledFirmware {
     /// Bind `image`, a complete read of the drive's firmware or the image
     /// rebuilt from one, to the drive's live `identity`.
     ///
-    /// Fails with [`PrepareError::InstalledMismatch`] unless the image is
+    /// Fails with [`PreparationError::InstalledMismatch`] unless the image is
     /// [`layout::IMAGE_SIZE`] bytes and holds the identity descriptor (when
     /// the identity has one) and the boot banner (when the identity read one)
     /// the drive reports; at least one of them must be present. All
@@ -265,9 +307,9 @@ impl InstalledFirmware {
     /// and the live read come from the same programmed flash, so any
     /// difference, including a short live descriptor that
     /// [`Identity::parse`] zero-pads, is refused.
-    pub fn new(identity: Identity, image: &[u8]) -> Result<Self, PrepareError> {
+    pub fn new(identity: Identity, image: &[u8]) -> Result<Self, PreparationError> {
         if image.len() != layout::IMAGE_SIZE {
-            return Err(PrepareError::InstalledMismatch);
+            return Err(PreparationError::InstalledMismatch);
         }
         let descriptor = identity
             .has_descriptor()
@@ -276,7 +318,7 @@ impl InstalledFirmware {
             .then(|| layout::BANNER.of(image) == Some(&identity.banner_bytes()[..]));
         match (descriptor, banner) {
             (None, None) | (Some(false), _) | (_, Some(false)) => {
-                Err(PrepareError::InstalledMismatch)
+                Err(PreparationError::InstalledMismatch)
             }
             _ => Ok(Self {
                 family: family(image),
@@ -296,63 +338,66 @@ impl InstalledFirmware {
     }
 }
 
-/// An update validated against the installed firmware, ready to write.
+/// An image validated against the installed firmware (or explicitly without
+/// it). Not executable: bind it to the live receiver with
+/// `crate::receiver::Receiver::bind_prepared` (features `drive` and `enc`),
+/// which returns the executable `receiver::PreparedUpdate`.
 #[derive(Clone, Debug)]
-pub struct PreparedUpdate {
+pub struct ValidatedUpdate {
     class: DriveClass,
     family: Family,
     image: Vec<u8>,
     transfer: Option<Vec<u8>>,
 }
 
-impl PreparedUpdate {
+impl ValidatedUpdate {
     /// Every check that needs no installed firmware, in order: size,
     /// integrity, raw drive read, chip against the drive and the image's own
     /// hardware family. Returns that family.
     ///
-    /// Run it before capturing a backup; [`PreparedUpdate::prepare`] repeats
+    /// Run it before capturing a backup; [`ValidatedUpdate::prepare`] repeats
     /// it.
-    pub fn check(image: &[u8], drive: &Identity) -> Result<Family, PrepareError> {
+    pub fn check(image: &[u8], drive: &Identity) -> Result<Family, PreparationError> {
         Self::checked(image, drive).map(|(_, family)| family)
     }
 
     /// [`Self::check`], also returning the drive's dialect.
-    fn checked(image: &[u8], drive: &Identity) -> Result<(DriveClass, Family), PrepareError> {
+    fn checked(image: &[u8], drive: &Identity) -> Result<(DriveClass, Family), PreparationError> {
         if image.len() != layout::IMAGE_SIZE {
-            return Err(PrepareError::Size(image.len()));
+            return Err(PreparationError::Size(image.len()));
         }
         if !cmac::verify(image) {
-            return Err(PrepareError::Integrity);
+            return Err(PreparationError::Integrity);
         }
         if is_drive_read(image) {
-            return Err(PrepareError::DriveRead);
+            return Err(PreparationError::DriveRead);
         }
-        let image_chip = detect_chip(image).map_err(|_| PrepareError::UnknownChip)?;
+        let image_chip = detect_chip(image).map_err(|_| PreparationError::UnknownChip)?;
         // The drive's chip generation is decided by its boot banner and nothing
         // else, exactly as the image's is (see `crate::image::detect_chip`); the
         // `MTEKMT19xx` descriptor tag is a stale vendor label.
         let drive_chip =
-            Chip::from_banner(drive.banner_bytes()).ok_or(PrepareError::UnknownDriveChip)?;
+            Chip::from_banner(drive.banner_bytes()).ok_or(PreparationError::UnknownDriveChip)?;
         if image_chip.family != drive_chip {
-            return Err(PrepareError::ChipMismatch {
+            return Err(PreparationError::ChipMismatch {
                 image: image_chip.family,
                 drive: drive_chip,
             });
         }
-        let target = family(image).ok_or(PrepareError::UnknownTargetFamily)?;
+        let target = family(image).ok_or(PreparationError::UnknownTargetFamily)?;
         Ok((DriveClass::of(drive_chip), target))
     }
 
     /// Prepare `image` for the drive `installed` describes: [`Self::check`]
     /// against its identity, then the family gate. Both families must be known
     /// and equal.
-    pub fn prepare(image: &[u8], installed: &InstalledFirmware) -> Result<Self, PrepareError> {
+    pub fn prepare(image: &[u8], installed: &InstalledFirmware) -> Result<Self, PreparationError> {
         let (class, target) = Self::checked(image, installed.identity())?;
         let installed_family = installed
             .family()
-            .ok_or(PrepareError::UnknownInstalledFamily)?;
+            .ok_or(PreparationError::UnknownInstalledFamily)?;
         if installed_family != target {
-            return Err(PrepareError::FamilyMismatch {
+            return Err(PreparationError::FamilyMismatch {
                 installed: installed_family,
                 target,
             });
@@ -369,7 +414,10 @@ impl PreparedUpdate {
     /// Image integrity, framing, chip and target-family checks still apply.
     /// Installed-family equality is unavailable, not inferred from the target.
     /// This method does not confer backup consent or verify installed firmware.
-    pub fn prepare_without_installed(image: &[u8], live: &Identity) -> Result<Self, PrepareError> {
+    pub fn prepare_without_installed(
+        image: &[u8],
+        live: &Identity,
+    ) -> Result<Self, PreparationError> {
         let (class, target) = Self::checked(image, live)?;
         Ok(Self {
             class,

@@ -67,17 +67,19 @@ and protocol bounds determine which addresses are meaningful.
 | none | `cdb`, `Identity`, controller types and protocol constants | `no_std`, no allocation |
 | `drive` | Identification, reads and command sequences over `Transport` | `no_std`, no allocation |
 | `image` | Controller detection, hardware families and AES-CMAC integrity | `std` |
+| `analysis` | Read-only OEM instruction-layout analysis (`image::analysis`) | `std`; includes `image` |
 | `enc` | Low-level AES-128-ECB transport encoding | `no_std`, no allocation |
+| `envelope` | Load firmware files and prepare receiver-bound updates | `std`; includes `image` and `enc` |
 | `oem` | Reconstruct OEM images from drive reads with byte provenance | `std`; includes `image` |
 | `std` | Standard-library error integration without firmware features | `std` |
 
-Enable both `image` and `enc` for `envelope`; add `drive` for receiver-bound
-execution and recovery. Operational controller detection uses the boot banner;
+`envelope` is the same as enabling `image` and `enc`; add `drive` for
+receiver-bound execution and recovery. Operational controller detection uses the boot banner;
 identity tags are retained as labels and never override that result.
 
 ## Inspect firmware files
 
-Enable `image` and `enc`. Loading recognizes plaintext or encrypted input,
+Enable `envelope`. Loading recognizes plaintext or encrypted input,
 checks integrity and retains the original and canonical-image hashes:
 
 ```rust,no_run
@@ -98,7 +100,7 @@ Loading or reconstruction does not authorize a device write.
 
 ## Prepare and execute an update
 
-Enable `drive`, `image` and `enc`. Bind captured **installed** firmware to live
+Enable `drive` and `envelope`. Bind captured **installed** firmware to live
 identity, detect the active receiver, then prepare the target separately:
 
 ```rust,no_run
@@ -122,18 +124,22 @@ Detection reads the receiver. Preparation validates integrity, controller and
 hardware-family compatibility without writing, and builds an immutable entry and
 encoding plan. Execution revalidates before writes; file encoding never chooses
 the transfer encoding. Unknown or conflicting contracts are errors.
+`Receiver::prepare` refuses with `PreparationError` and runs every check that
+needs no I/O, so a prepared value has nothing left to check before consent.
 
-`PreparedUpdate::flash_completed` returns a `Completion` with the post-write
+`PreparedUpdate::flash_completed` returns a `FlashOutcome` with the post-write
 target identity, its restart evidence (`Startup::evidence()`) and explicit
 complete or limited `ReadbackQuality`. Hosts must check both: limited read-back
 is not full verification, and `Unobserved` means the drive reported the same
 identity before and after the write, so a restart into the target was not
 observed; advise a power cycle and re-identification. Every readable mismatch
-and failed data write remains an error. `recovery::PreparedRecovery` is the explicit
+and failed data write remains an error, returned as an `ExecutionError` whose
+`firmware_write_started()` and `phase()` say whether firmware may have been
+written and which boundary failed. `recovery::PreparedRecovery` is the explicit
 recovery path and has the same startup rules.
 
 [examples/flash.rs](examples/flash.rs) provides a compiled host integration with
-`FlashRuntime` and `FlashTransport`. Its executable does not access hardware.
+`receiver::ExecutionRuntime` and `receiver::FlashTransport`. Its executable does not access hardware.
 Low-level `drive::Session` is a protocol primitive and does not supply the
 complete update procedure. Explicit unavailable-installed and Current-reference
 paths retain their evidence limitations; see the [protocol guide](docs/protocol-guide.md).

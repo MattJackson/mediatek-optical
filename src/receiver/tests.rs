@@ -205,7 +205,7 @@ fn invalid_inquiry_is_not_assumed_to_be_running_firmware() {
 #[cfg(all(feature = "image", feature = "enc"))]
 #[test]
 fn recovery_boot_without_application_metadata_validates_image_and_stale_receiver() {
-    use crate::{fixtures, recovery, update::PrepareError};
+    use crate::{fixtures, recovery, update::PreparationError};
     let mut dev = Device::new(Mode::Boot);
     dev.image = fixtures::image(&fixtures::JB8, 1);
     dev.stamp(0x36c4, PLAIN_DIRECT);
@@ -216,12 +216,15 @@ fn recovery_boot_without_application_metadata_validates_image_and_stale_receiver
     let target = fixtures::image(&fixtures::BU3, 2);
     let prepared = receiver.prepare(&target).unwrap();
     assert_eq!(prepared.transfer(), target);
-    assert!(matches!(receiver.prepare(&[]), Err(PrepareError::Size(0))));
+    assert!(matches!(
+        receiver.prepare(&[]),
+        Err(PreparationError::Size(0))
+    ));
     let mut corrupt = target.clone();
     corrupt[0x20000] ^= 1;
     assert!(matches!(
         receiver.prepare(&corrupt),
-        Err(PrepareError::Integrity)
+        Err(PreparationError::Integrity)
     ));
     // An unrecognised integrity-table enabled word is refused like corruption.
     let mut unknown = target.clone();
@@ -229,12 +232,12 @@ fn recovery_boot_without_application_metadata_validates_image_and_stale_receiver
     unknown[at..at + 4].copy_from_slice(&0u32.to_le_bytes());
     assert!(matches!(
         receiver.prepare(&unknown),
-        Err(PrepareError::Integrity)
+        Err(PreparationError::Integrity)
     ));
     let wrong_chip = fixtures::image(&fixtures::JB7, 2);
     assert!(matches!(
         receiver.prepare(&wrong_chip),
-        Err(PrepareError::ChipMismatch { .. })
+        Err(PreparationError::ChipMismatch { .. })
     ));
     dev.image[0x36c4] ^= 1;
     assert!(matches!(
@@ -300,7 +303,7 @@ fn a_failed_scan_or_routine_read_is_an_error_not_partial_evidence() {
 fn recovery_revalidates_an_unchanged_drive_and_refuses_a_changed_banner_before_writing() {
     use crate::{fixtures, recovery, update};
     struct Runtime;
-    impl update::FlashRuntime<&'static str> for Runtime {
+    impl update::ExecutionRuntime<&'static str> for Runtime {
         fn elapsed(&self) -> std::time::Duration {
             std::time::Duration::ZERO
         }
@@ -317,11 +320,12 @@ fn recovery_revalidates_an_unchanged_drive_and_refuses_a_changed_banner_before_w
         .prepare(&fixtures::image(&fixtures::BU3, 2))
         .unwrap();
     // Same receiver signature and INQUIRY, different live boot banner. The
-    // receiver's own snapshot and recovery's banner binding both refuse it.
+    // receiver's own banner snapshot, re-read first by `revalidate`, refuses
+    // it there; execution reaches recovery's banner binding first.
     dev.image[crate::layout::BANNER.start + 0x1f] ^= 1;
     assert!(matches!(
         receiver.revalidate(&mut dev),
-        Err(recovery::Error::Changed | recovery::Error::Receiver(Error::Changed))
+        Err(recovery::Error::Receiver(Error::Changed))
     ));
     let mut writes = Device::new(Mode::Boot);
     let result = prepared.flash_completed(
@@ -331,10 +335,8 @@ fn recovery_revalidates_an_unchanged_drive_and_refuses_a_changed_banner_before_w
         },
         &mut Runtime,
     );
-    assert!(matches!(
-        result,
-        Err(recovery::Error::Changed | recovery::Error::Receiver(Error::Changed))
-    ));
+    // Execution checks recovery's own banner binding before revalidating.
+    assert!(matches!(result, Err(recovery::Error::Changed)));
     assert_eq!(writes.reads, 0, "no command may reach the write session");
 }
 
@@ -376,7 +378,7 @@ fn revalidation_reads_identity_after_receiver_evidence() {
 fn recovery_refuses_mode_change_during_execution_revalidation() {
     use crate::{fixtures, recovery, update};
     struct Runtime;
-    impl update::FlashRuntime<&'static str> for Runtime {
+    impl update::ExecutionRuntime<&'static str> for Runtime {
         fn elapsed(&self) -> std::time::Duration {
             std::time::Duration::ZERO
         }
@@ -429,10 +431,14 @@ fn recovery_revalidation_rechecks_identity_last_without_changing_banner_codes() 
     receiver.revalidate(&mut dev).unwrap();
     assert_eq!(dev.opcodes.first(), Some(&0x12));
     assert_eq!(dev.opcodes.last(), Some(&0x12));
-    // A banner change keeps its existing classification.
+    // A banner change keeps its existing classification (the receiver
+    // cause's code, which recovery::Error reports).
     dev.image[crate::layout::BANNER.start + 0x1f] ^= 1;
     let error = receiver.revalidate(&mut dev).unwrap_err();
-    assert_eq!(error.code(), "mediatek.recovery.receiver");
+    assert!(matches!(error, recovery::Error::Receiver(_)));
+    assert_eq!(error.code(), "mediatek.receiver.changed");
+    assert_eq!(error.phase(), "receiver binding");
+    assert!(!error.write_started());
     dev.image[crate::layout::BANNER.start + 0x1f] ^= 1;
     // An identity change after the leading INQUIRY is refused.
     let mut application = dev.inquiry;

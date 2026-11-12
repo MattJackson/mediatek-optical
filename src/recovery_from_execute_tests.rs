@@ -3,11 +3,31 @@ use crate::update::StartupError;
 
 #[test]
 fn unconfirmed_startup_maps_to_startup_error() {
-    let e = from_execute::<&'static str>(receiver::ExecuteError::Flash(FlashError::Startup(
+    let e = from_execute::<&'static str>(receiver::ExecutionError::Flash(FlashError::Startup(
         StartupError::TargetMismatch,
     )));
     assert!(matches!(e, Error::Startup(StartupError::TargetMismatch)));
-    assert_eq!(crate::CodedError::code(&e), "mediatek.recovery.startup");
+    // The same failure has the same code through either execution path.
+    assert_eq!(
+        crate::CodedError::code(&e),
+        "mediatek.startup.target_mismatch"
+    );
+    let through_receiver = receiver::ExecutionError::<&'static str>::Flash(FlashError::Startup(
+        StartupError::TargetMismatch,
+    ));
+    assert_eq!(
+        crate::CodedError::code(&through_receiver),
+        crate::CodedError::code(&e)
+    );
+    assert_eq!(e.phase(), through_receiver.phase());
+    assert_eq!(e.phase(), "target startup");
+    assert!(e.firmware_write_started() && through_receiver.firmware_write_started());
+    let entry = receiver::ExecutionError::<&'static str>::Flash(FlashError::Entry(
+        crate::drive::Error::Transport("prepare"),
+    ));
+    assert_eq!(entry.phase(), "update entry");
+    assert!(!entry.firmware_write_started());
+    assert_eq!(from_execute(entry).phase(), "update entry");
 }
 
 /// One physical drive behind both transports: reads serve the stored image,
@@ -70,7 +90,7 @@ impl drive::Transport for Handle {
     }
 }
 struct Clock;
-impl crate::update::FlashRuntime<&'static str> for Clock {
+impl crate::update::ExecutionRuntime<&'static str> for Clock {
     fn elapsed(&self) -> std::time::Duration {
         std::time::Duration::ZERO
     }

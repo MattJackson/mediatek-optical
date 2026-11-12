@@ -11,7 +11,14 @@ use crate::{
 use core::convert::Infallible;
 
 /// Where the receiver's instruction evidence came from.
+///
+/// Hosts must keep a wildcard arm; the set of sources may grow.
+///
+/// ```compile_fail,E0004
+/// fn f(p: mediatek_optical::receiver::reference::Provenance) -> u8 { use mediatek_optical::receiver::reference::Provenance::*; match p { LiveCode => 0, CurrentReference => 1, UserSuppliedReference => 2 } }
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum Provenance {
     /// Instructions were read from the live device.
     LiveCode,
@@ -188,16 +195,21 @@ impl Receiver {
     }
 }
 
-/// Analyze an explicit Current reference and bind it to physical application
-/// metadata. The resulting receiver revalidates physical metadata before writes;
-/// execution and verification never substitute file bytes for device reads.
-pub fn detect<T: Transport>(t: &mut T, envelope: &Envelope) -> Result<Receiver, Error<T::Error>> {
-    let mut receiver = Receiver::from_firmware(envelope).map_err(|error| match error {
+/// [`Receiver::from_firmware`] with its error widened to a session transport.
+fn offline<E>(envelope: &Envelope) -> Result<Receiver, Error<E>> {
+    Receiver::from_firmware(envelope).map_err(|error| match error {
         Error::Analysis(error) => Error::Analysis(error),
         Error::Binding(_) | Error::Session(_) => {
             unreachable!("offline analysis performs no physical binding")
         }
-    })?;
+    })
+}
+
+/// Analyze an explicit Current reference and bind it to physical application
+/// metadata. The resulting receiver revalidates physical metadata before writes;
+/// execution and verification never substitute file bytes for device reads.
+pub fn detect<T: Transport>(t: &mut T, envelope: &Envelope) -> Result<Receiver, Error<T::Error>> {
+    let mut receiver = offline(envelope)?;
     let binding = receiver.reference.as_mut().expect("reference receiver");
     let Metadata { banner, descriptor } = binding.read_metadata(t).map_err(Error::Binding)?;
     binding.live_banner = Some(banner);
@@ -222,12 +234,7 @@ pub fn detect_user_supplied<T: Transport>(
     t: &mut T,
     envelope: &Envelope,
 ) -> Result<Receiver, Error<T::Error>> {
-    let mut receiver = Receiver::from_firmware(envelope).map_err(|error| match error {
-        Error::Analysis(error) => Error::Analysis(error),
-        Error::Binding(_) | Error::Session(_) => {
-            unreachable!("offline analysis performs no physical binding")
-        }
-    })?;
+    let mut receiver = offline(envelope)?;
     let identity = super::detect_mode(t).map_err(Error::Session)?;
     if identity.mode() != Mode::Firmware {
         return Err(Error::Session(super::Error::InvalidIdentity));

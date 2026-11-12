@@ -42,6 +42,8 @@ pub const TABLE_OFFSET: usize = crate::layout::CMAC_TABLE.start;
 pub const ENTRY_COUNT: usize = 16;
 /// Size of a single table entry in bytes.
 pub const ENTRY_SIZE: usize = 28;
+/// Offset of the stored digest within an entry; it runs to [`ENTRY_SIZE`].
+const DIGEST_OFFSET: usize = 12;
 /// `enabled` sentinel for an active entry.
 pub const ENABLED: u32 = 0x0000_0001;
 /// `enabled` sentinel for an unused entry. Every `enabled` word other than
@@ -102,7 +104,7 @@ pub fn parse_table(image: &[u8]) -> Result<Vec<CmacEntry>, CmacError> {
         let start = read_u32_le(image, entry_off + 4);
         let end = read_u32_le(image, entry_off + 8);
         let mut stored = [0u8; 16];
-        stored.copy_from_slice(&image[entry_off + 12..entry_off + 28]);
+        stored.copy_from_slice(&image[entry_off + DIGEST_OFFSET..entry_off + ENTRY_SIZE]);
         out.push(CmacEntry {
             index,
             entry_off,
@@ -248,8 +250,8 @@ pub fn resign(image: &[u8]) -> Result<Vec<u8>, CmacError> {
     // writing the digest changes the input it was computed over.
     if table.iter().any(|e| {
         e.is_active()
-            && (e.start as usize) < e.entry_off + 28
-            && (e.end as usize) >= e.entry_off + 12
+            && (e.start as usize) < e.entry_off + ENTRY_SIZE
+            && (e.end as usize) >= e.entry_off + DIGEST_OFFSET
     }) {
         return Err(CmacError::CircularTable);
     }
@@ -257,12 +259,12 @@ pub fn resign(image: &[u8]) -> Result<Vec<u8>, CmacError> {
     // Pass 1: data ranges (those that do not cover the table).
     for entry in table.iter().filter(|e| e.is_active() && !e.covers_table()) {
         let digest = compute_stored_digest(&img, entry.start, entry.end)?;
-        img[entry.entry_off + 12..entry.entry_off + 28].copy_from_slice(&digest);
+        img[entry.entry_off + DIGEST_OFFSET..entry.entry_off + ENTRY_SIZE].copy_from_slice(&digest);
     }
     // Pass 2: table-covering ranges, over the now-updated table bytes.
     for entry in table.iter().filter(|e| e.is_active() && e.covers_table()) {
         let digest = compute_stored_digest(&img, entry.start, entry.end)?;
-        img[entry.entry_off + 12..entry.entry_off + 28].copy_from_slice(&digest);
+        img[entry.entry_off + DIGEST_OFFSET..entry.entry_off + ENTRY_SIZE].copy_from_slice(&digest);
     }
     Ok(img)
 }

@@ -3,11 +3,33 @@
 import argparse
 import os
 from pathlib import Path
+import re
 import subprocess
 import tomllib
 
 
-def configurations(features):
+def unused_aliases(features, root):
+    """Features that only enable other features and that no source gates on.
+
+    Such an alias compiles exactly like the features it names, so it adds no
+    distinct configuration. It is still passed whenever its features are all
+    active, so `required-features` may name either form.
+    """
+    sources = "\n".join(
+        path.read_text(errors="replace")
+        for directory in ("src", "tests", "examples", "benches")
+        for path in (root / directory).rglob("*.rs")
+    )
+    return {
+        name
+        for name, dependencies in features.items()
+        if dependencies
+        and all(dependency in features for dependency in dependencies)
+        and not re.search(r'feature\s*=\s*"' + re.escape(name) + '"', sources)
+    }
+
+
+def configurations(features, aliases=frozenset()):
     unique = {}
     names = list(features)
     for mask in range(1 << len(names)):
@@ -23,10 +45,18 @@ def configurations(features):
             if expanded == active:
                 break
             active = expanded
-        key = tuple(sorted(active))
+        key = tuple(sorted(active - aliases))
         if key not in unique or len(selected) < len(unique[key]):
             unique[key] = selected
-    return unique.values()
+    return [
+        selected
+        + sorted(
+            alias
+            for alias in aliases
+            if alias not in selected and set(features[alias]) <= set(key)
+        )
+        for key, selected in unique.items()
+    ]
 
 
 def main():
@@ -41,7 +71,8 @@ def main():
     logs = root / "target" / "feature-checks"
     logs.mkdir(parents=True, exist_ok=True)
     count = 0
-    for selected in configurations(manifest["features"]):
+    features = manifest["features"]
+    for selected in configurations(features, unused_aliases(features, root)):
         label = ",".join(selected) or "default"
         command = cargo + [args.command, "--no-default-features", "--locked"]
         if args.release:

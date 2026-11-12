@@ -800,3 +800,81 @@ fn tail_record_with_unlisted_flags_and_nonzero_padding_is_walked() {
     assert!(super::super::CommandDispatch::inspect(&image).is_ok());
     assert_eq!(lookup(&image, 0x3c, 1), Ok((0x1a0, 0x1c1)));
 }
+
+#[test]
+fn response_census_walks_no_frame_for_committer_calls_without_an_argument() {
+    use super::super::{caller::FRAME_WALKS, ResponseIo};
+    let walks = |image: &[u8]| {
+        FRAME_WALKS.with(|walks| walks.set(0));
+        let io = ResponseIo::inspect(image).expect("native response");
+        assert_eq!((io.writer(), io.buffer_offset()), (0x300, 0x40));
+        FRAME_WALKS.with(|walks| walks.get())
+    };
+    let image = with_response();
+    let baseline = walks(&image);
+    // Committer calls with no constant `r0` argument in their window pass no
+    // writer offset, so they must not each pay for a caller-frame search.
+    let mut crowded = image;
+    crowded.resize(0x480 + 64 * 4, 0);
+    for n in 0..64 {
+        put_bl(&mut crowded, 0x480 + 4 * n, 0x280);
+    }
+    assert_eq!(walks(&crowded), baseline);
+}
+
+#[test]
+fn image_analysis_inspects_the_scanner_once() {
+    use super::super::ImageAnalysis;
+    let image = with_response();
+    let analysis = ImageAnalysis::inspect(&image);
+    super::SCANNER_INSPECTIONS.with(|count| count.set(0));
+    analysis.scanner().expect("native scanner");
+    analysis.commands().expect("native graph");
+    analysis.response().expect("native response");
+    assert_eq!(super::SCANNER_INSPECTIONS.with(|count| count.get()), 1);
+}
+
+/// A second proven `BL` registration at 0x1e0 of the table at `table`:
+/// `push {r4,lr}; ldr r0,=table; movs r1,#0; bl registrar; pop {r4,pc}`.
+fn with_second_registration(mut image: Vec<u8>, table: u32) -> Vec<u8> {
+    put(&mut image, 0x1e0, &[0xb510, 0x4802, 0x2100]);
+    put_bl(&mut image, 0x1e6, 0x100);
+    put(&mut image, 0x1ea, &[0xbd10]);
+    put_word(&mut image, 0x1ec, table);
+    image
+}
+
+#[test]
+fn record_must_be_reached_from_every_registered_root() {
+    // Every registrar call clears the array and installs one root, so a
+    // record only one `BL`-registered root reaches is not served while the
+    // other is registered, exactly as for a media-mode root.
+    let mut image = with_second_registration(with_records(&[(0x12, 7, 0x1c1)]), 0x200);
+    put_table(&mut image, &[(0, 3, 0)]);
+    assert_eq!(
+        roots(&image).map(|roots| roots.len()),
+        Ok(2),
+        "both registrations are proven"
+    );
+    assert_eq!(lookup(&image, 0x12, 7), Err(super::Error::UnknownLayout));
+    // A second root that links to the first reaches the same record.
+    let mut image = with_second_registration(with_records(&[(0x12, 7, 0x1c1)]), 0x200);
+    put_table(&mut image, &[(0, 4, 0x1a0)]);
+    assert_eq!(lookup(&image, 0x12, 7), Ok((0x1a0, 0x1c1)));
+}
+
+#[test]
+fn key_path_selects_wrappers_through_the_validated_record_lookup() {
+    use super::super::UhdKeyPath;
+    // A REPORT KEY record served only by a media-mode table is not one the
+    // scanner runs in every mode; the key path must not bind its handler
+    // (here `push {r4,lr}` followed by no CDB literal).
+    let mut image = with_tail_registration(with_records(&[(0x3c, 1, 0x1c1)]), 0x200);
+    put(&mut image, 0x1c0, &[0xb510, 0x0000]);
+    put_table(&mut image, &[(0xa4, 7, 0x1c1), (0, 4, 0x1a0)]);
+    assert_eq!(lookup(&image, 0xa4, 7), Err(super::Error::UnknownLayout));
+    assert_eq!(
+        UhdKeyPath::inspect(&image).err(),
+        Some(super::Error::UnknownLayout)
+    );
+}

@@ -7,8 +7,11 @@ use issue_kind::kind_for_code;
 /// A typed error with a stable, namespaced identifier.
 ///
 /// Codes contain no runtime values. Match the error variant for parameters;
-/// `Display` is diagnostic prose and may change. Wrapper errors retain their
-/// own stage code; their typed causes describe the underlying failure.
+/// `Display` is diagnostic prose and may change. Execution wrappers
+/// (`receiver::ExecutionError`, `recovery::Error` and the startup cause of
+/// `update::FlashError`) report their cause's code, so the same failure has
+/// the same code whether it is reached directly or through execution; match
+/// the wrapper variant, or use its `phase()`, for the stage.
 pub trait CodedError {
     /// Protocol-neutral host guidance category; never derives from diagnostic prose.
     fn kind(&self) -> crate::operation::IssueKind {
@@ -70,11 +73,11 @@ impl CodedError for crate::image::cmac::CmacError {
 }
 
 #[cfg(feature = "image")]
-impl CodedError for crate::update::PrepareError {
+impl CodedError for crate::update::PreparationError {
     fn code(&self) -> &'static str {
         match self {
             Self::ReceiverEntry => "mediatek.prepare.receiver_entry",
-            Self::ReceiverContract => "mediatek.prepare.receiver_contract",
+            Self::ReceiverContract { .. } => "mediatek.prepare.receiver_contract",
             #[cfg(all(feature = "drive", feature = "enc"))]
             Self::Layout(_) => "mediatek.prepare.layout",
             Self::Size(_) => "mediatek.prepare.size",
@@ -143,7 +146,7 @@ impl<E> CodedError for crate::update::FlashError<E> {
             Self::Transfer { .. } => "mediatek.flash.transfer",
             Self::Fault { .. } => "mediatek.flash.fault",
             Self::ReadyTimeout(_) => "mediatek.flash.ready_timeout",
-            Self::Startup(_) => "mediatek.flash.startup",
+            Self::Startup(error) => error.code(),
             Self::Mismatch { .. } => "mediatek.flash.mismatch",
         }
     }
@@ -161,7 +164,7 @@ impl<E> CodedError for crate::update::StartupError<E> {
 }
 
 #[cfg(all(feature = "drive", feature = "image", feature = "enc"))]
-impl<E> CodedError for crate::receiver::ExecuteError<E> {
+impl<E> CodedError for crate::receiver::ExecutionError<E> {
     fn kind(&self) -> crate::operation::IssueKind {
         match self {
             Self::Receiver(error) => error.kind(),
@@ -170,8 +173,8 @@ impl<E> CodedError for crate::receiver::ExecuteError<E> {
     }
     fn code(&self) -> &'static str {
         match self {
-            Self::Receiver(_) => "mediatek.execute.receiver",
-            Self::Flash(_) => "mediatek.execute.flash",
+            Self::Receiver(error) => error.code(),
+            Self::Flash(error) => error.code(),
         }
     }
 }
@@ -231,13 +234,13 @@ impl<E> CodedError for crate::recovery::Error<E> {
     }
     fn code(&self) -> &'static str {
         match self {
-            Self::Receiver(_) => "mediatek.recovery.receiver",
-            Self::Reference(_) => "mediatek.recovery.reference",
-            Self::Read(_) => "mediatek.recovery.read",
-            Self::Image(_) => "mediatek.recovery.image",
-            Self::Flash(_) => "mediatek.recovery.flash",
+            Self::Receiver(error) => error.code(),
+            Self::Reference(error) => error.code(),
+            Self::Read(error) => error.code(),
+            Self::Image(error) => error.code(),
+            Self::Flash(error) => error.code(),
             Self::Changed => "mediatek.recovery.changed",
-            Self::Startup(_) => "mediatek.recovery.startup",
+            Self::Startup(error) => error.code(),
         }
     }
 }

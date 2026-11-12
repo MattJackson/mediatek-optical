@@ -17,11 +17,15 @@
 //! - `image` — `image`: chip detection from image bytes and the AES-CMAC
 //!   integrity table (`image::cmac`). Uses `std`.
 //! - `enc` — `enc`: the AES-128-ECB transport envelope.
+//! - `envelope` — `image` + `enc`: firmware file loading (`envelope`) and
+//!   receiver-bound update preparation; with `drive`, execution
+//!   (`receiver::PreparedUpdate::flash_completed`) and `recovery`.
 //! - `oem` — `oem`: rebuild the flashable OEM image from a drive read, with
 //!   the provenance of every substituted byte. Implies `image`.
 //! - `image` also enables `update`: an update prepared against the installed
 //!   firmware, refused across chips and hardware families. With `drive` and
-//!   `enc`, the receiver-bound `receiver::PreparedUpdate::flash_completed` runs it.
+//!   `enc` (that is, `drive` + `envelope`), the receiver-bound
+//!   `receiver::PreparedUpdate::flash_completed` runs it.
 //! - `analysis` — `analysis`: read-only OEM instruction-layout analysis
 //!   (`image::analysis`). Implies `image`.
 //! - `std` — links the standard library (implied by `image`).
@@ -76,9 +80,14 @@ pub const INQUIRY_LEN: usize = 36;
 
 /// A MediaTek optical controller generation.
 ///
-/// Deliberately exhaustive: a new generation is a breaking change, so every
-/// caller that dispatches on the chip must decide how to handle it.
+/// Hosts must keep a wildcard arm; supported generations may be added. An
+/// unknown generation must be refused, never treated as a known one.
+///
+/// ```compile_fail,E0004
+/// fn f(c: mediatek_optical::Chip) -> u8 { match c { mediatek_optical::Chip::Mt1959 => 0, mediatek_optical::Chip::Mt1939 => 1 } }
+/// ```
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[non_exhaustive]
 pub enum Chip {
     /// MediaTek MT1959.
     Mt1959,

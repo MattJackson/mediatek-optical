@@ -38,8 +38,7 @@ pub(super) fn kind_for_code(code: &str) -> crate::operation::IssueKind {
         | "mediatek.reference.session"
         | "mediatek.receiver.read"
         | "mediatek.receiver.invalid_identity"
-        | "mediatek.startup.read"
-        | "mediatek.recovery.read" => IssueKind::Connection,
+        | "mediatek.startup.read" => IssueKind::Connection,
         "mediatek.prepare.unknown_drive_chip"
         | "mediatek.prepare.unknown_installed_family"
         | "mediatek.prepare.unknown_target_family"
@@ -62,15 +61,7 @@ pub(super) fn kind_for_code(code: &str) -> crate::operation::IssueKind {
         | "mediatek.flash.transfer"
         | "mediatek.flash.fault"
         | "mediatek.flash.ready_timeout"
-        | "mediatek.flash.startup"
-        | "mediatek.startup.identity"
-        | "mediatek.execute.receiver"
-        | "mediatek.execute.flash"
-        | "mediatek.recovery.receiver"
-        | "mediatek.recovery.reference"
-        | "mediatek.recovery.image"
-        | "mediatek.recovery.flash"
-        | "mediatek.recovery.startup" => IssueKind::Update,
+        | "mediatek.startup.identity" => IssueKind::Update,
         "mediatek.flash.mismatch" | "mediatek.startup.target_mismatch" => IssueKind::Verification,
         _ => IssueKind::Unexpected,
     }

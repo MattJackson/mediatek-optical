@@ -120,14 +120,24 @@ fn matches(image: &[u8], at: usize, pattern: &[(u16, u16)]) -> bool {
         .all(|(i, (v, mask))| half(image, at + i * 2).is_some_and(|h| h & mask == v & mask))
 }
 
+/// Every halfword offset from `first` at which `pattern` fits in `image`,
+/// including the one ending exactly at the image end.
+fn pattern_starts(
+    image: &[u8],
+    first: usize,
+    pattern: &[(u16, u16)],
+) -> core::iter::StepBy<core::ops::Range<usize>> {
+    (first
+        ..image
+            .len()
+            .saturating_sub(pattern.len() * 2)
+            .saturating_add(1))
+        .step_by(2)
+}
+
 fn unique(image: &[u8], pattern: &[(u16, u16)]) -> Result<usize, Error> {
     let mut found = None;
-    for at in (0..image
-        .len()
-        .saturating_sub(pattern.len() * 2)
-        .saturating_add(1))
-        .step_by(2)
-    {
+    for at in pattern_starts(image, 0, pattern) {
         if matches(image, at, pattern) {
             if found.is_some() {
                 return Err(Error::Ambiguous);

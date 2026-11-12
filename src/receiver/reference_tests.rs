@@ -464,10 +464,15 @@ fn user_supplied_reference_requires_valid_application_analysis_and_live_mode() {
 
 #[test]
 fn user_supplied_recovery_keeps_actual_and_native_profile_chip_gates() {
-    use crate::{fixtures, recovery, update::PrepareError, Chip};
+    use crate::{fixtures, recovery, update::PreparationError, Chip};
     let (envelope, mut live) = fixture();
     live.image[layout::BANNER.start..layout::BANNER.end()].fill(0);
-    assert!(recovery::Receiver::identify_user_supplied_reference(&mut live, &envelope).is_err());
+    // A live banner naming no supported chip is an unsupported drive, not a
+    // banner that changed after identification.
+    assert!(matches!(
+        recovery::Receiver::identify_user_supplied_reference(&mut live, &envelope),
+        Err(recovery::Error::Image(PreparationError::UnknownDriveChip))
+    ));
     live.image[layout::BANNER.start..layout::BANNER.start + 16]
         .copy_from_slice(b"MT1939 Boot Code");
     let receiver =
@@ -476,18 +481,20 @@ fn user_supplied_recovery_keeps_actual_and_native_profile_chip_gates() {
     // This target matches the file profile but fails the physical-chip gate.
     assert!(matches!(
         receiver.prepare(envelope.image()),
-        Err(PrepareError::ChipMismatch {
+        Err(PreparationError::ChipMismatch {
             image: Chip::Mt1959,
             drive: Chip::Mt1939
         })
     ));
-    // This target matches the physical chip but fails the native-profile gate.
+    // This target matches the physical chip but fails the native-profile
+    // gate: the file's receiver contract (MT1959 code) does not accept it.
+    // It is not reported as a chip mismatch naming the file's chip as the
+    // drive's.
     let target = fixtures::image(&fixtures::JB7, 9);
     assert!(matches!(
         receiver.prepare(&target),
-        Err(PrepareError::ChipMismatch {
-            image: Chip::Mt1939,
-            drive: Chip::Mt1959
+        Err(PreparationError::ReceiverContract {
+            reason: crate::update::ContractReason::ReferenceChip
         })
     ));
     live.image[layout::BANNER.start + 20] ^= 1;

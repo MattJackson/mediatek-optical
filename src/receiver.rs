@@ -30,7 +30,11 @@ mod mixed;
 #[cfg(all(feature = "image", feature = "enc"))]
 mod prepared;
 #[cfg(all(feature = "image", feature = "enc"))]
-pub use prepared::{ExecuteError, PreparedUpdate, TransferEncoding, TransferPlan};
+pub use prepared::{ExecutionError, PreparedUpdate, TransferEncoding, TransferPlan};
+// The execution surface, so a host imports `PreparedUpdate::flash_completed`'s
+// arguments and result from here, as with `pioneer_optical::receiver`.
+#[cfg(all(feature = "image", feature = "enc"))]
+pub use crate::update::{ExecutionRuntime, FlashOutcome, FlashTransport};
 #[cfg(all(feature = "image", feature = "enc"))]
 mod profile;
 #[cfg(all(feature = "image", feature = "enc"))]
@@ -223,9 +227,11 @@ impl Receiver {
     /// code/table re-read is refused with [`Error::Changed`].
     ///
     /// A reference-bound receiver (`Provenance::CurrentReference`, built by
-    /// `Receiver::from_firmware`) re-reads only INQUIRY identity, the boot banner
-    /// and build metadata, then INQUIRY identity again; its instruction evidence
-    /// is not re-read.
+    /// `Receiver::from_firmware` or `reference::detect`, or
+    /// `Provenance::UserSuppliedReference`, built by
+    /// `reference::detect_user_supplied`) re-reads only INQUIRY identity, the
+    /// boot banner and build metadata, then INQUIRY identity again; its
+    /// instruction evidence is not re-read.
     pub fn revalidate<T: Transport>(&self, t: &mut T) -> Result<(), Error<T::Error>> {
         #[cfg(all(feature = "image", feature = "enc"))]
         if let Some(reference) = &self.reference {

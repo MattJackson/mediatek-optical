@@ -360,7 +360,9 @@ impl<'a> ResponseIo<'a> {
             if thumb_asm::decode_bl(image, site) != Some(commit.entry as u32) {
                 continue;
             }
-            let parent = SavedLink::detect_entry(image, site).ok();
+            // The caller frame search is bounded but costly; run it only for
+            // a site with a qualifying definition, once.
+            let mut parent = None;
             for definition in (site.saturating_sub(ARGUMENT_WINDOW)..site).step_by(2) {
                 let Some((offset, end)) = argument_constant(image, definition, 0) else {
                     continue;
@@ -374,10 +376,12 @@ impl<'a> ResponseIo<'a> {
                 {
                     continue;
                 }
-                let live = parent.is_some_and(|entry| {
-                    SavedLink::require_live_definition(image, entry, site, definition, end, 0)
-                        .is_ok()
-                });
+                let live = parent
+                    .get_or_insert_with(|| SavedLink::detect_entry(image, site).ok())
+                    .is_some_and(|entry| {
+                        SavedLink::require_live_definition(image, entry, site, definition, end, 0)
+                            .is_ok()
+                    });
                 if live {
                     buffers.insert(offset);
                 } else {

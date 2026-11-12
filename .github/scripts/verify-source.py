@@ -29,7 +29,12 @@ def main():
     for run in runs:
         if run.get('conclusion') != 'success' or run.get('head_branch') != args.branch or run.get('event') != 'push':
             continue
-        command('git', 'fetch', '--no-tags', 'origin', run['head_sha'])
+        try:
+            command('git', 'fetch', '--no-tags', 'origin', run['head_sha'])
+        except subprocess.CalledProcessError:
+            # A force-pushed run's commit may no longer be fetchable; it cannot
+            # match, so examine the older runs instead of aborting the scan.
+            continue
         if same_package_source(run['head_sha']):
             print(f'Package inputs match successful {args.branch} CI {run["id"]} at {run["head_sha"]}')
             return

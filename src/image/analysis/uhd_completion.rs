@@ -1,6 +1,6 @@
 //! Native controller-field and read-completion boundary selectors.
 //! Reference classic 40eb760e / modern 648a16d0; runtime uses instruction roles.
-use super::{conditional, half, matches, C7Selection, Error, SavedLink};
+use super::{conditional, half, matches, pattern_starts, C7Selection, Error, SavedLink};
 
 /// Remaining read-completion selectors and their source-bound native bodies.
 #[derive(Debug, Clone)]
@@ -608,12 +608,7 @@ fn literal(image: &[u8], at: usize) -> Option<u32> {
 }
 pub(super) fn locate(image: &[u8], pattern: &[(u16, u16)], state: u32) -> Result<usize, Error> {
     let mut found = None;
-    for at in (0..image
-        .len()
-        .saturating_sub(pattern.len() * 2)
-        .saturating_add(1))
-        .step_by(2)
-    {
+    for at in pattern_starts(image, 0, pattern) {
         if matches(image, at, pattern) {
             if literal(image, at) != Some(state) {
                 return Err(Error::InvalidContract);
@@ -669,12 +664,7 @@ impl ClassicReadCompletion {
             (RECOVERY_R0, 0u8, 6u8, 2, false),
             (EARLY_RECOVERY, 1u8, 5u8, 2, true),
         ] {
-            for at in (0..image
-                .len()
-                .saturating_sub(pattern.len() * 2)
-                .saturating_add(1))
-                .step_by(2)
-            {
+            for at in pattern_starts(image, 0, pattern) {
                 if !matches(image, at, pattern) {
                     continue;
                 }

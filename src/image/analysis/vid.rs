@@ -129,8 +129,8 @@ impl<'a> VidGate<'a> {
 }
 
 impl<'a> VidGate<'a> {
-    /// Bind the session base to native AGID-byte reads, six-bit extraction and
-    /// range checks. Every reachable checked read must have the same live base.
+    /// Bind the session base to native AGID-byte reads, two-bit extraction
+    /// (`lsrs #6` of the byte, bits 7:6) and range checks. Every reachable checked read must have the same live base.
     pub fn agid_base(&self, image: &[u8]) -> Result<u32, Error> {
         let entry = self.producer(image)?;
         let mut base = None;

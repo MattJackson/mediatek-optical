@@ -56,7 +56,7 @@ impl RamReferences {
             })
             .map(|fill| (fill.body, fill))
             .collect();
-        let fill_preheaders = preheaders.len();
+        let fill_count = preheaders.len();
         let copies: BTreeMap<_, _> = (0..image.len().saturating_sub(24))
             .step_by(2)
             .filter_map(|at| {
@@ -71,7 +71,7 @@ impl RamReferences {
         // Each segment is ordered by prefix and every preheader is short, so a
         // seed only needs the entries whose span can still reach it.
         let span = preheaders.iter().map(|(prefix, body)| body - prefix).max();
-        let (fill_preheaders, copy_preheaders) = preheaders.split_at(fill_preheaders);
+        let (fill_preheaders, copy_preheaders) = preheaders.split_at(fill_count);
         result.fills.extend(
             fills
                 .values()
@@ -337,7 +337,8 @@ impl RamReferences {
     }
     /// Byte addresses observed in literal words, decoded accesses and counted
     /// fill/copy loops. Destinations of loader-private fills and copies are
-    /// left out (they are still listed by [`Self::fills`]); a copy's SRAM
+    /// left out (loader-private fills are still listed by [`Self::fills`];
+    /// loader-private copy destinations are not reported); a copy's SRAM
     /// source is always included. Call argument ranges are only potential and
     /// are reported by [`Self::calls`], not included here.
     pub fn bytes(&self) -> &BTreeSet<u32> {

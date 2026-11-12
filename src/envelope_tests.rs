@@ -22,20 +22,20 @@ fn rejects_capture_corruption_empty_integrity_and_unknown_framing() {
     let image = fixtures::image(&BU3, 3);
     assert_eq!(
         Envelope::load(&fixtures::drive_read(&image)).unwrap_err(),
-        Error::Image(PrepareError::DriveRead)
+        Error::Image(PreparationError::DriveRead)
     );
     let mut bad = image.clone();
     bad[fixtures::SIGNED.0 as usize] ^= 1;
     assert_eq!(
         Envelope::load(&bad).unwrap_err(),
-        Error::Image(PrepareError::Integrity)
+        Error::Image(PreparationError::Integrity)
     );
     bad = image;
     let table = image::cmac::TABLE_OFFSET;
     bad[table..table + image::cmac::ENTRY_COUNT * image::cmac::ENTRY_SIZE].fill(0xff);
     assert_eq!(
         Envelope::load(&bad).unwrap_err(),
-        Error::Image(PrepareError::Integrity)
+        Error::Image(PreparationError::Integrity)
     );
     assert_eq!(
         Envelope::load(&vec![0; layout::IMAGE_SIZE]).unwrap_err(),
@@ -43,7 +43,7 @@ fn rejects_capture_corruption_empty_integrity_and_unknown_framing() {
     );
     assert_eq!(
         Envelope::load(&[0; 16]).unwrap_err(),
-        Error::Image(PrepareError::Size(16))
+        Error::Image(PreparationError::Size(16))
     );
 }
 
@@ -55,12 +55,12 @@ fn rejects_an_unrecognised_integrity_enabled_word() {
     image[at..at + 4].copy_from_slice(&0u32.to_le_bytes());
     assert_eq!(
         Envelope::load(&image).unwrap_err(),
-        Error::Image(PrepareError::Integrity)
+        Error::Image(PreparationError::Integrity)
     );
     let mut wire = image;
     crate::enc::encrypt(&mut wire).unwrap();
     assert_eq!(
         Envelope::load(&wire).unwrap_err(),
-        Error::Image(PrepareError::Integrity)
+        Error::Image(PreparationError::Integrity)
     );
 }

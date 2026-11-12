@@ -132,21 +132,24 @@ impl<'a> ImageAnalysis<'a> {
     /// tables handed to the scanner directly; see [`CommandDispatch::record`]
     /// for how lookups use them.
     pub fn commands(&self) -> Result<&CommandDispatch<'a>, Diagnostic> {
-        outcome(
-            self.commands
-                .get_or_init(|| CommandDispatch::inspect(self.image)),
-            Role::Commands,
-        )
+        outcome(self.dispatch(), Role::Commands)
+    }
+    /// The retained command graph, built on the retained scanner outcome.
+    fn dispatch(&self) -> &Result<CommandDispatch<'a>, Error> {
+        self.commands.get_or_init(|| {
+            let scanner = self
+                .scanner
+                .get_or_init(|| CommandScanner::inspect(self.image))
+                .as_ref()
+                .map_err(|error| *error)?;
+            CommandDispatch::from_scanner(self.image, scanner.clone())
+        })
     }
     /// Native response I/O and complete return protocol.
     pub fn response(&self) -> Result<&ResponseIo<'a>, Diagnostic> {
         outcome(
             self.response.get_or_init(|| {
-                let commands = self
-                    .commands
-                    .get_or_init(|| CommandDispatch::inspect(self.image))
-                    .as_ref()
-                    .map_err(|error| *error)?;
+                let commands = self.dispatch().as_ref().map_err(|error| *error)?;
                 ResponseIo::from_dispatch(commands)
             }),
             Role::Response,

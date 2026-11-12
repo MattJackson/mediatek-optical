@@ -187,17 +187,10 @@ impl UhdKeyPath {
     pub fn inspect(d: &[u8]) -> Result<Self, Error> {
         let dispatch = CommandDispatch::inspect(d)?;
         let cdb = dispatch.scanner().cdb();
-        let get = |op| -> Result<usize, Error> {
-            let entries: Vec<_> = dispatch
-                .records()
-                .iter()
-                .filter(|r| r.opcode == op && r.flags == 7 && r.handler & 1 != 0)
-                .collect();
-            if entries.len() != 1 {
-                return Err(Error::Ambiguous);
-            }
-            Ok((entries[0].handler & !1) as usize)
-        };
+        // The validated lookup: unique over every reached table, served from
+        // every registered and media-mode root, and a Thumb handler.
+        let get =
+            |op| -> Result<usize, Error> { Ok((dispatch.record(op, 7)?.handler & !1) as usize) };
         let report = wrapper(d, get(0xa4)?, cdb, true)?;
         let send = wrapper(d, get(0xa3)?, cdb, false)?;
         let entry = report.worker;

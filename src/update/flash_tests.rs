@@ -7,7 +7,7 @@ use super::*;
 use crate::drive::Error;
 use crate::drive::{Data, Transport};
 use crate::update::{
-    FlashError, FlashRuntime, FlashTransport, ReadbackQuality, Stage, Status, Verified,
+    ExecutionRuntime, FlashError, FlashTransport, ReadbackQuality, Stage, Status, Verified,
 };
 use core::time::Duration;
 
@@ -204,7 +204,7 @@ struct Clock {
     operation_progress: Vec<crate::operation::Progress>,
 }
 
-impl FlashRuntime<&'static str> for Clock {
+impl ExecutionRuntime<&'static str> for Clock {
     fn operation_progress(&mut self, progress: crate::operation::Progress) {
         self.operation_progress.push(progress);
     }
@@ -247,9 +247,15 @@ impl FlashRuntime<&'static str> for Clock {
     fn verifying(&mut self) {
         self.events.push("verifying".into());
     }
-    fn unverified(&mut self, offset: usize, length: usize, error: &Error<&'static str>) {
-        self.events
-            .push(format!("unverified {offset:#x} {length:#x} {error}"));
+    fn verification_unavailable(
+        &mut self,
+        offset: usize,
+        length: usize,
+        error: &Error<&'static str>,
+    ) {
+        self.events.push(format!(
+            "verification_unavailable {offset:#x} {length:#x} {error}"
+        ));
     }
 }
 
@@ -257,7 +263,7 @@ const PROTECTED: usize = (fixtures::SIGNED.1 - fixtures::SIGNED.0 + 1) as usize;
 
 fn run(
     drive: &Rc<RefCell<Drive>>,
-    update: &PreparedUpdate,
+    update: &ValidatedUpdate,
     clock: &mut Clock,
 ) -> Result<ReadbackQuality, FlashError<&'static str>> {
     let (mut reads, mut writes) = (
@@ -273,7 +279,7 @@ fn run(
     )
 }
 
-fn setup() -> (Rc<RefCell<Drive>>, PreparedUpdate, Vec<u8>) {
+fn setup() -> (Rc<RefCell<Drive>>, ValidatedUpdate, Vec<u8>) {
     let running = fixtures::image(&JB7, 1);
     let target = fixtures::image(&JB7, 2);
     let update = prepare(&target, &running).unwrap();
@@ -395,7 +401,7 @@ fn a_failed_entry_sends_no_firmware() {
 
 fn run_recovery_payload(
     drive: &Rc<RefCell<Drive>>,
-    update: &PreparedUpdate,
+    update: &ValidatedUpdate,
     clock: &mut Clock,
 ) -> Result<ReadbackQuality, FlashError<&'static str>> {
     let (mut reads, mut writes) = (
@@ -682,7 +688,8 @@ fn an_unreadable_protected_chunk_is_incomplete() {
         } if checked == PROTECTED - 0x4000
     ));
     assert!(clock.events.contains(
-        &"unverified 0x14000 0x4000 short transfer: expected 16384 bytes, got 16383".to_string()
+        &"verification_unavailable 0x14000 0x4000 short transfer: expected 16384 bytes, got 16383"
+            .to_string()
     ));
 
     let (drive, update, _) = setup();
@@ -734,14 +741,14 @@ fn unreadable_chunk_before_protected_ranges_does_not_invalidate_later_reads() {
     assert!(!clock
         .events
         .iter()
-        .any(|event| event.starts_with("unverified")));
+        .any(|event| event.starts_with("verification_unavailable")));
 }
 
 fn run_completed(
     drive: &Rc<RefCell<Drive>>,
-    update: &PreparedUpdate,
+    update: &ValidatedUpdate,
     mode: crate::update::flash::ExecutionMode,
-) -> Result<crate::update::Completion, FlashError<&'static str>> {
+) -> Result<crate::update::FlashOutcome, FlashError<&'static str>> {
     let mut reads = Handle(drive.clone(), Via::Reads);
     let mut writes = Handle(drive.clone(), Via::Writes);
     // The receiver identity bound before the write, as execution revalidates it.
@@ -764,11 +771,11 @@ fn run_completed(
     )
 }
 
-type Setup = fn() -> (Rc<RefCell<Drive>>, PreparedUpdate, Vec<u8>);
+type Setup = fn() -> (Rc<RefCell<Drive>>, ValidatedUpdate, Vec<u8>);
 
 /// Builds 1 and 2 of [`JB7`] with the target's revision changed to `1.04`,
 /// so INQUIRY identity differs before and after the write.
-fn setup_identity_change() -> (Rc<RefCell<Drive>>, PreparedUpdate, Vec<u8>) {
+fn setup_identity_change() -> (Rc<RefCell<Drive>>, ValidatedUpdate, Vec<u8>) {
     let running = fixtures::image(&JB7, 1);
     let mut target = fixtures::image(&JB7, 2);
     let d = layout::DESCRIPTOR.start;
@@ -838,10 +845,19 @@ fn same_identity_completion_is_unobserved_for_flash_and_recovery() {
 fn stale_old_firmware_with_same_identity_is_never_confirmed() {
     use crate::update::{flash::ExecutionMode, StartupEvidence};
     for mode in [ExecutionMode::Flash, ExecutionMode::Recovery] {
-        let (drive, update, _) = setup();
+        let (drive, update, target) = setup();
         drive.borrow_mut().stale_inquiry = true;
         let completed = run_completed(&drive, &update, mode).unwrap();
         assert_eq!(completed.startup.evidence(), StartupEvidence::Unobserved);
+        // The premise: the stale answer is the old firmware's identity, and it
+        // is byte-identical to the target's, so it is indistinguishable from
+        // `same_identity_completion_is_unobserved_for_flash_and_recovery`.
+        let d = layout::DESCRIPTOR.start;
+        assert_eq!(
+            drive.borrow().replaced_identity.as_deref(),
+            Some(&target[d..d + 28])
+        );
+        assert_eq!(&completed.startup.inquiry()[8..36], &target[d..d + 28]);
     }
 }
 
@@ -1097,7 +1113,7 @@ fn zero_range_readback_is_never_complete() {
     ));
 }
 
-impl crate::update::PreparedUpdate {
+impl crate::update::ValidatedUpdate {
     /// Write the update and prove it: PROBE, TEST UNIT READY, PREPARE, the
     /// transfer in STREAM chunks, COMMIT, TEST UNIT READY and REQUEST SENSE;
     /// then poll TEST UNIT READY until the drive has programmed, REQUEST SENSE
@@ -1114,7 +1130,7 @@ impl crate::update::PreparedUpdate {
     where
         W: Transport,
         R: Transport<Error = W::Error>,
-        H: FlashRuntime<W::Error>,
+        H: ExecutionRuntime<W::Error>,
     {
         crate::update::flash::Payload {
             class: self.class,

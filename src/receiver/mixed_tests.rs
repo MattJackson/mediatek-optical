@@ -154,3 +154,10 @@ fn wrapper_and_integrity_bind_only_at_their_literal_alignment() {
             .is_none());
     }
 }
+
+impl MixedContract {
+    /// A contract programming exactly `programmed`.
+    pub(in crate::receiver) fn testing(programmed: [Range<usize>; 2]) -> Self {
+        Self { programmed }
+    }
+}

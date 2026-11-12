@@ -171,6 +171,11 @@ impl SavedLink {
         Ok(())
     }
 }
+#[cfg(test)]
+thread_local! {
+    /// Frame walks started on this thread.
+    pub(super) static FRAME_WALKS: core::cell::Cell<usize> = const { core::cell::Cell::new(0) };
+}
 /// Work done by one [`SavedLink`] frame walk.
 #[derive(Debug, Default)]
 pub(super) struct WalkCounts {
@@ -201,6 +206,8 @@ impl SavedLink {
         site: usize,
         counts: &mut WalkCounts,
     ) -> Result<(usize, Vec<usize>), Error> {
+        #[cfg(test)]
+        FRAME_WALKS.with(|walks| walks.set(walks.get() + 1));
         if entry >= site || !saves_link(image, entry) {
             return Err(Error::InvalidContract);
         }

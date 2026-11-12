@@ -1,7 +1,7 @@
 //! Explicit recovery without installed-firmware, model, family or backup policy.
-//! Requires `drive`, `image` and `enc`. Identification and preparation are
+//! Requires `drive` and `envelope` (`image` + `enc`). Identification and preparation are
 //! read-only; the caller owns consent and write authorization.
-use crate::update::{FlashError, FlashRuntime, FlashTransport, PrepareError};
+use crate::update::{ExecutionRuntime, FlashError, FlashTransport, PreparationError};
 use crate::{
     drive::{self, Transport},
     image, layout, receiver, Chip, DriveClass,
@@ -31,7 +31,7 @@ pub enum Error<E> {
     /// A required device read failed.
     Read(drive::Error<E>),
     /// Image size, integrity, form or chip is unacceptable.
-    Image(PrepareError),
+    Image(PreparationError),
     /// Transfer or protected-region verification failed.
     Flash(FlashError<E>),
     /// The live chip/banner changed after identification.
@@ -39,6 +39,42 @@ pub enum Error<E> {
     /// The receiver did not start the selected firmware.
     Startup(crate::update::StartupError<E>),
 }
+impl<E> Error<E> {
+    /// Firmware data may have been sent to the drive: `true` only for
+    /// [`Error::Flash`] after update entry and for [`Error::Startup`].
+    /// Identification, preparation, revalidation and banner checks precede
+    /// every write. As for [`receiver::ExecutionError::firmware_write_started`].
+    pub fn firmware_write_started(&self) -> bool {
+        match self {
+            Self::Receiver(_) | Self::Reference(_) | Self::Read(_) | Self::Image(_) => false,
+            Self::Changed => false,
+            Self::Flash(error) => error.firmware_write_started(),
+            Self::Startup(_) => true,
+        }
+    }
+
+    /// Any device mutation may have been attempted; recovery writes no
+    /// settings, so this equals [`Self::firmware_write_started`].
+    pub fn write_started(&self) -> bool {
+        self.firmware_write_started()
+    }
+
+    /// The boundary which failed, suitable for operation diagnostics:
+    /// `"receiver binding"`, `"preflight"` (an unacceptable image),
+    /// `"update entry"`, `"firmware transfer"`, `"target startup"` or
+    /// `"readback"`. Diagnostic text, not a parsing contract.
+    pub fn phase(&self) -> &'static str {
+        match self {
+            Self::Receiver(_) | Self::Reference(_) | Self::Read(_) | Self::Changed => {
+                "receiver binding"
+            }
+            Self::Image(_) => "preflight",
+            Self::Flash(error) => error.phase(),
+            Self::Startup(_) => "target startup",
+        }
+    }
+}
+
 impl<E: core::fmt::Debug> core::fmt::Display for Error<E> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
@@ -123,7 +159,10 @@ impl Receiver {
         receiver
             .revalidate(t)
             .map_err(|error| Error::Reference(receiver::reference::Error::Session(error)))?;
-        let chip = Chip::from_banner(&banner).ok_or(Error::Changed)?;
+        // The banner was just bound by revalidation: no supported chip here
+        // is an unsupported drive, not a change since identification.
+        let chip =
+            Chip::from_banner(&banner).ok_or(Error::Image(PreparationError::UnknownDriveChip))?;
         Ok(Self {
             receiver,
             chip,
@@ -148,7 +187,8 @@ impl Receiver {
     /// change in between is [`Error::Receiver`] with
     /// [`receiver::Error::Changed`].
     ///
-    /// A receiver from [`Receiver::identify_reference`] re-reads only INQUIRY
+    /// A receiver from [`Receiver::identify_reference`] or
+    /// [`Receiver::identify_user_supplied_reference`] re-reads only INQUIRY
     /// identity, the boot banner and build metadata; its instruction evidence
     /// comes from the reference image and is not re-read.
     pub fn revalidate<T: Transport>(&self, t: &mut T) -> Result<(), Error<T::Error>> {
@@ -164,21 +204,25 @@ impl Receiver {
     }
     /// Validate a recovery image, bypassing model/family and rollback policy.
     /// No installed image, Current file or backup is needed.
-    pub fn prepare(&self, image: &[u8]) -> Result<PreparedRecovery, PrepareError> {
+    ///
+    /// As for `receiver::Receiver::prepare`, every check that needs no I/O
+    /// runs here; a returned [`PreparedRecovery`] has nothing left to check
+    /// before consent.
+    pub fn prepare(&self, image: &[u8]) -> Result<PreparedRecovery, PreparationError> {
         if image.len() != layout::IMAGE_SIZE {
-            return Err(PrepareError::Size(image.len()));
+            return Err(PreparationError::Size(image.len()));
         }
         if !image::cmac::verify(image) {
-            return Err(PrepareError::Integrity);
+            return Err(PreparationError::Integrity);
         }
         if image::is_drive_read(image) {
-            return Err(PrepareError::DriveRead);
+            return Err(PreparationError::DriveRead);
         }
         let chip = image::detect_chip(image)
-            .map_err(|_| PrepareError::UnknownChip)?
+            .map_err(|_| PreparationError::UnknownChip)?
             .family;
         if chip != self.chip {
-            return Err(PrepareError::ChipMismatch {
+            return Err(PreparationError::ChipMismatch {
                 image: chip,
                 drive: self.chip,
             });
@@ -226,11 +270,11 @@ impl PreparedRecovery {
         &self,
         io: FlashTransport<'_, R, W>,
         runtime: &mut H,
-    ) -> Result<crate::update::Completion, Error<W::Error>>
+    ) -> Result<crate::update::FlashOutcome, Error<W::Error>>
     where
         W: Transport,
         R: Transport<Error = W::Error>,
-        H: FlashRuntime<W::Error>,
+        H: ExecutionRuntime<W::Error>,
     {
         let mut banner = [0; layout::BANNER.len];
         drive::read_memory(io.reads, layout::BANNER.start as u32, &mut banner)
@@ -244,11 +288,11 @@ impl PreparedRecovery {
     }
 }
 
-fn from_execute<E>(e: receiver::ExecuteError<E>) -> Error<E> {
+fn from_execute<E>(e: receiver::ExecutionError<E>) -> Error<E> {
     match e {
-        receiver::ExecuteError::Receiver(e) => Error::Receiver(e),
-        receiver::ExecuteError::Flash(FlashError::Startup(e)) => Error::Startup(e),
-        receiver::ExecuteError::Flash(e) => Error::Flash(e),
+        receiver::ExecutionError::Receiver(e) => Error::Receiver(e),
+        receiver::ExecutionError::Flash(FlashError::Startup(e)) => Error::Startup(e),
+        receiver::ExecutionError::Flash(e) => Error::Flash(e),
     }
 }
 

@@ -5,7 +5,7 @@
 //! determines how that image must be sent to a different running receiver.
 use sha2::{Digest, Sha256};
 
-use crate::{image, layout, update::PrepareError, Chip};
+use crate::{image, layout, update::PreparationError, Chip};
 
 /// Encoding of the original input bytes, not the required output encoding.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -27,7 +27,7 @@ pub enum InputEncoding {
 #[non_exhaustive]
 pub enum Error {
     /// Size, integrity, chip or stored-image checks failed.
-    Image(PrepareError),
+    Image(PreparationError),
     /// Neither representation has a supported boot banner.
     UnknownFraming,
     /// Both representations validated; choosing either would be a guess.
@@ -82,16 +82,16 @@ fn recognized(bytes: &[u8]) -> bool {
         .is_some()
 }
 
-fn validate(bytes: &[u8]) -> Result<Chip, PrepareError> {
+fn validate(bytes: &[u8]) -> Result<Chip, PreparationError> {
     if !image::cmac::verify(bytes) {
-        return Err(PrepareError::Integrity);
+        return Err(PreparationError::Integrity);
     }
     if image::is_drive_read(bytes) {
-        return Err(PrepareError::DriveRead);
+        return Err(PreparationError::DriveRead);
     }
     image::detect_chip(bytes)
         .map(|info| info.family)
-        .map_err(|_| PrepareError::UnknownChip)
+        .map_err(|_| PreparationError::UnknownChip)
 }
 
 impl Envelope {
@@ -100,7 +100,7 @@ impl Envelope {
     /// rejected. No model, filename or absence of encryption selects a format.
     pub fn load(input: &[u8]) -> Result<Self, Error> {
         if input.len() != layout::IMAGE_SIZE {
-            return Err(Error::Image(PrepareError::Size(input.len())));
+            return Err(Error::Image(PreparationError::Size(input.len())));
         }
         let plain = recognized(input).then(|| validate(input));
         // AES-ECB: a decrypted block depends only on its own ciphertext block,

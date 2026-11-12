@@ -5,7 +5,15 @@ use crate::{drive, layout, receiver, INQUIRY_LEN};
 
 /// What protected-region read-back established. Limited verification must be
 /// reported as such even when the exact target has started.
+///
+/// Hosts must keep a wildcard arm and treat an unknown quality as not
+/// complete; the set of qualities may grow.
+///
+/// ```compile_fail,E0004
+/// fn f(q: mediatek_optical::update::ReadbackQuality) -> u8 { use mediatek_optical::update::ReadbackQuality::*; match q { Complete(_) => 0, Limited { .. } => 1 } }
+/// ```
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum ReadbackQuality {
     /// All protected ranges were read and matched.
     Complete(Verified),
@@ -74,7 +82,7 @@ impl Startup {
 /// A completed operation with target identity evidence and explicit read-back
 /// quality.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Completion {
+pub struct FlashOutcome {
     /// Post-write identity matching the target. Confirmed startup only when
     /// [`Startup::evidence`] is not [`StartupEvidence::Unobserved`].
     pub startup: Startup,
@@ -124,12 +132,12 @@ pub(super) fn complete<T: drive::Transport>(
     image: &[u8],
     result: Result<ReadbackQuality, FlashError<T::Error>>,
     prior: &receiver::DetectedMode,
-) -> Result<Completion, FlashError<T::Error>> {
+) -> Result<FlashOutcome, FlashError<T::Error>> {
     // Transfer failures, programming faults and mismatches are never
     // downgraded by an identity check, and trigger no further commands.
     let readback = result?;
     let startup = confirm_startup(reads, image, prior).map_err(FlashError::Startup)?;
-    Ok(Completion { startup, readback })
+    Ok(FlashOutcome { startup, readback })
 }
 
 fn confirm_startup<T: drive::Transport>(
@@ -169,7 +177,8 @@ fn confirm_startup<T: drive::Transport>(
 /// exactly these fields against the physical INQUIRY before any write on every
 /// path: the whole `DetectedMode` for live-code receivers (receiver.rs
 /// `revalidate_signature`), and mode plus bytes 8..36 for reference receivers
-/// (reference.rs `Binding::read_banner`). No other byte is pre-write evidence.
+/// (reference.rs `Binding::revalidate_identity`). No other byte is pre-write
+/// evidence.
 pub(crate) fn classify(
     prior: &receiver::DetectedMode,
     live: &receiver::DetectedMode,

@@ -21,9 +21,11 @@ sets. Detailed firmware research remains in [the protocol guide](docs/protocol-g
 
 ## Release checks
 
-Each library has sixteen distinct feature configurations after expanding feature
-dependencies. Unit/integration tests and warning-free documentation run for all
-sixteen; Rust 1.75 checks the library in all sixteen configurations. Default and
+Pioneer has sixteen and MediaTek twenty-four distinct feature configurations
+after expanding feature dependencies; a pure alias feature that no source gates
+on (MediaTek `envelope`) adds none. Unit/integration tests and warning-free
+documentation run for every one; Rust 1.75 checks the library in every
+configuration. Default and
 `drive` builds also target `thumbv7em-none-eabi` to verify actual `no_std` support.
 Formatting, all-target/all-feature Clippy with warnings denied, doctests, workflow
 lint and dependency advisory audits are release checks. The advisory audit on the

@@ -9,16 +9,23 @@ exclusive access and durable reporting.
 | Developer task | Pioneer | MediaTek |
 | --- | --- | --- |
 | Core protocol | `cdb`, `Identity`, `DriveClass` | `cdb`, `Identity`, `DriveClass`, `Chip` |
+| Structured product identity | `ProductIdentity` | `ProductIdentity` |
+| Report progress and categories | `operation::{IssueKind, Phase, Component, Progress}` | `operation::{IssueKind, Phase, Component, Progress}` |
+| Enable the update workflow | features `drive` + `envelope` | features `drive` + `envelope` |
 | Connect an adapter | `drive::Transport`, `drive::Data` | `drive::Transport`, `drive::Data` |
 | Read live identity | `drive::identify` | `drive::identify` |
-| Read memory | `drive::read_memory` | `drive::read_memory` |
+| Read memory | `drive::read_memory` (returns bytes read; short reads allowed) | `drive::read_memory` (exact; a short read is `Error::Short`) |
 | Load firmware | `envelope::Envelope::load` | `envelope::Envelope::load` |
-| Bind installed evidence | `Receiver::from_installed` with a captured Kernel/Normal pair | `InstalledFirmware::new` and `receiver::detect` against live code |
-| Prepare an update | `Receiver::prepare` | `Receiver::prepare` |
+| Read a receiver from a firmware file (no I/O) | `Receiver::from_firmware` | `Receiver::from_firmware` |
+| Bind installed evidence | `Receiver::from_installed` with a captured Kernel/Normal pair | `InstalledFirmware::new`, `receiver::detect_mode` + `receiver::detect` (live code) or `receiver::reference::detect` (Current reference) |
+| Check hardware family | `Receiver::check_family` | `update::ValidatedUpdate::check`, `InstalledFirmware::family` |
+| Prepare an update | `Receiver::prepare` → `PreparationError` | `Receiver::prepare` → `PreparationError` |
+| Check a plan before consent (no I/O) | `PreparedUpdate::check_plan(mode)`, `PreparedNormal::check_plan` → `PlanError` | — (`Receiver::prepare` / `recovery::Receiver::prepare` refuse; a prepared value has passed every I/O-free check) |
 | Execute with complete verification | `PreparedUpdate::flash` | — (use `flash_completed`) |
-| Execute with explicit limited readback | `PreparedUpdate::flash_completed` → `FlashOutcome` | `PreparedUpdate::flash_completed` → `Completion` |
-| Supply read/write transports | `receiver::FlashTransport` | `update::FlashTransport` |
-| Supply timing and host callbacks | `receiver::ExecutionRuntime` | `update::FlashRuntime` |
+| Execute with explicit limited readback | `PreparedUpdate::flash_completed` → `FlashOutcome`, `ExecutionError` | `PreparedUpdate::flash_completed` → `FlashOutcome`, `ExecutionError` |
+| Supply read/write transports | `receiver::FlashTransport` | `receiver::FlashTransport` |
+| Supply timing and host callbacks | `receiver::ExecutionRuntime` | `receiver::ExecutionRuntime` |
+| Report unreadable readback | `ExecutionRuntime::verification_unavailable` | `ExecutionRuntime::verification_unavailable` |
 | Select explicit recovery | `execute(..., ExecutionMode::Recovery)` | `recovery::PreparedRecovery` |
 | Route typed errors | Root `CodedError`, `pioneer.*` codes | Root `CodedError`, `mediatek.*` codes |
 
@@ -29,6 +36,13 @@ Identity accessors use the same `vendor`, `product`, `revision` and raw-response
 conventions. Firmware formats differ: Pioneer normally updates separate Kernel
 and Normal components; MediaTek validates one complete 2 MiB image.
 
+Error codes are `<crate>.<group>.<variant>` with the verb groups `prepare`,
+`execute` and `flash` in both crates. `kind()` on every error is the
+`CodedError` `IssueKind`; a typed refusal rule is a `reason` (`PlanReason`,
+`ContractReason`). Execution wrappers report their cause's code, so the same
+failure has the same code whether it is reached directly or through execution.
+Public error enums are `#[non_exhaustive]`; handle unknown future codes.
+
 Pioneer `flash` requires complete relevant readback. A Normal-only Pioneer update does
 not write or verify a Kernel. MediaTek has one execution entry point:
 `flash_completed` requires the target
@@ -37,6 +51,11 @@ identity after the write and reports restart evidence through
 startup); it retains limited readback explicitly; every readable mismatch and failed
 firmware write remains an error. Readiness alone is insufficient. Callers must
 report the qualification and must not retry firmware writes automatically.
+
+Pioneer chooses the execution mode at execute time and defers some plan-level
+checks, so `check_plan` lets a host decide admissibility before backup or
+consent. A MediaTek prepared value has already passed every I/O-free check and
+its mode is fixed at construction; there is nothing left to check without I/O.
 
 File decoding never authorizes a device write. Unknown or conflicting receiver
 evidence fails closed, and executable preparation is bound to installed evidence.

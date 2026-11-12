@@ -2,8 +2,8 @@
 use mediatek_optical::{
     drive::{self, Transport},
     envelope::Envelope,
-    receiver,
-    update::{Completion, FlashRuntime, FlashTransport, InstalledFirmware},
+    receiver::{self, ExecutionRuntime, FlashOutcome, FlashTransport},
+    update::InstalledFirmware,
 };
 
 /// Execute after the host has backed up the drive, obtained consent and ensured
@@ -14,12 +14,12 @@ pub fn flash<R, W, H>(
     runtime: &mut H,
     current_image: &[u8],
     target_image: &[u8],
-) -> Result<Completion, Box<dyn std::error::Error>>
+) -> Result<FlashOutcome, Box<dyn std::error::Error>>
 where
     R: Transport<Error = W::Error>,
     W: Transport,
     W::Error: 'static,
-    H: FlashRuntime<W::Error>,
+    H: ExecutionRuntime<W::Error>,
 {
     let identity = drive::identify(reads)?;
     let installed = InstalledFirmware::new(identity, current_image)?;
@@ -33,5 +33,5 @@ where
 }
 
 fn main() {
-    println!("Implement Transport and FlashRuntime, then call flash with captured firmware.");
+    println!("Implement Transport and ExecutionRuntime, then call flash with captured firmware.");
 }

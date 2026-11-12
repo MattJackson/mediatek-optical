@@ -13,11 +13,21 @@ pub struct CommandScanner {
     source: [u8; 32],
 }
 
+#[cfg(test)]
+thread_local! {
+    /// [`CommandScanner::inspect`] calls on this thread.
+    static SCANNER_INSPECTIONS: core::cell::Cell<usize> = const { core::cell::Cell::new(0) };
+}
+
 impl CommandScanner {
     /// One candidate as [`Self::inspect`] accepts it: grammar and proven frame.
     #[cfg(test)]
     fn at(image: &[u8], entry: usize) -> Option<Self> {
-        Self::grammar(image, entry).filter(|_| SavedLink::bind(image, entry, entry + 22).is_ok())
+        Self::grammar(image, entry).filter(|_| Self::frame_proven(image, entry))
+    }
+    /// The native call frame around the scanner's `blx` dispatch.
+    fn frame_proven(image: &[u8], entry: usize) -> bool {
+        SavedLink::bind(image, entry, entry + 22).is_ok()
     }
     /// The complete scanner grammar, before its native call frame is proven.
     fn grammar(image: &[u8], entry: usize) -> Option<Self> {
@@ -116,6 +126,8 @@ impl CommandScanner {
     /// A grammar whose frame cannot be proven still counts as a candidate, so it
     /// makes the role ambiguous or refuses it instead of disappearing.
     pub fn inspect(image: &[u8]) -> Result<Self, Error> {
+        #[cfg(test)]
+        SCANNER_INSPECTIONS.with(|count| count.set(count.get() + 1));
         let mut found = None;
         // The grammar bounds-checks its own reads (through entry + 0x5c), so
         // a candidate ending at the image tail is still counted.
@@ -133,8 +145,9 @@ impl CommandScanner {
             }
         }
         let found = found.ok_or(Error::UnknownLayout)?;
-        SavedLink::bind(image, found.entry, found.entry + 22)
-            .map_err(|_| Error::InvalidContract)?;
+        if !Self::frame_proven(image, found.entry) {
+            return Err(Error::InvalidContract);
+        }
         Ok(found)
     }
     /// Flash table roots registered by proven `BL` calls into the array

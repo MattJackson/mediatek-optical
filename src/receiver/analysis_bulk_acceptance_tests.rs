@@ -215,3 +215,16 @@ fn scratch_call_seen_only_from_inside_a_wide_instruction_is_not_proven() {
     assert!(changed.scratch_decoders().is_empty());
     assert!(changed.conflicting_arguments());
 }
+
+impl ApplicationAnalysis {
+    /// Evidence holding only `scratch` decoder calls and the conflict flag.
+    pub(in crate::receiver) fn testing(scratch: Vec<Call>, conflicting_arguments: bool) -> Self {
+        Self {
+            ranges: Vec::new(),
+            integrity: Vec::new(),
+            scratch,
+            bulk: Vec::new(),
+            conflicting_arguments,
+        }
+    }
+}

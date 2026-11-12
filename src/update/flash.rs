@@ -26,7 +26,14 @@ pub enum Stage {
 }
 
 /// A REQUEST SENSE outcome that does not fail the flash.
+///
+/// Hosts must keep a wildcard arm; the set of outcomes may grow.
+///
+/// ```compile_fail,E0004
+/// fn f(s: mediatek_optical::update::Status<'_, ()>) -> u8 { use mediatek_optical::update::Status::*; match s { Sense(_) => 0, Unparseable(_) => 1, Failed(_) => 2 } }
+/// ```
 #[derive(Debug)]
+#[non_exhaustive]
 pub enum Status<'a, E> {
     /// A parsed sense that proves no programming failure.
     Sense(Triplet),
@@ -37,11 +44,11 @@ pub enum Status<'a, E> {
 }
 
 /// Host timing and progress for receiver-bound update execution.
-pub trait FlashRuntime<E> {
+pub trait ExecutionRuntime<E> {
     /// Structured progress mirrored by the other optical protocol libraries.
     fn operation_progress(&mut self, _progress: crate::operation::Progress) {}
     /// Monotonic time from a fixed origin; must advance across
-    /// [`FlashRuntime::sleep`].
+    /// [`ExecutionRuntime::sleep`].
     fn elapsed(&self) -> Duration;
     /// Wait at least `duration`.
     fn sleep(&mut self, duration: Duration);
@@ -72,7 +79,7 @@ pub trait FlashRuntime<E> {
     /// Read-back verification starts.
     fn verifying(&mut self) {}
     /// A chunk holding protected bytes could not be read back in full.
-    fn unverified(&mut self, _offset: usize, _length: usize, _error: &Error<E>) {}
+    fn verification_unavailable(&mut self, _offset: usize, _length: usize, _error: &Error<E>) {}
 }
 
 /// What read-back verification proved.
@@ -130,6 +137,26 @@ pub enum FlashError<E> {
     },
 }
 
+// Used by the receiver-bound and recovery execution errors (`enc`).
+#[cfg(feature = "enc")]
+impl<E> FlashError<E> {
+    /// Firmware data may have been sent: every variant after
+    /// [`FlashError::Entry`].
+    pub(crate) fn firmware_write_started(&self) -> bool {
+        !matches!(self, Self::Entry(_))
+    }
+
+    /// The boundary which failed; see `receiver::ExecutionError::phase`.
+    pub(crate) fn phase(&self) -> &'static str {
+        match self {
+            Self::Entry(_) => "update entry",
+            Self::Transfer { .. } | Self::Fault { .. } => "firmware transfer",
+            Self::ReadyTimeout(_) | Self::Startup(_) => "target startup",
+            Self::Mismatch { .. } => "readback",
+        }
+    }
+}
+
 impl<E: core::fmt::Debug> core::fmt::Display for FlashError<E> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
@@ -184,7 +211,7 @@ fn request_sense<T: Transport>(t: &mut T) -> Result<(usize, Option<Triplet>), Er
 }
 
 /// REQUEST SENSE at `stage`: a flash fault fails, anything else is reported.
-fn status<T: Transport, H: FlashRuntime<T::Error>>(
+fn status<T: Transport, H: ExecutionRuntime<T::Error>>(
     t: &mut T,
     runtime: &mut H,
     stage: Stage,
@@ -233,7 +260,7 @@ impl Payload<'_> {
     where
         W: Transport,
         R: Transport<Error = W::Error>,
-        H: FlashRuntime<W::Error>,
+        H: ExecutionRuntime<W::Error>,
     {
         let transfer = self.transfer;
         runtime.starting(transfer.len());
@@ -307,11 +334,11 @@ impl Payload<'_> {
         mode: ExecutionMode,
         prepare: cdb::Prepare,
         prior: &crate::receiver::DetectedMode,
-    ) -> Result<super::Completion, FlashError<W::Error>>
+    ) -> Result<super::FlashOutcome, FlashError<W::Error>>
     where
         W: Transport,
         R: Transport<Error = W::Error>,
-        H: FlashRuntime<W::Error>,
+        H: ExecutionRuntime<W::Error>,
     {
         let result = self.flash(
             FlashTransport {
@@ -328,7 +355,7 @@ impl Payload<'_> {
     /// Read back every chunk and compare the protected bytes. Unreadable
     /// protected chunks, or no protected range at all, are limited
     /// verification, never complete.
-    fn verify<R: Transport, H: FlashRuntime<R::Error>>(
+    fn verify<R: Transport, H: ExecutionRuntime<R::Error>>(
         &self,
         reads: &mut R,
         runtime: &mut H,
@@ -370,7 +397,7 @@ impl Payload<'_> {
                 Err(error) => {
                     if (offset..offset + piece.len()).any(protected) {
                         unverified += 1;
-                        runtime.unverified(offset, piece.len(), &error);
+                        runtime.verification_unavailable(offset, piece.len(), &error);
                     }
                 }
             }
