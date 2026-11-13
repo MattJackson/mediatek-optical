@@ -371,6 +371,6 @@ fn chip_labels_parse() {
     }
 }
 
-#[cfg(feature = "drive")]
+#[cfg(all(feature = "drive", feature = "enc"))]
 #[path = "../drive/flash_tests.rs"]
 mod flash;

@@ -78,6 +78,7 @@ fn chip_labels_and_digits() {
     assert_eq!(Chip::from_banner(b"MT1869 Boot"), None);
 }
 
+#[cfg(feature = "drive")]
 #[test]
 fn sense_parsing_and_classes() {
     let mut fixed = [0u8; 18];
@@ -100,6 +101,7 @@ fn sense_parsing_and_classes() {
     assert!(!sense::is_no_medium(0x02, 0x04));
 }
 
+#[cfg(feature = "drive")]
 #[test]
 fn protocol_incomplete_is_a_coded_displayable_error() {
     use crate::CodedError;

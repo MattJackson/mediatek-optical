@@ -233,6 +233,7 @@ fn identity_preserves_inquiry_bytes_without_lossy_normalization() {
     assert_eq!(id.inquiry_bytes().as_slice(), inquiry);
 }
 
+#[cfg(feature = "enc")]
 #[test]
 fn failure_messages_retain_actionable_values() {
     use mediatek_optical::{classify::Refusal as PreparationError, drive::FlashError};
