@@ -1,8 +1,5 @@
 //! Validate every distinct BIN published in the audited MediaTek TAR corpus.
-use mediatek_optical::{
-    enc,
-    envelope::{Envelope, InputEncoding},
-};
+use mediatek_optical::envelope::{self as enc, Envelope, InputEncoding};
 use std::{
     collections::BTreeMap,
     path::{Path, PathBuf},

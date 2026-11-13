@@ -17,16 +17,16 @@ exclusive access and durable reporting.
 | Read memory | `drive::read_memory` (returns bytes read; short reads allowed) | `drive::read_memory` (exact; a short read is `Error::Short`) |
 | Load firmware | `envelope::Envelope::load` | `envelope::Envelope::load` |
 | Read a receiver from a firmware file (no I/O) | `Receiver::from_firmware` | `Receiver::from_firmware` |
-| Bind installed evidence | `Receiver::from_installed` with a captured Kernel/Normal pair | `InstalledFirmware::new`, `receiver::detect_mode` + `receiver::detect` (live code) or `receiver::reference::detect` (Current reference) |
-| Check hardware family | `Receiver::check_family` | `update::ValidatedUpdate::check`, `InstalledFirmware::family` |
+| Bind installed evidence | `Receiver::from_installed` with a captured Kernel/Normal pair | `InstalledFirmware::new`, `drive::detect_receiver` (live code) or `drive::detect_receiver_with_current` (Current reference) |
+| Check hardware family | `Receiver::check_family` | `classify::check`, `InstalledFirmware::family` |
 | Prepare an update | `Receiver::prepare` → `PreparationError` | `Receiver::prepare` → `PreparationError` |
-| Check a plan before consent (no I/O) | `PreparedUpdate::check_plan(mode)`, `PreparedNormal::check_plan` → `PlanError` | — (`Receiver::prepare` / `recovery::Receiver::prepare` refuse; a prepared value has passed every I/O-free check) |
+| Check a plan before consent (no I/O) | `PreparedUpdate::check_plan(mode)`, `PreparedNormal::check_plan` → `PlanError` | — (`Receiver::prepare` / `drive::RecoveryReceiver::prepare` refuse; a prepared value has passed every I/O-free check) |
 | Execute with complete verification | `PreparedUpdate::flash` | — (use `flash_completed`) |
 | Execute with explicit limited readback | `PreparedUpdate::flash_completed` → `FlashOutcome`, `ExecutionError` | `PreparedUpdate::flash_completed` → `FlashOutcome`, `ExecutionError` |
-| Supply read/write transports | `receiver::FlashTransport` | `receiver::FlashTransport` |
-| Supply timing and host callbacks | `receiver::ExecutionRuntime` | `receiver::ExecutionRuntime` |
+| Supply read/write transports | `drive::` | `drive::` |
+| Supply timing and host callbacks | `drive::` | `drive::` |
 | Report unreadable readback | `ExecutionRuntime::verification_unavailable` | `ExecutionRuntime::verification_unavailable` |
-| Select explicit recovery | `execute(..., ExecutionMode::Recovery)` | `recovery::PreparedRecovery` |
+| Select explicit recovery | `execute(..., ExecutionMode::Recovery)` | `drive::PreparedRecovery` |
 | Route typed errors | Root `CodedError`, `pioneer.*` codes | Root `CodedError`, `mediatek.*` codes |
 
 The transport trait has the same `exec` and `sense` signatures in both crates.

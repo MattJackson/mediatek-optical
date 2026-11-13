@@ -9,8 +9,8 @@
 
 use std::path::PathBuf;
 
-use mediatek_optical::image::detect_chip;
-use mediatek_optical::{layout, Chip};
+use mediatek_optical::envelope::detect_chip;
+use mediatek_optical::{envelope, Chip};
 
 use serde::Deserialize;
 
@@ -42,10 +42,10 @@ struct Mediatek {
     fragment: bool,
 }
 
-/// The chip named by the 16-byte boot banner at [`layout::BANNER`].
+/// The chip named by the 16-byte boot banner at [`envelope::BANNER`].
 fn banner_chip(image: &[u8]) -> Option<Chip> {
     image
-        .get(layout::BANNER.start..layout::BANNER.end())
+        .get(envelope::BANNER.start..envelope::BANNER.end())
         .and_then(Chip::from_banner)
 }
 

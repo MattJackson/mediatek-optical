@@ -1,43 +1,35 @@
 //! MediaTek MT1959 / MT1939 optical drive (BD/DVD) protocol: command encoding,
 //! identity decoding, firmware image analysis and OEM image reconstruction.
 //!
-//! The crate root is `no_std`, allocation-free and dependency-free:
+//! Five public modules, the same five pioneer-optical exposes, with
+//! dependencies pointing one way (`envelope` → `classify` → `prepare` →
+//! `drive`; `cdb` stands alone):
 //!
-//! - [`cdb`] — the command descriptor blocks, as byte constructors.
-//! - [`Identity`] — the decoded INQUIRY, boot banner and identity descriptor.
-//! - [`Chip`] — which controller generation a drive or image belongs to.
-//! - [`DriveClass`] — the update dialect a drive speaks ([`Identity::class`]).
-//! - [`layout`] — the fixed 2 MiB image geometry and the drive-written regions.
-//! - [`sense`] — sense-data parsing and classification of flash faults.
+//! - [`envelope`] — the image codec: geometry, loading, identity, the AES-CMAC
+//!   table, the transport encoding (`enc`) and OEM reconstruction (`oem`).
+//! - `classify` — verdicts without materialization: whether an image may be
+//!   written to a drive and why not, and (`analysis`) the Thumb-fingerprint
+//!   evidence a Modify plans from. Needs `image`.
+//! - `prepare` — receiver-bound plans yielding the exact bytes to write.
+//! - [`cdb`] — command descriptor blocks, as byte constructors.
+//! - `drive` — command sequences over a caller-supplied `drive::Transport`:
+//!   identity, receiver detection, update execution and recovery. Needs `drive`.
 //!
-//! Optional features add:
+//! The crate root holds the shared vocabulary: [`Identity`], [`Chip`],
+//! [`DriveClass`], [`ProductIdentity`], [`CodedError`] and the progress and
+//! issue kinds. The core is `no_std`, allocation-free and dependency-free.
 //!
-//! - `drive` — `drive`: the command sequences (identify, memory read, flash
-//!   session) over a caller-supplied `drive::Transport`.
-//! - `image` — `image`: chip detection from image bytes and the AES-CMAC
-//!   integrity table (`image::cmac`). Uses `std`.
-//! - `enc` — `enc`: the AES-128-ECB transport envelope.
-//! - `envelope` — `image` + `enc`: firmware file loading (`envelope`) and
-//!   receiver-bound update preparation; with `drive`, execution
-//!   (`receiver::PreparedUpdate::flash_completed`) and `recovery`.
-//! - `oem` — `oem`: rebuild the flashable OEM image from a drive read, with
-//!   the provenance of every substituted byte. Implies `image`.
-//! - `image` also enables `update`: an update prepared against the installed
-//!   firmware, refused across chips and hardware families. With `drive` and
-//!   `enc` (that is, `drive` + `envelope`), the receiver-bound
-//!   `receiver::PreparedUpdate::flash_completed` runs it.
-//! - `analysis` — `analysis`: read-only OEM instruction-layout analysis
-//!   (`image::analysis`). Implies `image`.
-//! - `std` — links the standard library (implied by `image`).
+//! Features: `drive`, `image` (uses `std`), `analysis`, `enc`, `envelope`
+//! (`image` + `enc`), `oem`, `std`.
 //!
 //! ## Drive memory
 //!
 //! READ BUFFER mode 6 exposes the 2 MiB flash at file offsets, with one
 //! exception: the boot page `0x0..0x400` reads back as the image's own page at
-//! [`layout::BOOT_MIRROR`] instead of its stored form. The drive also rewrites
-//! the regions in [`layout::DRIVE_WRITTEN`] at runtime (revocation lists,
+//! [`envelope::BOOT_MIRROR`] instead of its stored form. The drive also rewrites
+//! the regions in [`envelope::DRIVE_WRITTEN`] at runtime (revocation lists,
 //! settings, calibration), so a read is never byte-identical to the image that
-//! was flashed. `oem::rebuild` undoes both.
+//! was flashed. `envelope::rebuild` undoes both.
 #![cfg_attr(not(feature = "std"), no_std)]
 #![deny(missing_docs)]
 #![forbid(unsafe_code)]
@@ -45,35 +37,36 @@
 #[cfg(all(test, not(feature = "std")))]
 extern crate std;
 
-mod error_codes;
-/// Common lifecycle observations for generic firmware applications.
-pub mod operation;
-pub use error_codes::CodedError;
+use envelope::layout;
 
+mod error_codes;
+mod operation;
 mod product_identity;
+
+pub use error_codes::CodedError;
+pub use operation::{Component, IssueKind, Phase, Progress};
 pub use product_identity::ProductIdentity;
 
 pub mod cdb;
-#[cfg(any(feature = "drive", feature = "analysis"))]
+#[cfg(any(feature = "image", feature = "drive"))]
+pub mod classify;
+#[cfg(any(feature = "drive", feature = "image"))]
 mod compiler;
 #[cfg(feature = "drive")]
 pub mod drive;
-#[cfg(feature = "enc")]
-pub mod enc;
-#[cfg(all(feature = "image", feature = "enc"))]
 pub mod envelope;
-#[cfg(feature = "image")]
-pub mod image;
-pub mod layout;
-#[cfg(feature = "oem")]
-pub mod oem;
-pub mod protocol;
+#[cfg(any(feature = "image", feature = "drive"))]
+pub mod prepare;
+
 #[cfg(feature = "drive")]
-pub mod receiver;
-#[cfg(all(feature = "drive", feature = "image", feature = "enc"))]
-pub mod recovery;
+mod protocol;
+#[cfg(feature = "drive")]
+mod sense;
+#[cfg(feature = "drive")]
+mod transport;
+
 #[cfg(feature = "image")]
-pub mod update;
+pub(crate) use envelope::refusal::Refusal;
 
 /// Length of a standard INQUIRY response header, in bytes.
 pub const INQUIRY_LEN: usize = 36;
@@ -357,45 +350,6 @@ impl Identity {
     /// The raw identity descriptor.
     pub fn descriptor_bytes(&self) -> &[u8; layout::DESCRIPTOR.len] {
         &self.descriptor
-    }
-}
-
-/// Sense-data parsing and classification.
-pub mod sense {
-    /// Parsed sense: `(key, asc, ascq)`.
-    pub type Triplet = (u8, u8, u8);
-
-    /// Sense key `NOT READY`.
-    pub const NOT_READY: u8 = 0x02;
-    /// Sense key `MEDIUM ERROR`.
-    pub const MEDIUM_ERROR: u8 = 0x03;
-    /// Sense key `HARDWARE ERROR`.
-    pub const HARDWARE_ERROR: u8 = 0x04;
-    /// Sense key `ILLEGAL REQUEST`.
-    pub const ILLEGAL_REQUEST: u8 = 0x05;
-    /// Sense key `ABORTED COMMAND`.
-    pub const ABORTED_COMMAND: u8 = 0x0B;
-
-    /// Parse fixed-format (`0x70`/`0x71`) or descriptor-format (`0x72`/`0x73`)
-    /// sense data into `(key, asc, ascq)`. `None` when short or unrecognized.
-    pub fn parse(data: &[u8]) -> Option<Triplet> {
-        match *data.first()? & 0x7f {
-            0x70 | 0x71 if data.len() >= 14 => Some((data[2] & 0x0f, data[12], data[13])),
-            0x72 | 0x73 if data.len() >= 4 => Some((data[1] & 0x0f, data[2], data[3])),
-            _ => None,
-        }
-    }
-
-    /// `true` for the keys that prove a programming failure after a flash:
-    /// MEDIUM ERROR, HARDWARE ERROR and ABORTED COMMAND. Every other key is a
-    /// transient or unrelated condition; read-back verification decides.
-    pub const fn is_flash_fault(key: u8) -> bool {
-        matches!(key, MEDIUM_ERROR | HARDWARE_ERROR | ABORTED_COMMAND)
-    }
-
-    /// `true` for `02/3A/xx`, the benign "medium not present" of an empty tray.
-    pub const fn is_no_medium(key: u8, asc: u8) -> bool {
-        key == NOT_READY && asc == 0x3A
     }
 }
 

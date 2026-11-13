@@ -1,6 +1,6 @@
 //! Boundary cases for the documented wire fields and OEM integrity table.
 #![cfg(all(feature = "image", feature = "drive"))]
-use mediatek_optical::{cdb, image::cmac, Chip};
+use mediatek_optical::{cdb, envelope::cmac, Chip};
 
 #[test]
 fn wire_fields_preserve_every_big_endian_byte() {
@@ -101,9 +101,12 @@ fn descriptor_sense_requires_all_four_bytes() {
     for response in [0x72, 0x73, 0xf2, 0xf3] {
         let sense = [response, 0x82, 0x3a, 2];
         for n in 0..4 {
-            assert_eq!(mediatek_optical::sense::parse(&sense[..n]), None);
+            assert_eq!(mediatek_optical::drive::sense::parse(&sense[..n]), None);
         }
-        assert_eq!(mediatek_optical::sense::parse(&sense), Some((2, 0x3a, 2)));
+        assert_eq!(
+            mediatek_optical::drive::sense::parse(&sense),
+            Some((2, 0x3a, 2))
+        );
     }
 }
 
@@ -170,14 +173,14 @@ fn inclusive_integrity_range_can_contain_one_byte() {
 
 #[test]
 fn public_table_geometry_matches_oem_records() {
-    assert_eq!(mediatek_optical::layout::CMAC_TABLE.start, 0x10400);
-    assert_eq!(mediatek_optical::layout::CMAC_TABLE.len, 448);
+    assert_eq!(mediatek_optical::envelope::CMAC_TABLE.start, 0x10400);
+    assert_eq!(mediatek_optical::envelope::CMAC_TABLE.len, 448);
 }
 
 #[cfg(feature = "oem")]
 #[test]
 fn catalog_replaces_one_chip_default_and_preserves_other_builds() {
-    use mediatek_optical::oem::{Build, Catalog, Factory};
+    use mediatek_optical::envelope::{Catalog, Factory, OemBuild as Build};
     use std::sync::Arc;
     let factory = |byte| {
         Factory::new(
@@ -210,15 +213,6 @@ fn catalog_replaces_one_chip_default_and_preserves_other_builds() {
     assert!(catalog.knows_boot_page(first.boot_page()));
     assert!(!catalog.knows_boot_page(&vec![0x44; 0x400]));
     assert!(catalog.build(&[0x55; 32]).is_none());
-    // The public SHA-256 helper has the standard empty-message known answer.
-    assert_eq!(
-        mediatek_optical::oem::sha256(&[]),
-        [
-            0xe3, 0xb0, 0xc4, 0x42, 0x98, 0xfc, 0x1c, 0x14, 0x9a, 0xfb, 0xf4, 0xc8, 0x99, 0x6f,
-            0xb9, 0x24, 0x27, 0xae, 0x41, 0xe4, 0x64, 0x9b, 0x93, 0x4c, 0xa4, 0x95, 0x99, 0x1b,
-            0x78, 0x52, 0xb8, 0x55
-        ]
-    );
 }
 
 #[test]
@@ -241,7 +235,7 @@ fn identity_preserves_inquiry_bytes_without_lossy_normalization() {
 
 #[test]
 fn failure_messages_retain_actionable_values() {
-    use mediatek_optical::update::{FlashError, PreparationError};
+    use mediatek_optical::{classify::Refusal as PreparationError, drive::FlashError};
     let unsupported = "MT1900".parse::<Chip>().unwrap_err().to_string();
     assert!(unsupported.contains("MT1959") && unsupported.contains("MT1939"));
     let size = PreparationError::Size(123).to_string();
@@ -262,7 +256,7 @@ fn failure_messages_retain_actionable_values() {
         message.contains("0x1234") && message.contains("77") && message.contains("disconnected")
     );
     #[cfg(feature = "enc")]
-    assert!(mediatek_optical::enc::LengthError(17)
+    assert!(mediatek_optical::envelope::LengthError(17)
         .to_string()
         .contains("17"));
 }

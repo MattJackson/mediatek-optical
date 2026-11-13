@@ -1,0 +1,68 @@
+//! The AES-128-ECB `enc` transport envelope.
+//!
+//! Some update paths stream the image AES-128-ECB encrypted under a fixed,
+//! public transport key. This is a transport encoding, not a signature: the
+//! drive authenticates the decrypted image by its integrity table
+//! (`crate::envelope::image::cmac`). Receiver-bound preparation chooses the wire encoding
+//! from firmware evidence; [`encrypt`] is the low-level codec primitive.
+//!
+//! Requires the `enc` feature.
+
+use aes::cipher::generic_array::GenericArray;
+use aes::cipher::inout::InOutBuf;
+use aes::cipher::{BlockDecrypt, BlockEncrypt, KeyInit};
+use aes::Aes128;
+
+/// The public AES-128 transport key.
+pub const KEY: [u8; 16] = [
+    0x5e, 0x9e, 0x4f, 0x00, 0x94, 0xef, 0x20, 0xab, 0x52, 0xe3, 0x5e, 0x73, 0x6a, 0xcb, 0x23, 0x24,
+];
+
+/// AES block size; the envelope covers whole blocks only.
+pub const BLOCK: usize = 16;
+
+/// `data` is not a whole number of AES blocks.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct LengthError(pub usize);
+
+impl core::fmt::Display for LengthError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(
+            f,
+            "enc: length {} is not a multiple of the {BLOCK}-byte AES block",
+            self.0
+        )
+    }
+}
+
+#[cfg(feature = "std")]
+impl std::error::Error for LengthError {}
+
+fn check(data: &[u8]) -> Result<(), LengthError> {
+    if data.len() % BLOCK != 0 {
+        return Err(LengthError(data.len()));
+    }
+    Ok(())
+}
+
+/// Encrypt `data` in place.
+pub fn encrypt(data: &mut [u8]) -> Result<(), LengthError> {
+    check(data)?;
+    let cipher = Aes128::new(GenericArray::from_slice(&KEY));
+    let (blocks, _) = InOutBuf::from(data).into_chunks();
+    cipher.encrypt_blocks_inout(blocks);
+    Ok(())
+}
+
+/// Decrypt `data` in place.
+pub fn decrypt(data: &mut [u8]) -> Result<(), LengthError> {
+    check(data)?;
+    let cipher = Aes128::new(GenericArray::from_slice(&KEY));
+    let (blocks, _) = InOutBuf::from(data).into_chunks();
+    cipher.decrypt_blocks_inout(blocks);
+    Ok(())
+}
+
+#[cfg(test)]
+#[path = "enc_tests.rs"]
+mod tests;

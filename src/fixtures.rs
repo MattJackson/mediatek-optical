@@ -1,8 +1,8 @@
 //! Synthetic MT19xx images for the crate's tests. Built in code, from the
 //! layout the crate documents; no vendor bytes.
 
-use crate::image::cmac;
-use crate::layout::{self, IMAGE_SIZE};
+use crate::envelope::image::cmac;
+use crate::envelope::layout::{self, IMAGE_SIZE};
 
 /// Where the fixture's feature template starts.
 pub(crate) const TEMPLATE_AT: usize = 0x2_0000;

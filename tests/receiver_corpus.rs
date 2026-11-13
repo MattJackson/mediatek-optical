@@ -1,8 +1,8 @@
 //! Run against the private website audit with MTK_RECEIVER_AUDIT and MTK_HOARD_ROOT.
 #![cfg(feature = "drive")]
 use mediatek_optical::{
-    drive::{Data, Transport},
-    receiver::{self, Encoding, Mode},
+    drive::{self, Data, Transport},
+    prepare::{Encoding, Mode},
 };
 struct Image {
     bytes: Vec<u8>,
@@ -49,10 +49,12 @@ fn every_website_binary_matches_both_receiver_expectations() {
         };
         for (boot, key) in [(true, "boot"), (false, "application")] {
             image.boot = boot;
-            let mode = receiver::detect_mode(&mut image).unwrap();
-            assert_eq!(mode.mode(), if boot { Mode::Boot } else { Mode::Firmware });
-            let result = receiver::detect_encoding(&mut image, &mode)
+            let result = drive::detect_receiver_encoding(&mut image)
                 .unwrap_or_else(|e| panic!("{} {key}: {e}", row["filename"]));
+            assert_eq!(
+                result.mode(),
+                if boot { Mode::Boot } else { Mode::Firmware }
+            );
             let expected = match row["receivers"][key]["encoding"].as_str() {
                 Some("encrypted") => Encoding::Encrypted,
                 Some("plaintext") => Encoding::Plaintext,

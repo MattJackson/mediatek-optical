@@ -1,7 +1,7 @@
 //! Small integrity-table data records from OEM installers (no executable code).
 //! Expected tags are stored by the OEM, independently verified with OpenSSL.
 #![cfg(feature = "image")]
-use mediatek_optical::image::cmac;
+use mediatek_optical::envelope::cmac;
 use serde_json::Value;
 fn bytes(s: &str) -> Vec<u8> {
     (0..s.len())

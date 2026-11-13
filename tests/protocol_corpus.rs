@@ -1,4 +1,4 @@
-use mediatek_optical::protocol::Evidence;
+use mediatek_optical::drive::Evidence;
 use std::path::Path;
 
 fn visit(dir: &Path, counts: &mut [usize; 3]) {

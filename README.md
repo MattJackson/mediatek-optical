@@ -24,7 +24,7 @@ firmware analysis, and typed update preparation and verification.
 
 ```toml
 [dependencies]
-mediatek-optical = { version = "1.0", features = ["drive"] }
+mediatek-optical = { version = "3.0", features = ["drive"] }
 ```
 
 Rust **1.75 or newer** is required. The default build has no enabled features.
@@ -67,7 +67,7 @@ and protocol bounds determine which addresses are meaningful.
 | none | `cdb`, `Identity`, controller types and protocol constants | `no_std`, no allocation |
 | `drive` | Identification, reads and command sequences over `Transport` | `no_std`, no allocation |
 | `image` | Controller detection, hardware families and AES-CMAC integrity | `std` |
-| `analysis` | Read-only OEM instruction-layout analysis (`image::analysis`) | `std`; includes `image` |
+| `analysis` | Read-only OEM instruction-layout analysis (`classify::analysis`) | `std`; includes `image` |
 | `enc` | Low-level AES-128-ECB transport encoding | `no_std`, no allocation |
 | `envelope` | Load firmware files and prepare receiver-bound updates | `std`; includes `image` and `enc` |
 | `oem` | Reconstruct OEM images from drive reads with byte provenance | `std`; includes `image` |
@@ -94,7 +94,7 @@ pub fn inspect(bytes: &[u8]) -> Result<(), Error> {
 
 The supported image is exactly 2 MiB with a recognized controller banner and a
 nonempty valid AES-CMAC table. Raw drive reads need reconstruction before they
-can be loaded as stored update images. With `oem`, `oem::rebuild` uses a
+can be loaded as stored update images. With `oem`, `envelope::rebuild` uses a
 caller-supplied factory catalog and reports the provenance of substituted bytes.
 Loading or reconstruction does not authorize a device write.
 
@@ -104,17 +104,16 @@ Enable `drive` and `envelope`. Bind captured **installed** firmware to live
 identity, detect the active receiver, then prepare the target separately:
 
 ```rust,no_run
-use mediatek_optical::{drive, envelope::Envelope, receiver, update::InstalledFirmware};
+use mediatek_optical::{classify::InstalledFirmware, drive, envelope::Envelope, prepare};
 
 pub fn prepare<T: drive::Transport>(
     transport: &mut T, current_image: &[u8], target_image: &[u8],
-) -> Result<receiver::PreparedUpdate, Box<dyn std::error::Error>>
+) -> Result<prepare::PreparedUpdate, Box<dyn std::error::Error>>
 where T::Error: 'static,
 {
     let identity = drive::identify(transport)?;
     let installed = InstalledFirmware::new(identity, current_image)?;
-    let mode = receiver::detect_mode(transport)?;
-    let receiver = receiver::detect(transport, &mode)?;
+    let receiver = drive::detect_receiver(transport)?;
     let target = Envelope::load(target_image)?;
     Ok(receiver.prepare(&target, &installed)?)
 }
@@ -124,7 +123,7 @@ Detection reads the receiver. Preparation validates integrity, controller and
 hardware-family compatibility without writing, and builds an immutable entry and
 encoding plan. Execution revalidates before writes; file encoding never chooses
 the transfer encoding. Unknown or conflicting contracts are errors.
-`Receiver::prepare` refuses with `PreparationError` and runs every check that
+`Receiver::prepare` refuses with `classify::Refusal` and runs every check that
 needs no I/O, so a prepared value has nothing left to check before consent.
 
 `PreparedUpdate::flash_completed` returns a `FlashOutcome` with the post-write
@@ -135,11 +134,11 @@ identity before and after the write, so a restart into the target was not
 observed; advise a power cycle and re-identification. Every readable mismatch
 and failed data write remains an error, returned as an `ExecutionError` whose
 `firmware_write_started()` and `phase()` say whether firmware may have been
-written and which boundary failed. `recovery::PreparedRecovery` is the explicit
+written and which boundary failed. `drive::PreparedRecovery` is the explicit
 recovery path and has the same startup rules.
 
 [examples/flash.rs](examples/flash.rs) provides a compiled host integration with
-`receiver::ExecutionRuntime` and `receiver::FlashTransport`. Its executable does not access hardware.
+`drive::ExecutionRuntime` and `drive::FlashTransport`. Its executable does not access hardware.
 Low-level `drive::Session` is a protocol primitive and does not supply the
 complete update procedure. Explicit unavailable-installed and Current-reference
 paths retain their evidence limitations; see the [protocol guide](docs/protocol-guide.md).

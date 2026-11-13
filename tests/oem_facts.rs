@@ -1,7 +1,7 @@
 //! Raw OEM bytes and independently computed OpenSSL results are the oracle.
 #![cfg(all(feature = "oem", feature = "enc"))]
 use mediatek_optical::{
-    image::{cmac, detect_chip},
+    envelope::{cmac, detect_chip},
     Chip,
 };
 use serde_json::Value;
@@ -45,15 +45,15 @@ fn case(index: usize) {
     // byte. This proves stored-file behavior, not drive-read reconstruction.
     let mirrored = row["mirrored_boot"].as_bool().unwrap();
     assert_eq!(raw[..0x400] == raw[0x10000..0x10400], mirrored);
-    assert_eq!(mediatek_optical::image::is_drive_read(&raw), mirrored);
+    assert_eq!(mediatek_optical::envelope::is_drive_read(&raw), mirrored);
     if mirrored {
         assert!(
-            mediatek_optical::oem::Factory::from_image(&raw).is_err(),
+            mediatek_optical::envelope::Factory::from_image(&raw).is_err(),
             "mirrored readback is not a known stored factory boot page"
         );
     }
     if expected_chip.is_some() && !mirrored {
-        use mediatek_optical::oem::{self, Build, Catalog, Factory};
+        use mediatek_optical::envelope::{self as oem, Catalog, Factory, OemBuild as Build};
         let mut catalog = Catalog::new();
         catalog.insert(
             oem::content_key(&raw).unwrap(),
@@ -130,9 +130,9 @@ fn case(index: usize) {
     }
     if let Some(expected) = row["encrypted_sha256"].as_str() {
         let mut encrypted = raw.clone();
-        mediatek_optical::enc::encrypt(&mut encrypted).unwrap();
+        mediatek_optical::envelope::encrypt(&mut encrypted).unwrap();
         assert_eq!(hex(&Sha256::digest(&encrypted)), expected);
-        mediatek_optical::enc::decrypt(&mut encrypted).unwrap();
+        mediatek_optical::envelope::decrypt(&mut encrypted).unwrap();
         assert_eq!(encrypted, raw);
     }
 }

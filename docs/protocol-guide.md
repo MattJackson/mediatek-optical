@@ -12,16 +12,16 @@ differences from the image that was flashed:
   stores the boot page in a form that never reads back.
 - The drive rewrites four regions at runtime and an update never overwrites
   them: the UHD and BD host revocation lists, the settings page and the
-  calibration block (`layout::DRIVE_WRITTEN`).
+  calibration block (`envelope::DRIVE_WRITTEN`).
 
 Across 205 OEM update images of both generations (LG, HP and ASUS), 204 store
 the same boot page, and every drive-read difference falls in those five
-ranges. `oem::content_key` hashes everything else, so a drive read and the OEM
+ranges. `envelope::content_key` hashes everything else, so a drive read and the OEM
 image it came from share a key.
 
 ## Hardware family
 
-`image::family` names the board an image is built for (scheme
+`envelope::family` names the board an image is built for (scheme
 `mediatek.hardware.v1`). Every MT19xx build carries a hardware configuration
 record in its code area: the MMC feature template the firmware answers GET
 CONFIGURATION from, then `55 AA`, `UNIQUE` and ten digits, the `MTEKMT19xx`
@@ -51,15 +51,15 @@ Its `input_encoding()` describes the file only: the running receiver determines
 the required transfer encoding. Loading an envelope performs no drive I/O and
 does not authorize writing.
 
-`update::InstalledFirmware::new(identity, bytes)` binds captured installed bytes
-to live identity. `receiver::detect` establishes the active entry and encoding
+`classify::InstalledFirmware::new(identity, bytes)` binds captured installed bytes
+to live identity. `drive::detect_receiver` establishes the active entry and encoding
 contract; `Receiver::prepare(&envelope, &installed)` checks target integrity,
 controller generation and hardware family, then constructs an immutable transfer
 plan. Unknown or conflicting receiver contracts fail before any write. File
 encoding never chooses transfer encoding; header and body can require different
 representations.
 
-`receiver::PreparedUpdate::flash_completed` returns a `FlashOutcome` whose
+`prepare::PreparedUpdate::flash_completed` returns a `FlashOutcome` whose
 `ReadbackQuality` explicitly distinguishes complete and limited readback, and
 whose `Startup::evidence()` states how strongly a restart into the target was
 observed. Every readable mismatch and every failed data write remains an error.
@@ -108,12 +108,12 @@ complete 0x100-byte identity descriptor at 0x1ec000. The descriptor is programme
 from the image, not written by the drive. Read-back compares only the image's
 CMAC-covered ranges; in every held MT19 image these exclude the descriptor, so
 startup is the only post-write evidence for it. A differing descriptor is
-`receiver::Error::Changed` before a write and `StartupError::TargetMismatch`
+`drive::ReceiverError::Changed` before a write and `StartupError::TargetMismatch`
 after one.
 
 ## OEM reconstruction
 
-`oem::rebuild` turns a complete drive read into a flashable image:
+`envelope::rebuild` turns a complete drive read into a flashable image:
 
 - **Exact**: the read's content key matches a cataloged OEM build. The result
   is byte-identical to that vendor file.
@@ -124,8 +124,8 @@ after one.
 
 A boot page that is neither the stored page nor the mirror of a drive read is
 refused: no image is produced whose stored boot page is unknown. The crate
-ships no catalog; build one from OEM images with `oem::Factory::from_image`
-and `oem::content_key`.
+ships no catalog; build one from OEM images with `envelope::Factory::from_image`
+and `envelope::content_key`.
 
 ## Receiver-bound updates
 
@@ -188,8 +188,8 @@ every media-type root. The model does not cover:
 ## Safety
 
 An update session writes drive firmware. A wrong image, or an interrupted
-session, can leave the drive unusable. Verify an image with `image::cmac`
-before flashing, and flash through `receiver::PreparedUpdate`, which refuses
+session, can leave the drive unusable. Verify an image with `envelope::cmac`
+before flashing, and flash through `prepare::PreparedUpdate`, which refuses
 an image for other hardware. The identity, feature and memory-read commands
 are read-only.
 
@@ -203,11 +203,11 @@ MIT. See [LICENSE-MIT](../LICENSE-MIT).
 
 ## Receiver encoding detection
 
-With `drive`, `receiver::detect_mode(&mut transport)` identifies BOOT versus
+With `drive`, `drive::detect_receiver_encoding(&mut transport)` identifies BOOT versus
 running firmware from INQUIRY. Pass that result to
-`receiver::detect_encoding(&mut transport, &mode)` to inspect the active
+`drive::detect_receiver_encoding(&mut transport)` to inspect the active
 receiver's code and obtain `Encoding::Plaintext` or `Encoding::Encrypted`.
-For execution, use `receiver::detect` and receiver-bound preparation, which
+For execution, use `drive::detect_receiver` and receiver-bound preparation, which
 selects wire encoding and automatically revalidates before writing. The caller
 owns host policy; no manual encrypted/plaintext override is provided.
 
@@ -218,7 +218,7 @@ application are evaluated independently, including images whose two receivers
 expect different formats. Read failures can prevent detection on a live drive;
 static corpus coverage does not establish physical-device read accessibility.
 
-Explicit `recovery::PreparedRecovery::flash_completed` reports a failed PREPARE through
+Explicit `drive::PreparedRecovery::flash_completed` reports a failed PREPARE through
 `ExecutionRuntime::recovery_entry_failed` and proceeds once to the selected image.
 This is recovery host policy, not a claim that the receiver always rejects
 PREPARE. Normal `PreparedUpdate::flash_completed` remains strict. STREAM
@@ -226,8 +226,8 @@ failures stop both paths, no firmware writes retry, and recovery still requires
 readback verification and the target application identity, reporting the
 restart evidence as above. Physical recovery remains unvalidated.
 
-`receiver::entry::inspect_boot_legacy(window, flash_address)` and
-`inspect_boot_dual(window, flash_address)` inspect PREPARE flag-copy grammars
+The crate-internal BOOT entry analyzers (`inspect_boot_legacy` and
+`inspect_boot_dual`, exercised by the corpus tests) inspect PREPARE flag-copy grammars
 with checked operands, literals and branch targets. The latter binds mode 1
 and mode 6/buffer 0x67 to the same body and validates the unsupported-mode error
 path. Results are entry evidence, not transfer authorization: completion,
@@ -236,7 +236,7 @@ published images match exactly one grammar (98 legacy, 38 dual entry). The full
 1024-image hoard has 102 legacy and 38 dual-entry matches; 884 other images
 remain unresolved. No error-continuation policy is inferred from these matches.
 
-`receiver::entry::application::inspect` binds an application command table to
+The crate-internal application entry analyzer binds an application command table to
 the unique MMIO update-flag clearing block. All 136 published images match:
 25 inline Thumb tables and 111 compiler-helper tables, with 18 mode-1 targets
 reaching the block through one branch. Helper candidates require a separate
@@ -270,7 +270,7 @@ record to the handler's Thumb pointer. All 136 published images match the
 independent opcode/callback census. This is static table evidence; initializer,
 lookup execution, pre-dispatch predicates and completion remain separate proofs.
 
-For executable operations, use `receiver::detect(transport, &mode)`. It binds
+For executable operations, use `drive::detect_receiver(transport)`. It binds
 encoding, the complete entry prelude/body, mode-six guard, compiler helper and
 WRITE BUFFER registration to bounded live reads. Unknown entry code fails
 closed. Every recognized receiver selects the proven mode-one PREPARE,
@@ -299,7 +299,7 @@ Typed errors implement `mediatek_optical::CodedError`. `error.code()` returns a
 stable identifier such as `mediatek.receiver.changed`, independent of runtime
 values. Match typed variants for parameters and use codes for translation keys;
 English `Display` messages are diagnostic prose. Execution wrappers
-(`receiver::ExecutionError`, `recovery::Error`) report their cause's code, so a
+(`drive::ExecutionError`, `drive::RecoveryError`) report their cause's code, so a
 failure has the same code on every path; match the wrapper variant or use
 `phase()` and `firmware_write_started()` for the stage. Wrappers expose typed
 causes through `std::error::Error::source` when `std` is enabled. The source chain ends at `drive::Error`: its transport

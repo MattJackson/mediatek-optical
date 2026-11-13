@@ -46,8 +46,9 @@ fn untar(bytes: &[u8]) -> Vec<(String, Vec<u8>)> {
         let name_end = header[..100].iter().position(|&b| b == 0).unwrap_or(100);
         let name = String::from_utf8_lossy(&header[..name_end]).into_owned();
         let size_field = String::from_utf8_lossy(&header[124..136]);
-        let size = usize::from_str_radix(size_field.trim_matches(|c: char| c == '\0' || c == ' '), 8)
-            .unwrap_or(0);
+        let size =
+            usize::from_str_radix(size_field.trim_matches(|c: char| c == '\0' || c == ' '), 8)
+                .unwrap_or(0);
         let start = at + 512;
         let end = (start + size).min(bytes.len());
         if header[156] == b'0' || header[156] == 0 {
@@ -68,10 +69,7 @@ fn collect(path: &Path, out: &mut Vec<PathBuf>) {
         for e in entries {
             collect(&e, out);
         }
-    } else if path
-        .extension()
-        .is_some_and(|e| e == "bin" || e == "tar")
-    {
+    } else if path.extension().is_some_and(|e| e == "bin" || e == "tar") {
         out.push(path.to_path_buf());
     }
 }

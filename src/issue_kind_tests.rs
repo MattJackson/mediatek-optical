@@ -2,7 +2,7 @@
 fn every_declared_code_has_a_deliberate_host_category() {
     for source in [
         include_str!("error_codes.rs"),
-        include_str!("image/analysis/mod.rs"),
+        include_str!("classify/analysis/mod.rs"),
     ] {
         let mut codes = source
             .split('"')
@@ -22,12 +22,9 @@ fn every_declared_code_has_a_deliberate_host_category() {
 #[cfg(all(feature = "drive", feature = "image", feature = "enc"))]
 #[test]
 fn execute_and_flash_errors_classify_by_their_cause() {
-    use crate::{
-        operation::IssueKind,
-        receiver::{self, ExecutionError},
-        update::{FlashError, StartupError},
-        CodedError,
-    };
+    use crate::drive::{ExecutionError, FlashError, StartupError};
+    use crate::prepare::receiver;
+    use crate::{operation::IssueKind, CodedError};
     // A pre-write receiver refusal never attempted a write.
     let refused = ExecutionError::<()>::Receiver(receiver::Error::Changed);
     assert_eq!(refused.kind(), IssueKind::ReceiverMismatch);
@@ -38,10 +35,11 @@ fn execute_and_flash_errors_classify_by_their_cause() {
     assert_eq!(flash.code(), "mediatek.startup.target_mismatch");
     let mismatch = FlashError::<()>::Startup(StartupError::TargetMismatch);
     assert_eq!(mismatch.kind(), IssueKind::Verification);
-    let identity = FlashError::<()>::Startup(StartupError::Read(crate::drive::Error::Oversize(1)));
+    let identity =
+        FlashError::<()>::Startup(StartupError::Read(crate::transport::Error::Oversize(1)));
     assert_eq!(identity.kind(), IssueKind::Connection);
     assert_eq!(
-        FlashError::<()>::ReadyTimeout(crate::drive::Error::Oversize(1)).kind(),
+        FlashError::<()>::ReadyTimeout(crate::transport::Error::Oversize(1)).kind(),
         IssueKind::Update
     );
 }
@@ -49,7 +47,7 @@ fn execute_and_flash_errors_classify_by_their_cause() {
 #[cfg(feature = "image")]
 #[test]
 fn an_unrecognised_cmac_enabled_word_is_invalid_firmware() {
-    use crate::{image::cmac::CmacError, operation::IssueKind, CodedError};
+    use crate::{envelope::cmac::CmacError, operation::IssueKind, CodedError};
     let e = CmacError::UnknownEnabled {
         index: 1,
         enabled: 0,
@@ -61,7 +59,7 @@ fn an_unrecognised_cmac_enabled_word_is_invalid_firmware() {
 #[cfg(all(feature = "drive", feature = "image", feature = "enc"))]
 #[test]
 fn reference_session_errors_classify_by_their_physical_cause() {
-    use crate::{operation::IssueKind, receiver, CodedError};
+    use crate::{prepare::receiver, CodedError, IssueKind};
     assert_eq!(
         super::kind_for_code("mediatek.reference.session"),
         IssueKind::Connection
@@ -69,7 +67,7 @@ fn reference_session_errors_classify_by_their_physical_cause() {
     let changed = receiver::reference::Error::<()>::Session(receiver::Error::Changed);
     assert_eq!(changed.kind(), IssueKind::ReceiverMismatch);
     let read = receiver::reference::Error::<()>::Session(receiver::Error::Read(
-        crate::drive::Error::Transport(()),
+        crate::transport::Error::Transport(()),
     ));
     assert_eq!(read.kind(), IssueKind::Connection);
 }

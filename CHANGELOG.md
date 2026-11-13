@@ -1,5 +1,73 @@
 # Changelog
 
+## [3.0.0] - 2026-11-13
+
+Breaking: the public API is reorganized into the five modules pioneer-optical
+also exposes (`envelope`, `classify`, `prepare`, `cdb`, `drive`) plus a small
+set of root vocabulary types. Everything else is crate-private. There are no
+deprecated aliases. Behaviour is unchanged: the golden oracle in `oracle/`
+(image identity and analysis digests, update and recovery plan byte streams,
+freemkv Modify outputs per boot feature set, and offline crossflash verdicts
+between the MediaTek release packages) is reproduced byte-for-byte. Error
+codes, `IssueKind` categories and `Display` strings are unchanged.
+
+- `envelope` is the codec: geometry, `Envelope::load`, image identity (chip,
+  family, hardware, `identity`), the AES-CMAC table (`envelope::cmac`), the
+  transport encoding (`encrypt`/`decrypt`), OEM reconstruction (`rebuild`,
+  `Catalog`) and `reserved_ranges`.
+- `classify` holds verdicts without materialization: `check`,
+  `InstalledFirmware`, `Refusal` (formerly `PreparationError`, now with
+  `family_gate()`), and the MT19xx model/crossflash gate moved here from
+  freemkv-flash (`Build`, `Verdict`, `ModelRefusal`, `decide_plan`,
+  `decide_authorized`, `decide_rollback`, `decide_model`). `classify::analysis`
+  is the Thumb-fingerprint evidence a Modify plans from, now including the
+  update-receiver evidence (`ApplicationAnalysis`, `inspect_program_loop`).
+- `prepare` materializes plans: `Receiver`, `ValidatedUpdate`, `PreparedUpdate`,
+  `TransferPlan`, `Step`, and `extend_coverage` (the integrity-coverage
+  extension moved here from freemkv-fw).
+- `drive` runs sequences over a caller's `Transport`: identity and memory reads,
+  `detect_receiver` / `detect_receiver_encoding` / `detect_receiver_with_current`
+  / `detect_receiver_with_user_current` (each replaces a hand-assembled
+  `detect_mode` + `detect*` pair), execution (`ExecutionRuntime`, `FlashError`,
+  `FlashOutcome`, ...), recovery (`RecoveryReceiver`, `PreparedRecovery`),
+  `Evidence` and `drive::sense`.
+- Root: `Chip`, `UnknownChip`, `DriveClass`, `Identity`, `INQUIRY_LEN`,
+  `ProductIdentity`, `CodedError`, `IssueKind`, `Phase`, `Component`, `Progress`.
+- Removed from the public API: `receiver::{entry, analysis, decoding, layout,
+  programming}` internals (still used internally), `detect_mode`, `DetectedMode`,
+  `receiver::detect`/`detect_encoding`, `Receiver::application_analysis`,
+  `oem::sha256`. The receiver-code analyzers moved physically to
+  `classify` so internal dependencies point one way
+  (envelope → classify → prepare → drive).
+
+### Migration
+
+| 2.x path | 3.0 path |
+| --- | --- |
+| `layout::*` | `envelope::*` |
+| `enc::{encrypt, decrypt, LengthError}` | `envelope::{encrypt, decrypt, LengthError}` |
+| `image::{detect_chip, family, hardware, is_drive_read, is_uhd, ChipInfo, ChipError, Family, Hardware, FAMILY_SCHEME}` | `envelope::…` |
+| `image::cmac::*` | `envelope::cmac::*` |
+| `image::analysis::*` | `classify::analysis::*` |
+| `oem::{rebuild, content_key, Catalog, Factory, …}` / `oem::Build` | `envelope::…` / `envelope::OemBuild` |
+| `envelope::Envelope` | `envelope::Envelope` (unchanged) |
+| `update::PreparationError` | `classify::Refusal` |
+| `update::{InstalledFirmware, ContractReason}` | `classify::…` |
+| `update::ValidatedUpdate::check` | `classify::check` |
+| `update::{ValidatedUpdate, Step, Direction}` | `prepare::…` |
+| `update::{FlashError, FlashTransport, ExecutionRuntime, FlashOutcome, ReadbackQuality, Startup*, Stage, Status, Verified}` | `drive::…` |
+| `receiver::{Receiver, Mode, Encoding, PreparedUpdate, TransferPlan, TransferEncoding}` | `prepare::…` |
+| `receiver::reference::Provenance` | `prepare::Provenance` |
+| `receiver::detect_mode` + `receiver::detect` | `drive::detect_receiver` |
+| `receiver::detect_mode` + `receiver::detect_encoding` | `drive::detect_receiver_encoding` |
+| `receiver::reference::{detect, detect_user_supplied}` | `drive::detect_receiver_with_current`, `drive::detect_receiver_with_user_current` |
+| `receiver::{Error, ExecutionError}`, `receiver::reference::Error` | `drive::{ReceiverError, ExecutionError, ReferenceError}` |
+| `recovery::{Receiver, Error, PreparedRecovery}` | `drive::{RecoveryReceiver, RecoveryError, PreparedRecovery}` |
+| `protocol::{Evidence, Incomplete}` | `drive::…` |
+| `sense::*` | `drive::sense::*` |
+| `operation::{IssueKind, Phase, Component, Progress}` | crate root |
+| `receiver::analysis::ApplicationAnalysis`, `receiver::programming::inspect_program_loop` | `classify::analysis::…` |
+
 ## [2.0.0] - 2026-11-12
 
 - Align the public API with pioneer-optical for 2.0 (breaking; behaviour, refusals and `IssueKind` categories are unchanged; no deprecated aliases). `receiver::ExecuteError` is now `receiver::ExecutionError`; `update::PrepareError` is now `update::PreparationError` (codes stay `mediatek.prepare.*`, matching pioneer-optical's `pioneer.prepare.*`); `update::Completion` is now `update::FlashOutcome`; `update::FlashRuntime` is now `update::ExecutionRuntime`, and its callback `unverified` is now `verification_unavailable` (same arguments); `update::PreparedUpdate`, the image validated against installed firmware, is now `update::ValidatedUpdate`, so `PreparedUpdate` names only the executable `receiver::PreparedUpdate` as in pioneer-optical. `receiver` re-exports `FlashTransport`, `ExecutionRuntime` and `FlashOutcome`, so the whole execution surface imports from `receiver::`.

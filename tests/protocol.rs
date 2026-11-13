@@ -1,4 +1,4 @@
-use mediatek_optical::protocol::Evidence;
+use mediatek_optical::drive::Evidence;
 fn inquiry() -> [u8; 36] {
     let mut b = [0; 36];
     b[0] = 5;

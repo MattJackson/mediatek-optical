@@ -10,8 +10,8 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 
-use mediatek_optical::image::{family, hardware};
-use mediatek_optical::{layout, Chip};
+use mediatek_optical::envelope::{family, hardware};
+use mediatek_optical::{envelope, Chip};
 
 /// `(family, images, key, [(vendor and model, revisions)])`.
 type Row = (
@@ -177,10 +177,10 @@ fn corpus_reproduces_the_research_table() {
     for path in &paths {
         let image = std::fs::read(path).unwrap();
         let Some(family) = family(&image) else {
-            if image.len() != layout::IMAGE_SIZE {
+            if image.len() != envelope::IMAGE_SIZE {
                 wrong_size += 1;
             } else {
-                let banner = layout::BANNER.of(&image).unwrap();
+                let banner = envelope::BANNER.of(&image).unwrap();
                 assert!(
                     Chip::from_banner(banner).is_none(),
                     "{} names a chip but has no family",
@@ -191,7 +191,7 @@ fn corpus_reproduces_the_research_table() {
             continue;
         };
         let key = hardware(&image).unwrap().key().replace('\x1f', " ");
-        let descriptor = layout::DESCRIPTOR.of(&image).unwrap();
+        let descriptor = envelope::DESCRIPTOR.of(&image).unwrap();
         let row = found
             .entry(family.to_string())
             .or_insert((0, key.clone(), BTreeMap::new()));

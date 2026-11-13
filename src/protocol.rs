@@ -20,7 +20,8 @@ impl Evidence {
     /// Bytes after its NUL terminator are firmware instructions, not string padding.
     /// Names and descriptor labels do not select a chip.
     pub fn parse(inquiry: &[u8], banner: &[u8]) -> Result<Option<Self>, Incomplete> {
-        if inquiry.len() < crate::INQUIRY_LEN || banner.len() != crate::layout::BANNER.len {
+        if inquiry.len() < crate::INQUIRY_LEN || banner.len() != crate::envelope::layout::BANNER.len
+        {
             return Err(Incomplete);
         }
         if inquiry[0] & 0x1f != 5

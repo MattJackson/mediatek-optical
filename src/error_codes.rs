@@ -21,6 +21,7 @@ pub trait CodedError {
     fn code(&self) -> &'static str;
 }
 
+#[cfg(feature = "drive")]
 impl CodedError for crate::protocol::Incomplete {
     fn code(&self) -> &'static str {
         "mediatek.protocol.incomplete"
@@ -34,7 +35,7 @@ impl CodedError for crate::UnknownChip {
 }
 
 #[cfg(feature = "drive")]
-impl<E> CodedError for crate::drive::Error<E> {
+impl<E> CodedError for crate::transport::Error<E> {
     fn code(&self) -> &'static str {
         match self {
             Self::Transport(_) => "mediatek.drive.transport",
@@ -45,14 +46,14 @@ impl<E> CodedError for crate::drive::Error<E> {
 }
 
 #[cfg(feature = "enc")]
-impl CodedError for crate::enc::LengthError {
+impl CodedError for crate::envelope::enc::LengthError {
     fn code(&self) -> &'static str {
         "mediatek.enc.length"
     }
 }
 
 #[cfg(feature = "image")]
-impl CodedError for crate::image::ChipError {
+impl CodedError for crate::envelope::image::ChipError {
     fn code(&self) -> &'static str {
         match self {
             Self::Undetectable => "mediatek.image.undetectable_chip",
@@ -61,7 +62,7 @@ impl CodedError for crate::image::ChipError {
 }
 
 #[cfg(feature = "image")]
-impl CodedError for crate::image::cmac::CmacError {
+impl CodedError for crate::envelope::image::cmac::CmacError {
     fn code(&self) -> &'static str {
         match self {
             Self::ImageTooSmall { .. } => "mediatek.cmac.image_too_small",
@@ -73,7 +74,7 @@ impl CodedError for crate::image::cmac::CmacError {
 }
 
 #[cfg(feature = "image")]
-impl CodedError for crate::update::PreparationError {
+impl CodedError for crate::Refusal {
     fn code(&self) -> &'static str {
         match self {
             Self::ReceiverEntry => "mediatek.prepare.receiver_entry",
@@ -106,7 +107,7 @@ impl CodedError for crate::envelope::Error {
 }
 
 #[cfg(feature = "oem")]
-impl CodedError for crate::oem::RebuildError {
+impl CodedError for crate::envelope::oem::RebuildError {
     fn code(&self) -> &'static str {
         match self {
             Self::Size(_) => "mediatek.oem.size",
@@ -119,7 +120,7 @@ impl CodedError for crate::oem::RebuildError {
 }
 
 #[cfg(feature = "drive")]
-impl<E> CodedError for crate::receiver::Error<E> {
+impl<E> CodedError for crate::prepare::receiver::Error<E> {
     fn code(&self) -> &'static str {
         match self {
             Self::Read(_) => "mediatek.receiver.read",
@@ -132,8 +133,8 @@ impl<E> CodedError for crate::receiver::Error<E> {
     }
 }
 
-#[cfg(all(feature = "drive", feature = "image"))]
-impl<E> CodedError for crate::update::FlashError<E> {
+#[cfg(all(feature = "drive", feature = "image", feature = "enc"))]
+impl<E> CodedError for crate::drive::FlashError<E> {
     fn kind(&self) -> crate::operation::IssueKind {
         match self {
             Self::Startup(error) => error.kind(),
@@ -152,8 +153,8 @@ impl<E> CodedError for crate::update::FlashError<E> {
     }
 }
 
-#[cfg(all(feature = "drive", feature = "image"))]
-impl<E> CodedError for crate::update::StartupError<E> {
+#[cfg(all(feature = "drive", feature = "image", feature = "enc"))]
+impl<E> CodedError for crate::drive::StartupError<E> {
     fn code(&self) -> &'static str {
         match self {
             Self::Identity(_) => "mediatek.startup.identity",
@@ -164,7 +165,7 @@ impl<E> CodedError for crate::update::StartupError<E> {
 }
 
 #[cfg(all(feature = "drive", feature = "image", feature = "enc"))]
-impl<E> CodedError for crate::receiver::ExecutionError<E> {
+impl<E> CodedError for crate::drive::ExecutionError<E> {
     fn kind(&self) -> crate::operation::IssueKind {
         match self {
             Self::Receiver(error) => error.kind(),
@@ -180,7 +181,7 @@ impl<E> CodedError for crate::receiver::ExecutionError<E> {
 }
 
 #[cfg(all(feature = "drive", feature = "image", feature = "enc"))]
-impl<E> CodedError for crate::receiver::reference::Error<E> {
+impl<E> CodedError for crate::prepare::receiver::reference::Error<E> {
     fn kind(&self) -> crate::operation::IssueKind {
         match self {
             // Analysis reads only the supplied file: an identity or read
@@ -205,7 +206,7 @@ impl<E> CodedError for crate::receiver::reference::Error<E> {
 }
 
 #[cfg(all(feature = "drive", feature = "image", feature = "enc"))]
-impl CodedError for crate::receiver::layout::Error {
+impl CodedError for crate::prepare::receiver::layout::Error {
     fn code(&self) -> &'static str {
         match self {
             Self::Alignment => "mediatek.layout.alignment",
@@ -219,7 +220,7 @@ impl CodedError for crate::receiver::layout::Error {
 }
 
 #[cfg(all(feature = "drive", feature = "image", feature = "enc"))]
-impl<E> CodedError for crate::recovery::Error<E> {
+impl<E> CodedError for crate::drive::RecoveryError<E> {
     fn kind(&self) -> crate::operation::IssueKind {
         use crate::operation::IssueKind;
         match self {

@@ -1,7 +1,7 @@
 # Self-contained manifest (no workspace inheritance) so it packages for crates.io as-is.
 [package]
 name = "mediatek-optical"
-version = "2.0.0"
+version = "3.0.0"
 edition = "2021"
 rust-version = "1.75"
 license = "MIT"
@@ -73,10 +73,6 @@ required-features = ["image"]
 [[test]]
 name = "envelope_corpus"
 required-features = ["envelope"]
-
-[[test]]
-name = "entry_corpus"
-required-features = ["drive"]
 
 [[example]]
 name = "flash"
