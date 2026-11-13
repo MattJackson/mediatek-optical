@@ -1,3 +1,4 @@
+#![cfg(feature = "drive")]
 use mediatek_optical::drive::Evidence;
 fn inquiry() -> [u8; 36] {
     let mut b = [0; 36];

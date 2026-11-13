@@ -1,3 +1,4 @@
+#![cfg(feature = "drive")]
 use mediatek_optical::drive::Evidence;
 use std::path::Path;
 
