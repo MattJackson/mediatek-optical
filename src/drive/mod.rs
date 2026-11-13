@@ -1,6 +1,6 @@
-//! Command sequences over a caller-supplied [`Transport`]: identity and memory
+//! Command sequences over a caller-supplied `Transport`: identity and memory
 //! reads, live receiver detection, update execution of a
-//! [`crate::prepare::PreparedUpdate`], and recovery.
+//! `crate::prepare::PreparedUpdate`, and recovery.
 //!
 //! The caller owns the device: opening it, consent, backup and reporting.
 

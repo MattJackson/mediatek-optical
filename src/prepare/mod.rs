@@ -1,14 +1,14 @@
 //! Materialization: an image validated against the drive and bound to the
-//! update receiver that will accept it, as an opaque [`TransferPlan`] that
+//! update receiver that will accept it, as an opaque `TransferPlan` that
 //! yields the exact bytes and commands to write.
 //!
-//! The active [`Receiver`] is analyzed from code (the live drive's, through
-//! [`crate::drive::detect_receiver`], or a Current firmware file's through
-//! [`Receiver::from_firmware`]); its contract selects the wire encoding. A
+//! The active `Receiver` is analyzed from code (the live drive's, through
+//! `crate::drive::detect_receiver`, or a Current firmware file's through
+//! `Receiver::from_firmware`); its contract selects the wire encoding. A
 //! plan cannot be built for a receiver that does not accept the image.
 //!
-//! Depends on [`crate::envelope`] and [`crate::classify`]; never on
-//! [`crate::drive`], which executes the plans built here.
+//! Depends on `crate::envelope` and `crate::classify`; never on
+//! `crate::drive`, which executes the plans built here.
 
 #[cfg(all(feature = "drive", feature = "image", feature = "enc"))]
 mod coverage;

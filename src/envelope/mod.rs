@@ -6,11 +6,11 @@
 //! Nothing here reads a drive or decides compatibility; it depends on no other
 //! public module.
 //!
-//! - geometry ([`Range`] and the fixed regions) is always available;
-//! - [`encrypt`] / [`decrypt`] need `enc`;
-//! - identity and [`cmac`] need `image`;
-//! - [`Envelope::load`] needs `image` + `enc`;
-//! - [`rebuild`] needs `oem`.
+//! - geometry (`Range` and the fixed regions) is always available;
+//! - `encrypt` / `decrypt` need `enc`;
+//! - identity and `cmac` need `image`;
+//! - `Envelope::load` needs `image` + `enc`;
+//! - `rebuild` needs `oem`.
 
 pub(crate) mod layout;
 pub use layout::{

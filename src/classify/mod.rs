@@ -1,9 +1,9 @@
 //! Verdicts without materialization: whether an image may be written to a
 //! drive (or a drive running another image), and why not, as typed
-//! [`Refusal`]s; and, with `analysis`, the Thumb-fingerprint evidence a Modify
-//! plans from ([`analysis`]).
+//! `Refusal`s; and, with `analysis`, the Thumb-fingerprint evidence a Modify
+//! plans from (`analysis`).
 //!
-//! Depends only on [`crate::envelope`].
+//! Depends only on `crate::envelope`.
 
 #[cfg(feature = "analysis")]
 pub mod analysis;

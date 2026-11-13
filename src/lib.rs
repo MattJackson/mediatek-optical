@@ -5,18 +5,18 @@
 //! dependencies pointing one way (`envelope` → `classify` → `prepare` →
 //! `drive`; `cdb` stands alone):
 //!
-//! - [`envelope`] — the image codec: geometry, loading, identity, the AES-CMAC
+//! - `envelope` — the image codec: geometry, loading, identity, the AES-CMAC
 //!   table, the transport encoding (`enc`) and OEM reconstruction (`oem`).
 //! - `classify` — verdicts without materialization: whether an image may be
 //!   written to a drive and why not, and (`analysis`) the Thumb-fingerprint
 //!   evidence a Modify plans from. Needs `image`.
 //! - `prepare` — receiver-bound plans yielding the exact bytes to write.
-//! - [`cdb`] — command descriptor blocks, as byte constructors.
+//! - `cdb` — command descriptor blocks, as byte constructors.
 //! - `drive` — command sequences over a caller-supplied `drive::Transport`:
 //!   identity, receiver detection, update execution and recovery. Needs `drive`.
 //!
-//! The crate root holds the shared vocabulary: [`Identity`], [`Chip`],
-//! [`DriveClass`], [`ProductIdentity`], [`CodedError`] and the progress and
+//! The crate root holds the shared vocabulary: `Identity`, `Chip`,
+//! `DriveClass`, `ProductIdentity`, `CodedError` and the progress and
 //! issue kinds. The core is `no_std`, allocation-free and dependency-free.
 //!
 //! Features: `drive`, `image` (uses `std`), `analysis`, `enc`, `envelope`
@@ -26,8 +26,8 @@
 //!
 //! READ BUFFER mode 6 exposes the 2 MiB flash at file offsets, with one
 //! exception: the boot page `0x0..0x400` reads back as the image's own page at
-//! [`envelope::BOOT_MIRROR`] instead of its stored form. The drive also rewrites
-//! the regions in [`envelope::DRIVE_WRITTEN`] at runtime (revocation lists,
+//! `envelope::BOOT_MIRROR` instead of its stored form. The drive also rewrites
+//! the regions in `envelope::DRIVE_WRITTEN` at runtime (revocation lists,
 //! settings, calibration), so a read is never byte-identical to the image that
 //! was flashed. `envelope::rebuild` undoes both.
 #![cfg_attr(not(feature = "std"), no_std)]
