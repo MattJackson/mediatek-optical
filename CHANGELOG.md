@@ -1,5 +1,22 @@
 # Changelog
 
+## [3.0.1] - unreleased
+
+Faster static SRAM reference analysis (`RamReferences::inspect`), with
+identical results:
+
+- PC-relative literal loads are rejected from the raw halfword before a full
+  decode: LDR (literal) T1 is the only 16-bit encoding with a PC base. An
+  exhaustive test over all 65,536 halfwords proves the prefilter never drops
+  a decoded literal load.
+- Each fill and copy pattern is matched once per offset instead of twice;
+  a match can scan the whole image for initializer references.
+- The pointer walk decodes each reached instruction once across seeds and
+  reuses one hashed state set instead of an ordered set rebuilt per seed.
+
+Measured on 26 MediaTek release images: identical `RamReferences` for every
+image; about 4x faster on images without SRAM walks.
+
 ## [3.0.0] - 2026-11-13
 
 Breaking: the public API is reorganized into the five modules pioneer-optical

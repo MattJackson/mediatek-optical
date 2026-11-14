@@ -68,6 +68,7 @@ impl Entries {
 }
 
 impl Fill {
+    #[cfg(test)]
     pub fn at(image: &[u8], at: usize, entries: &Entries) -> Option<Self> {
         let pattern = Self::word_pattern(image, at)?;
         entries.closed(at, pattern.exit).then_some(pattern)
@@ -123,6 +124,7 @@ impl Fill {
 /// Byte-counted store loop, including zero-length loops. The incoming branch
 /// tests the count before the first store; external body entries invalidate it.
 impl Fill {
+    #[cfg(test)]
     pub fn byte_at(image: &[u8], at: usize, entries: &Entries) -> Option<Self> {
         let pattern = Self::byte_pattern(image, at)?;
         entries.closed(at, pattern.exit).then_some(pattern)
@@ -176,6 +178,7 @@ pub(super) struct CopyLoop {
     pub loader_private: bool,
 }
 impl CopyLoop {
+    #[cfg(test)]
     pub fn at(image: &[u8], at: usize, entries: &Entries) -> Option<Self> {
         let pattern = Self::pattern(image, at)?;
         entries.closed(at, pattern.exit).then_some(pattern)

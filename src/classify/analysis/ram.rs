@@ -1,6 +1,7 @@
 //! Static SRAM references, with explicit limits rather than a free-memory claim.
 use super::decoded::literal_load;
-use std::collections::{BTreeMap, BTreeSet, VecDeque};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet, VecDeque};
+use std::hash::{BuildHasherDefault, Hasher};
 use thumb_asm::isa::{decode_at, Operand};
 
 const LOW: u32 = 0x02000000;
@@ -19,6 +20,35 @@ pub struct RamReferences {
 /// One bit per byte of the inspected SRAM window. Walks revisit the same
 /// fills and copies many times, so marking must cost words, not bytes.
 type Window = [u64; ((HIGH - LOW) / 64) as usize];
+
+/// Walk states are only tested for membership and counted, never iterated, so
+/// a cheap multiplicative word hash replaces ordered comparison of 136-byte keys.
+#[derive(Default)]
+struct WordHasher(u64);
+impl Hasher for WordHasher {
+    fn finish(&self) -> u64 {
+        self.0
+    }
+    fn write(&mut self, bytes: &[u8]) {
+        for &byte in bytes {
+            self.write_u64(u64::from(byte));
+        }
+    }
+    fn write_u8(&mut self, value: u8) {
+        self.write_u64(u64::from(value));
+    }
+    fn write_u32(&mut self, value: u32) {
+        self.write_u64(u64::from(value));
+    }
+    fn write_usize(&mut self, value: usize) {
+        self.write_u64(value as u64);
+    }
+    fn write_u64(&mut self, value: u64) {
+        self.0 = (self.0.rotate_left(5) ^ value).wrapping_mul(0x51_7c_c1_b7_27_22_0a_95);
+    }
+}
+type WordMap<K, V> = HashMap<K, V, BuildHasherDefault<WordHasher>>;
+type WalkStates = HashSet<(usize, [Option<u32>; 16], Option<bool>), BuildHasherDefault<WordHasher>>;
 
 fn mark(window: &mut Window, start: u32, width: u32) {
     let end = start.saturating_add(width).min(HIGH);
@@ -46,13 +76,16 @@ impl RamReferences {
         let fills: BTreeMap<_, _> = (0..image.len().saturating_sub(20))
             .step_by(2)
             .filter_map(|at| {
-                let pattern = super::ram_fill::Fill::word_pattern(image, at)
-                    .or_else(|| super::ram_fill::Fill::byte_pattern(image, at))?;
+                // Match each pattern once: matching can scan the whole image
+                // for initializer references, so never repeat it per offset.
+                let word = super::ram_fill::Fill::word_pattern(image, at);
+                let byte = || super::ram_fill::Fill::byte_pattern(image, at);
+                let pattern = word.or_else(byte)?;
                 if entries.closed(pattern.prefix, pattern.body) {
                     preheaders.push((pattern.prefix, pattern.body));
                 }
-                super::ram_fill::Fill::at(image, at, &entries)
-                    .or_else(|| super::ram_fill::Fill::byte_at(image, at, &entries))
+                word.filter(|fill| entries.closed(at, fill.exit))
+                    .or_else(|| byte().filter(|fill| entries.closed(at, fill.exit)))
             })
             .map(|fill| (fill.body, fill))
             .collect();
@@ -64,7 +97,7 @@ impl RamReferences {
                 if entries.closed(pattern.prefix, pattern.body) {
                     preheaders.push((pattern.prefix, pattern.body));
                 }
-                super::ram_fill::CopyLoop::at(image, at, &entries)
+                entries.closed(at, pattern.exit).then_some(pattern)
             })
             .map(|copy| (copy.body, copy))
             .collect();
@@ -83,6 +116,10 @@ impl RamReferences {
                 mark(&mut window, value, 4);
             }
         }
+        // Seeds overlap heavily: decode each reached instruction once, and
+        // reuse one state set (cleared per seed) instead of regrowing it.
+        let mut decoded: WordMap<usize, Option<thumb_asm::isa::Insn>> = WordMap::default();
+        let mut visited = WalkStates::default();
         for seed in (0..image.len().saturating_sub(2)).step_by(2) {
             let Some((reg, base)) = literal_load(image, seed) else {
                 continue;
@@ -113,7 +150,7 @@ impl RamReferences {
                 }
             };
             let mut pending = VecDeque::from([(start, values, None::<bool>)]);
-            let mut visited = BTreeSet::new();
+            visited.clear();
             while let Some((pc, mut values, mut zero)) = pending.pop_front() {
                 if !visited.insert((pc, values, zero)) {
                     continue;
@@ -145,7 +182,7 @@ impl RamReferences {
                     pending.push_back((fill.exit, values, Some(true)));
                     continue;
                 }
-                let Some(ins) = decode_at(image, pc) else {
+                let Some(ins) = *decoded.entry(pc).or_insert_with(|| decode_at(image, pc)) else {
                     result.incomplete.insert(seed);
                     continue;
                 };

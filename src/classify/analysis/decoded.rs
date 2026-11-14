@@ -20,7 +20,19 @@ pub(super) fn transfer(image: &[u8], at: usize, mnemonic: &str) -> Option<(Reg, 
     (ins.mnemonic == mnemonic && plain(memory)).then_some((reg, memory))
 }
 
+/// The only 16-bit encoding that can address PC-relative memory is LDR
+/// (literal) T1, `01001 Rt imm8`. Scanners probe every halfword, so reject
+/// everything else from the raw bits before paying for a full decode.
+pub(super) fn may_be_literal_load(image: &[u8], at: usize) -> bool {
+    image
+        .get(at..at + 2)
+        .is_some_and(|half| u16::from_le_bytes([half[0], half[1]]) & 0xF800 == 0x4800)
+}
+
 pub(super) fn literal_load(image: &[u8], at: usize) -> Option<(Reg, u32)> {
+    if !may_be_literal_load(image, at) {
+        return None;
+    }
     let (reg, memory) = transfer(image, at, "ldr")?;
     (memory.base == Reg::PC)
         .then(|| thumb_asm::analysis::literal_value(image, at).map(|value| (reg, value)))?
@@ -73,4 +85,22 @@ pub(super) fn constant_definition(image: &[u8], at: usize, register: u8) -> Opti
         u32::try_from(value).ok()?.checked_mul(multiplier)?,
         at + ins.len() + shift.len(),
     ))
+}
+
+#[cfg(test)]
+mod literal_prefilter_tests {
+    use super::*;
+
+    /// Every halfword the full decoder accepts as a literal load passes the
+    /// raw-bit prefilter, so the prefilter never changes a result.
+    #[test]
+    fn prefilter_admits_every_decoded_literal_load() {
+        for half in 0..=u16::MAX {
+            let mut image = vec![0u8; 0x400];
+            image[..2].copy_from_slice(&half.to_le_bytes());
+            let decoded =
+                transfer(&image, 0, "ldr").is_some_and(|(_, memory)| memory.base == Reg::PC);
+            assert!(!decoded || may_be_literal_load(&image, 0), "{half:#06x}");
+        }
+    }
 }
