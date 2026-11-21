@@ -40,13 +40,13 @@ const EP: TransferEncoding = TransferEncoding {
 };
 
 /// The wire encodings the probe tries, in order. The order resolves the
-/// header-only ambiguity between [`EE`] and [`EP`] (their 16-byte headers are
+/// header-only ambiguity between `EE` and `EP` (their 16-byte headers are
 /// identical ciphertext) toward the whole-image encoding when a receiver
 /// validates only the header of the first chunk.
 pub const CANDIDATE_ENCODINGS: [TransferEncoding; 3] = [PP, EE, EP];
 
 /// Re-encode `buf` (which starts at image offset 0) in place to `encoding`.
-/// `buf` must be a whole number of AES blocks and at least [`HEADER`] long;
+/// `buf` must be a whole number of AES blocks and at least the header range long;
 /// the probe's chunk and a full update image both satisfy this.
 fn apply_encoding(buf: &mut [u8], encoding: TransferEncoding) {
     match (encoding.header, encoding.body) {
