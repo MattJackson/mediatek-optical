@@ -18,3 +18,7 @@ capability; the existing two-round VID grammar already recognizes this producer.
 and consumer excerpts from four code forms. Tests restore their original offsets
 into an erased image; no relocations or guessed firmware padding are written to
 a flashable image. SHA-256 values bind every excerpt to its original input.
+
+`pp-erase-gate.bin` (BU50N 1.00, PP) and `ee-erase-gate.bin` (BU40N INTM, EE)
+are the update commit/erase/INFORM excerpt (image `0xA6000..0xAC000`) used by
+`tests/erase_safety.rs` to prove a wrong-encoding push cannot erase flash.

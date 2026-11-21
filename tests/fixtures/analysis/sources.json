@@ -182,5 +182,25 @@
     "leading_padding": 0,
     "fixture_bytes": 48,
     "fixture_sha256": "0de77675d5c175c45fb6c630e067017b4f430b03ae4f3295e787260665dc0b09"
+  },
+  {
+    "name": "pp-erase-gate",
+    "model": "BD-RE BU50N",
+    "rev": "1.00",
+    "sha256": "20425a8ade6bb5d24bbd76fb5d5d67e744cd49e24783be87e6a89d30dfcace95",
+    "source_offset": "0xa6000",
+    "leading_padding": 0,
+    "fixture_bytes": 24576,
+    "fixture_sha256": "f2752a0de64b3cb5e390615b88b56bfab8a12126ca87afb65ac88c5ab3ad720e"
+  },
+  {
+    "name": "ee-erase-gate",
+    "model": "BD-RE BU40N",
+    "rev": "INTM",
+    "sha256": "6dce4e298d0c4aa637b149d65c77c9ebc41299362dd67fb2b8f8ced86cbf5e0e",
+    "source_offset": "0xa6000",
+    "leading_padding": 0,
+    "fixture_bytes": 24576,
+    "fixture_sha256": "aec72c9ed20b4f2dbf7c85d266a8efb81039f12e3b232f01335869321f9709f2"
   }
 ]
