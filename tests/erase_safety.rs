@@ -205,7 +205,7 @@ fn assert_erase_calls_gated(g: &Gate) {
             g.name
         );
         assert!(
-            site > g.gate_test && site >= g.commit_fn.0 && site < g.commit_fn.1,
+            site > g.gate_test && (g.commit_fn.0..g.commit_fn.1).contains(&site),
             "{}: erase call {site:#x} must sit inside the commit fn, past the gate",
             g.name
         );
@@ -272,7 +272,7 @@ fn assert_inform_rejects_without_erase(g: &Gate) {
         g.name
     );
     assert!(
-        g.inform_bail >= g.inform_fn.0 && g.inform_bail < g.inform_fn.1,
+        (g.inform_fn.0..g.inform_fn.1).contains(&g.inform_bail),
         "{}: the 0xBD bail must be inside INFORM",
         g.name
     );
