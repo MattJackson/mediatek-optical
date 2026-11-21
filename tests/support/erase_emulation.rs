@@ -6,36 +6,33 @@
 //! the bit that INFORM/WRITE/VERIFY set on validation success and that a
 //! wrong-encoding push never sets.
 //!
-//! ## Why this is opt-in (not in the default CI build)
-//!
-//! Two hard constraints keep it out of the default build:
-//!   * `unicorn-engine` is a C-backed dependency; adding it rewrites
+//! This is a reference implementation kept under `tests/support/` -- like the
+//! Python `emulate_intm.py` beside it, cargo does NOT compile it as a test
+//! target. It is kept out of the default build for two reasons:
+//!   - `unicorn-engine` is a C-backed dependency; adding it rewrites
 //!     `Cargo.lock`, which the project's "fmt-only, build on CI" rule forbids
-//!     regenerating locally, and every CI job runs `--locked`.
-//!   * The proof needs the full 2 MiB images, which (like the rest of the
+//!     regenerating locally, and every CI job runs `--locked`;
+//!   - the proof needs the full 2 MiB images, which (like the rest of the
 //!     corpus) live only in the private hoard, never in the public crate.
 //!
-//! So this file compiles to nothing unless the `emulation` feature is enabled,
-//! and is skipped unless `MTK_HOARD_ROOT` is set. The always-on, dependency-
-//! free `erase_safety.rs` is the CI-runnable safety gate; this is the runnable
-//! CPU-emulation confirmation for a maintainer with the hoard.
+//! The always-on, dependency-free `tests/erase_safety.rs` is the CI-runnable
+//! safety gate; this is the runnable CPU-emulation confirmation for a
+//! maintainer who has the hoard.
 //!
-//! ## Enabling
-//!
-//! 1. Add to `Cargo.toml`:
-//!      `[features] emulation = []`
-//!      `[target.'cfg(feature = "emulation")'.dev-dependencies]`
-//!      `unicorn-engine = "2.1"`
-//!    (keep `emulation` out of `all-features` runs, or expect the C build).
-//! 2. Regenerate `Cargo.lock` on a build host (not this workstation).
-//! 3. `MTK_HOARD_ROOT=/path/to/hoard cargo test --features emulation \
-//!       --test erase_emulation -- --nocapture`
+//! To run it:
+//!   1. copy this file to `tests/erase_emulation.rs`;
+//!   2. add `[features] emulation = []` and, under
+//!      `[target.'cfg(feature = "emulation")'.dev-dependencies]`,
+//!      `unicorn-engine = "2.1"` to `Cargo.toml`;
+//!   3. regenerate `Cargo.lock` on a build host (not this workstation);
+//!   4. run `MTK_HOARD_ROOT=/path/to/hoard cargo test --features emulation
+//!      --test erase_emulation -- --nocapture`.
 
 #![cfg(feature = "emulation")]
 
 use std::path::PathBuf;
 
-use unicorn_engine::unicorn_const::{Arch, HookType, MemType, Mode, Permission};
+use unicorn_engine::unicorn_const::{Arch, HookType, Mode, Permission};
 use unicorn_engine::{RegisterARM, Unicorn};
 
 const IMAGE_SIZE: u64 = 0x200000;

@@ -27,7 +27,7 @@
 //! byte-identical and differ only by a constant `+0x36C` address shift.
 //!
 //! A runnable Unicorn CPU-emulation companion to this proof lives in
-//! `tests/erase_emulation.rs` (opt-in; see that file's header).
+//! `tests/support/erase_emulation.rs` (opt-in; see that file's header).
 
 /// Image excerpt covering the update commit/erase/INFORM region.
 struct Gate {
@@ -132,13 +132,13 @@ impl Gate {
         if hw & 0xF800 != 0xE000 {
             return None;
         }
-        let imm = (((hw & 0x7FF) as u32) << 21) as i32 >> 20; // sign-extend, <<1
+        let imm = ((((hw & 0x7FF) as u32) << 21) as i32) >> 20; // sign-extend, <<1
         Some((addr + 4).wrapping_add(imm as u32))
     }
 
     fn is_return(&self, addr: u32) -> bool {
         let hw = self.hw(addr);
-        hw & 0xFF00 == 0xBD00 /* pop {..,pc} */ || hw == 0x4770 /* bx lr */
+        (hw & 0xFF00) == 0xBD00 /* pop {..,pc} */ || hw == 0x4770 /* bx lr */
     }
 
     /// Is this a 16-bit conditional branch (`B<c>` T1, excluding UDF/SVC)?
