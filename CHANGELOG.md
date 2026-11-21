@@ -1,5 +1,30 @@
 # Changelog
 
+## [3.0.2] - unreleased
+
+Current-free flashing: discover a drive's update wire encoding empirically,
+without reading receiver code or needing the installed image as `--current`.
+
+- `drive::probe_encoding(t, image)` tries each of `drive::CANDIDATE_ENCODINGS`
+  (`[PP, EE, EP]`) by entering the update session and streaming only the first
+  header-bearing chunk (`transfer(0x000000, 0x4000)`, encoded per candidate),
+  reading REQUEST SENSE, then aborting with TEST UNIT READY. A `NO SENSE`
+  (key `0x00`) reply selects that encoding; the wrong-encoding reject
+  `ASC 0xBD` advances to the next; any other sense (e.g. the READ BUFFER
+  illegal-field `5/0x24`) stops with `ProbeError::Rejected`. COMMIT is never
+  sent, so the probe is non-destructive: it stages at most one chunk in RAM
+  and erases nothing.
+- `drive::ForcedUpdate::prepare(image, identity, encoding)` plus
+  `flash_completed` flash with an explicitly chosen `TransferEncoding`
+  (typically from the probe). It applies the same chip and hardware-family
+  gates as `prepare_without_installed`, binds the live identity read-only, and
+  performs no receiver-code detection or revalidation. New errors
+  `drive::ProbeError` and `drive::ForcedError`.
+
+Packaging: the published crate no longer ships any firmware excerpt. The
+`include` allowlist drops `/tests/fixtures/**` (OEM bytes used only by
+`#[cfg(test)]` code), so `cargo package` carries none of them.
+
 ## [3.0.1] - unreleased
 
 Faster static SRAM reference analysis (`RamReferences::inspect`), with

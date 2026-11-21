@@ -269,6 +269,33 @@ pub(crate) fn enter_recovery_reporting<T: Transport>(
     Session { t }
 }
 
+/// Non-destructive encoding probe for one candidate. Enter the update session
+/// (PROBE, TEST UNIT READY, PREPARE), stream a single first chunk at offset 0,
+/// read the resulting status with REQUEST SENSE, then abort with TEST UNIT
+/// READY. COMMIT is never sent, so no erase or program can occur.
+///
+/// A wrong-encoding first chunk is rejected with CHECK CONDITION; that is the
+/// signal being probed, so a failed data-out here is expected and not
+/// propagated. Only a failure of PROBE/TEST UNIT READY/PREPARE (no firmware
+/// sent) or of REQUEST SENSE itself is returned as an error.
+#[cfg(all(feature = "image", feature = "enc"))]
+pub(crate) fn probe_first_chunk<T: Transport>(
+    t: &mut T,
+    prepare: cdb::Prepare,
+    chunk: &[u8],
+) -> Result<Option<crate::sense::Triplet>, Error<T::Error>> {
+    let mut probe = [0; cdb::PROBE_LEN];
+    read(t, &cdb::probe(), &mut probe, cdb::PROBE_LEN)?;
+    test_unit_ready(t)?;
+    write(t, &prepare.command(), &[])?;
+    let len = field(chunk.len(), u16::MAX as usize)? as u16;
+    let _ = exec(t, &cdb::transfer(0, len), Data::Out(chunk));
+    let sense = request_sense(t)?;
+    // Abort the session cleanly; never COMMIT.
+    let _ = test_unit_ready(t);
+    Ok(sense)
+}
+
 #[cfg(test)]
 #[path = "transport_tests.rs"]
 mod tests;
