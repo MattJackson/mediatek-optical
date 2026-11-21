@@ -194,6 +194,54 @@ fn probe_rejects_a_short_image() {
     assert_eq!(drive.prepares(), 0);
 }
 
+/// EP (BH16NS40/WH16NS58 "complete path"): the first chunk carries an AES
+/// header at 0x3000 with a plaintext body, and only the EP drive accepts it;
+/// a PP or EE drive rejects it pre-erase with sense 0xBD.
+#[test]
+fn probe_covers_ep_wire_and_reject() {
+    let image = plaintext(CHUNK);
+
+    // The EP candidate's wire: 16-byte header at 0x3000 encrypted, body plaintext.
+    let chunk = super::first_chunk(&image, super::EP).unwrap();
+    let mut encrypted_header = image[0x3000..0x3010].to_vec();
+    enc::encrypt(&mut encrypted_header).unwrap();
+    assert_eq!(
+        &chunk[0x3000..0x3010],
+        &encrypted_header[..],
+        "EP header encrypted"
+    );
+    assert_eq!(
+        &chunk[..0x3000],
+        &image[..0x3000],
+        "EP body before header plaintext"
+    );
+    assert_eq!(
+        &chunk[0x3010..],
+        &image[0x3010..],
+        "EP body after header plaintext"
+    );
+
+    // An EP drive accepts the EP chunk...
+    let ep_drive = MockDrive::new(Some(super::EP));
+    assert_eq!(MockDrive::decode(super::EP, &chunk), ep_drive.plain_chunk);
+    // ...while PP and EE drives reject that same EP chunk (header/body mismatch),
+    // which the probe reads as the wrong-encoding 0xBD and skips.
+    for other in [super::PP, super::EE] {
+        let d = MockDrive::new(Some(other));
+        assert_ne!(
+            MockDrive::decode(other, &chunk),
+            d.plain_chunk,
+            "{other:?} rejects EP"
+        );
+    }
+
+    // End to end: an EP drive is detected (after PP and EE are tried and 0xBD'd).
+    let mut drive = MockDrive::new(Some(super::EP));
+    assert_eq!(probe_encoding(&mut drive, &image).unwrap(), super::EP);
+    assert_eq!(drive.prepares(), 3, "PP, then EE, then EP");
+    assert!(!drive.sent_finish());
+}
+
 #[test]
 fn apply_encoding_round_trips() {
     for encoding in [super::PP, super::EE, super::EP] {
