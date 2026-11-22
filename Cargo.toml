@@ -1,7 +1,7 @@
 # Self-contained manifest (no workspace inheritance) so it packages for crates.io as-is.
 [package]
 name = "mediatek-optical"
-version = "3.0.1"
+version = "3.0.2"
 edition = "2021"
 rust-version = "1.75"
 license = "MIT"
@@ -11,9 +11,15 @@ repository = "https://github.com/MattJackson/mediatek-optical"
 homepage = "https://github.com/MattJackson/mediatek-optical"
 documentation = "https://docs.rs/mediatek-optical"
 readme = "README.md"
+# Allowlist. Test *sources* ship, but never the firmware excerpts under
+# `/tests/fixtures/**` (OEM bytes used only by `#[cfg(test)]` code, never by
+# the library or examples). This keeps proprietary firmware out of the
+# published crate; `cargo package --list` matches none of `/tests/fixtures/`.
 include = [
     "/src/**",
-    "/tests/**",
+    "/tests/*.rs",
+    "/tests/*.md",
+    "/tests/support/**",
     "/docs/**",
     "/README.md",
     "/CHANGELOG.md",

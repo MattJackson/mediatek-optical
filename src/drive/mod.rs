@@ -79,3 +79,8 @@ pub use execute::ExecutionError;
 pub use flash::{ExecutionRuntime, FlashError, FlashTransport, Stage, Status, Verified};
 #[cfg(all(feature = "image", feature = "enc"))]
 pub use recovery::{Error as RecoveryError, PreparedRecovery, Receiver as RecoveryReceiver};
+
+#[cfg(all(feature = "image", feature = "enc"))]
+mod forced;
+#[cfg(all(feature = "image", feature = "enc"))]
+pub use forced::{probe_encoding, ForcedError, ForcedUpdate, ProbeError, CANDIDATE_ENCODINGS};
